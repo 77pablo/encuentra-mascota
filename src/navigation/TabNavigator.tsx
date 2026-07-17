@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import PublishScreen from '../screens/PublishScreen';
+import MapScreen from '../screens/MapScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -16,7 +17,7 @@ function Placeholder({ nombre }: { nombre: string }) {
 export default function TabNavigator() {
   return (
     <Tab.Navigator>
-      <Tab.Screen name="Mapa">{() => <Placeholder nombre="Mapa" />}</Tab.Screen>
+      <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Lista">{() => <Placeholder nombre="Lista" />}</Tab.Screen>
       <Tab.Screen name="Publicar" component={PublishScreen} />
       <Tab.Screen name="Mensajes">{() => <Placeholder nombre="Mensajes" />}</Tab.Screen>
