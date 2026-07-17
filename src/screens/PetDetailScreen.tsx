@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
@@ -16,10 +16,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
   const { user } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
+  const [carouselWidth, setCarouselWidth] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     getPet(id).then(setPet).catch(() => setPet(null));
   }, [id]);
+
+  const onCarouselLayout = (e: LayoutChangeEvent) => {
+    setCarouselWidth(e.nativeEvent.layout.width);
+  };
+
+  const onCarouselScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!carouselWidth) return;
+    const index = Math.round(e.nativeEvent.contentOffset.x / carouselWidth);
+    setActiveIndex(index);
+  };
 
   if (!pet) {
     return (
@@ -37,7 +49,31 @@ export default function PetDetailScreen({ route, navigation }: any) {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         {pet.fotos.length > 0 ? (
-          pet.fotos.map((f) => <Image key={f} source={{ uri: f }} style={styles.photo} />)
+          <View onLayout={onCarouselLayout}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={onCarouselScroll}
+              onMomentumScrollEnd={onCarouselScroll}
+              scrollEventThrottle={16}
+            >
+              {pet.fotos.map((f) => (
+                <Image
+                  key={f}
+                  source={{ uri: f }}
+                  style={[styles.photo, carouselWidth ? { width: carouselWidth } : null]}
+                />
+              ))}
+            </ScrollView>
+            {pet.fotos.length > 1 ? (
+              <View style={styles.dotsRow}>
+                {pet.fotos.map((f, i) => (
+                  <View key={f} style={[styles.dot, i === activeIndex && styles.dotActive]} />
+                ))}
+              </View>
+            ) : null}
+          </View>
         ) : (
           <View style={[styles.photo, styles.photoPlaceholder]}>
             <AppText size={48}>🐾</AppText>
@@ -106,14 +142,31 @@ const styles = StyleSheet.create({
   },
   photo: {
     width: '100%',
-    height: 240,
+    height: 260,
     borderRadius: radius.md,
-    marginBottom: spacing.sm,
   },
   photoPlaceholder: {
     backgroundColor: colors.sky,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
+  },
+  dotActive: {
+    backgroundColor: colors.brand,
+    width: 16,
   },
   title: {
     marginTop: spacing.xs,

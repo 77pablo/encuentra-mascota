@@ -21,3 +21,8 @@ export async function uploadPetPhoto(uri: string, userId: string): Promise<strin
   const { data } = supabase.storage.from('pet-photos').getPublicUrl(path);
   return data.publicUrl;
 }
+
+// Sube varias fotos en paralelo y devuelve sus URLs públicas, preservando el orden.
+export async function uploadPetPhotos(uris: string[], userId: string): Promise<string[]> {
+  return Promise.all(uris.map((uri) => uploadPetPhoto(uri, userId)));
+}

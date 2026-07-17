@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
 import { petSchema } from '../schemas/pet';
-import { uploadPetPhoto } from '../services/storage';
+import { uploadPetPhotos } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { notify } from '../lib/notify';
@@ -22,6 +23,8 @@ const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
   { key: 'otro', label: 'Otro' },
 ];
 
+const MAX_FOTOS = 4;
+
 export default function PublishScreen({ navigation }: any) {
   const { user } = useAuth();
   const [estado, setEstado] = useState<'perdida' | 'encontrada'>('perdida');
@@ -30,13 +33,26 @@ export default function PublishScreen({ navigation }: any) {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [recompensa, setRecompensa] = useState('');
-  const [fotoUri, setFotoUri] = useState<string | null>(null);
+  const [fotoUris, setFotoUris] = useState<string[]>([]);
   const [coords, setCoords] = useState({ lat: -33.45, lng: -70.66 });
   const [saving, setSaving] = useState(false);
 
   const pickImage = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ quality: 1 });
-    if (!res.canceled) setFotoUri(res.assets[0].uri);
+    const restantes = MAX_FOTOS - fotoUris.length;
+    if (restantes <= 0) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      quality: 1,
+      allowsMultipleSelection: true,
+      selectionLimit: restantes,
+    });
+    if (!res.canceled) {
+      const nuevas = res.assets.map((a) => a.uri);
+      setFotoUris((prev) => [...prev, ...nuevas].slice(0, MAX_FOTOS));
+    }
+  };
+
+  const removeFoto = (uri: string) => {
+    setFotoUris((prev) => prev.filter((u) => u !== uri));
   };
 
   const useMyLocation = async () => {
@@ -55,14 +71,14 @@ export default function PublishScreen({ navigation }: any) {
       notify('Falta algo', parsed.error.issues[0].message);
       return;
     }
-    if (!fotoUri) {
+    if (fotoUris.length === 0) {
       notify('Falta la foto', 'Agrega al menos una foto de la mascota.');
       return;
     }
     setSaving(true);
     try {
-      const url = await uploadPetPhoto(fotoUri, user!.id);
-      await createPet(parsed.data, [url], user!.id);
+      const urls = await uploadPetPhotos(fotoUris, user!.id);
+      await createPet(parsed.data, urls, user!.id);
       notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
       navigation.navigate('Mapa');
     } catch (e: any) {
@@ -140,14 +156,35 @@ export default function PublishScreen({ navigation }: any) {
           />
           <Input placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} />
 
-          <Button
-            title="Elegir foto"
-            variant="secondary"
-            icon="image"
-            onPress={pickImage}
-            style={styles.actionButton}
-          />
-          {fotoUri ? <Image source={{ uri: fotoUri }} style={styles.photoPreview} /> : null}
+          {fotoUris.length < MAX_FOTOS ? (
+            <Button
+              title={fotoUris.length === 0 ? 'Elegir fotos' : 'Agregar otra foto'}
+              variant="secondary"
+              icon="image"
+              onPress={pickImage}
+              style={styles.actionButton}
+            />
+          ) : null}
+          <AppText muted size={12} style={styles.photoHint}>
+            {fotoUris.length}/{MAX_FOTOS} fotos
+          </AppText>
+          {fotoUris.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
+              {fotoUris.map((uri) => (
+                <View key={uri} style={styles.photoThumbWrap}>
+                  <Image source={{ uri }} style={styles.photoThumb} />
+                  <TouchableOpacity
+                    accessibilityLabel="Quitar foto"
+                    activeOpacity={0.8}
+                    onPress={() => removeFoto(uri)}
+                    style={styles.photoRemove}
+                  >
+                    <Ionicons name="close" size={14} color={colors.white} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          ) : null}
         </Card>
 
         <Card style={styles.section}>
@@ -235,11 +272,31 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: spacing.xs,
   },
-  photoPreview: {
-    width: '100%',
-    height: 180,
-    borderRadius: radius.md,
+  photoHint: {
+    marginTop: spacing.xs,
+  },
+  photoRow: {
     marginTop: spacing.sm,
+  },
+  photoThumbWrap: {
+    marginRight: spacing.sm,
+    position: 'relative',
+  },
+  photoThumb: {
+    width: 90,
+    height: 90,
+    borderRadius: radius.md,
+  },
+  photoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   helper: {
     marginBottom: spacing.xs,
