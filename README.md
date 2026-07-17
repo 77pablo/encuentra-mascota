@@ -37,6 +37,8 @@ npx supabase functions deploy send-push
 
 Supabase inyecta automáticamente `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en el entorno de la función; esa clave **nunca** vive en la app ni en el repositorio.
 
+Para que las notificaciones push funcionen, el usuario debe correr `eas init` (crea el `projectId` de EAS) y compilar con EAS; en Expo Go el push puede no registrarse sin projectId.
+
 ## Correr la app
 
 ```bash
