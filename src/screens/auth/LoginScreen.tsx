@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Button, Text, TextInput, View } from 'react-native';
+import { Button, Text, TextInput, View } from 'react-native';
 import { loginSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
+import { notify } from '../../lib/notify';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -11,13 +12,20 @@ export default function LoginScreen({ navigation }: any) {
   const onSubmit = async () => {
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
-      Alert.alert('Revisa los datos', parsed.error.issues[0].message);
+      notify('Revisa los datos', parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword(parsed.data);
-    setLoading(false);
-    if (error) Alert.alert('No se pudo entrar', error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword(parsed.data);
+      if (error) {
+        notify('No se pudo entrar', error.message);
+      }
+    } catch (e: any) {
+      notify('Error de red', e?.message ?? 'Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

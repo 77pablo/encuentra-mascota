@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Button, FlatList, Text, View } from 'react-native';
+import { Button, FlatList, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { closePet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
+import { notify } from '../lib/notify';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -18,7 +19,7 @@ export default function ProfileScreen() {
 
   const marcar = async (id: string) => {
     await closePet(id);
-    Alert.alert('¡Genial!', 'Reporte cerrado.');
+    notify('¡Genial!', 'Reporte cerrado.');
     cargar();
   };
 

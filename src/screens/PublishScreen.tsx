@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, Image, ScrollView, Text, TextInput, View } from 'react-native';
+import { Button, Image, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import MapView, { Marker } from '../components/PlatformMap';
@@ -7,6 +7,7 @@ import { petSchema } from '../schemas/pet';
 import { uploadPetPhoto } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
+import { notify } from '../lib/notify';
 
 export default function PublishScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -28,7 +29,7 @@ export default function PublishScreen({ navigation }: any) {
   const useMyLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Sin permiso', 'Puedes mover el pin en el mapa a mano.');
+      notify('Sin permiso', 'Puedes mover el pin en el mapa a mano.');
       return;
     }
     const loc = await Location.getCurrentPositionAsync({});
@@ -38,21 +39,21 @@ export default function PublishScreen({ navigation }: any) {
   const onSubmit = async () => {
     const parsed = petSchema.safeParse({ estado, especie, raza, nombre, descripcion, recompensa, ...coords });
     if (!parsed.success) {
-      Alert.alert('Falta algo', parsed.error.issues[0].message);
+      notify('Falta algo', parsed.error.issues[0].message);
       return;
     }
     if (!fotoUri) {
-      Alert.alert('Falta la foto', 'Agrega al menos una foto de la mascota.');
+      notify('Falta la foto', 'Agrega al menos una foto de la mascota.');
       return;
     }
     setSaving(true);
     try {
       const url = await uploadPetPhoto(fotoUri, user!.id);
       await createPet(parsed.data, [url], user!.id);
-      Alert.alert('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
+      notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
       navigation.navigate('Mapa');
     } catch (e: any) {
-      Alert.alert('Error al publicar', e.message ?? 'Intenta de nuevo.');
+      notify('Error al publicar', e.message ?? 'Intenta de nuevo.');
     } finally {
       setSaving(false);
     }

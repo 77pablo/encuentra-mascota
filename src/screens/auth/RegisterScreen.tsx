@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Button, Text, TextInput, View } from 'react-native';
+import { Button, Text, TextInput, View } from 'react-native';
 import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
+import { notify } from '../../lib/notify';
 
 export default function RegisterScreen() {
   const [nombre, setNombre] = useState('');
@@ -12,22 +13,26 @@ export default function RegisterScreen() {
   const onSubmit = async () => {
     const parsed = registerSchema.safeParse({ nombre, email, password });
     if (!parsed.success) {
-      Alert.alert('Revisa los datos', parsed.error.issues[0].message);
+      notify('Revisa los datos', parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      options: { data: { nombre: parsed.data.nombre } },
-    });
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        options: { data: { nombre: parsed.data.nombre } },
+      });
+      if (error) {
+        notify('No se pudo registrar', error.message);
+        return;
+      }
+      notify('¡Cuenta creada!', 'Ahora inicia sesión con tu correo y contraseña.');
+    } catch (e: any) {
+      notify('Error de red', e?.message ?? 'Intenta de nuevo.');
+    } finally {
       setLoading(false);
-      Alert.alert('No se pudo registrar', error.message);
-      return;
     }
-    setLoading(false);
-    Alert.alert('¡Listo!', 'Revisa tu correo si se pide confirmación, luego entra.');
   };
 
   return (
