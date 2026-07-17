@@ -14,6 +14,24 @@ create policy "editar mi propio perfil"
 create policy "crear mi propio perfil"
   on public.profiles for insert to authenticated with check (auth.uid() = id);
 
+-- Crea el perfil automáticamente al registrarse. SECURITY DEFINER evita el
+-- problema de RLS cuando aún no hay sesión (p. ej. con confirmación de correo activada).
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, nombre)
+  values (new.id, coalesce(nullif(trim(new.raw_user_meta_data->>'nombre'), ''), 'Usuario'));
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
 -- PETS
 create type pet_estado as enum ('perdida', 'encontrada');
 create type pet_especie as enum ('perro', 'gato', 'otro');

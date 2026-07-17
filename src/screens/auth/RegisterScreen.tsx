@@ -16,18 +16,15 @@ export default function RegisterScreen() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
+      options: { data: { nombre: parsed.data.nombre } },
     });
     if (error) {
       setLoading(false);
       Alert.alert('No se pudo registrar', error.message);
       return;
-    }
-    if (data.user) {
-      // Crear la fila de perfil (RLS exige auth.uid() = id)
-      await supabase.from('profiles').insert({ id: data.user.id, nombre: parsed.data.nombre });
     }
     setLoading(false);
     Alert.alert('¡Listo!', 'Revisa tu correo si se pide confirmación, luego entra.');
