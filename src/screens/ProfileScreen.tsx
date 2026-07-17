@@ -1,10 +1,18 @@
 import React, { useCallback, useState } from 'react';
-import { Button, FlatList, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { closePet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { notify } from '../lib/notify';
+import { AppText, Badge, Button, Card, EmptyState, Screen } from '../ui';
+import { colors, radius, spacing } from '../theme';
+
+const especieLabel: Record<Pet['especie'], string> = {
+  perro: 'Perro',
+  gato: 'Gato',
+  otro: 'Mascota',
+};
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -23,22 +31,107 @@ export default function ProfileScreen() {
     cargar();
   };
 
+  const inicial = user?.email ? user.email.charAt(0).toUpperCase() : '🐾';
+
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Mis reportes activos</Text>
-      <FlatList data={mis} keyExtractor={(p) => p.id}
-        ListEmptyComponent={<Text>No tienes reportes activos.</Text>}
-        renderItem={({ item }) => (
-          <View style={{ paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' }}>
-            <Text style={{ fontWeight: '600' }}>
-              {item.estado} · {item.especie} — {item.descripcion.slice(0, 40)}
-            </Text>
-            <Button title="Ya apareció ✅" onPress={() => marcar(item.id)} />
-          </View>
-        )} />
-      <View style={{ marginTop: 16 }}>
-        <Button title="Cerrar sesión" color="#c00" onPress={signOut} />
+    <Screen padded>
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <AppText weight="bold" size={22} color={colors.brand}>
+            {inicial}
+          </AppText>
+        </View>
+        <View style={styles.headerText}>
+          <AppText weight="bold" size={16}>
+            {user?.email}
+          </AppText>
+          <AppText muted size={13}>
+            Mis reportes activos
+          </AppText>
+        </View>
       </View>
-    </View>
+
+      <FlatList
+        data={mis}
+        keyExtractor={(p) => p.id}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <EmptyState
+            emoji="🐾"
+            title="No tienes reportes activos"
+            subtitle="Cuando publiques una mascota, aparece aquí."
+          />
+        }
+        renderItem={({ item }) => (
+          <Card style={styles.reportCard}>
+            <Badge estado={item.estado} />
+            <AppText weight="semi" size={14} style={styles.reportTitle}>
+              {especieLabel[item.especie]}
+            </AppText>
+            <AppText muted size={13} style={styles.reportDescription}>
+              {item.descripcion.slice(0, 60)}
+            </AppText>
+            <Button
+              title="Ya apareció"
+              variant="secondary"
+              icon="checkmark-circle"
+              onPress={() => marcar(item.id)}
+              style={styles.reportButton}
+            />
+          </Card>
+        )}
+      />
+
+      <Button title="Cerrar sesión" variant="danger" onPress={signOut} style={styles.signOutButton} />
+    </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.lg,
+  },
+  separator: {
+    height: spacing.md,
+  },
+  reportCard: {
+    gap: spacing.xs,
+  },
+  reportTitle: {
+    marginTop: spacing.xs,
+  },
+  reportDescription: {
+    marginBottom: spacing.xs,
+  },
+  reportButton: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+  },
+  signOutButton: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+});

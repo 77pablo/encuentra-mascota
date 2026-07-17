@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Image, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import MapView, { Marker } from '../components/PlatformMap';
@@ -8,6 +8,19 @@ import { uploadPetPhoto } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { notify } from '../lib/notify';
+import { AppText, Button, Card, Input, Screen, Title } from '../ui';
+import { colors, radius, spacing } from '../theme';
+
+const estadoOptions: { key: 'perdida' | 'encontrada'; label: string; color: string }[] = [
+  { key: 'perdida', label: 'Perdida', color: colors.lost },
+  { key: 'encontrada', label: 'Encontrada', color: colors.found },
+];
+
+const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
+  { key: 'perro', label: 'Perro' },
+  { key: 'gato', label: 'Gato' },
+  { key: 'otro', label: 'Otro' },
+];
 
 export default function PublishScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -60,34 +73,185 @@ export default function PublishScreen({ navigation }: any) {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Button title={estado === 'perdida' ? '● Perdida' : 'Perdida'} onPress={() => setEstado('perdida')} />
-        <Button title={estado === 'encontrada' ? '● Encontrada' : 'Encontrada'} onPress={() => setEstado('encontrada')} />
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Button title={especie === 'perro' ? '● Perro' : 'Perro'} onPress={() => setEspecie('perro')} />
-        <Button title={especie === 'gato' ? '● Gato' : 'Gato'} onPress={() => setEspecie('gato')} />
-        <Button title={especie === 'otro' ? '● Otro' : 'Otro'} onPress={() => setEspecie('otro')} />
-      </View>
-      <TextInput placeholder="Raza (opcional)" value={raza} onChangeText={setRaza} style={inputStyle} />
-      <TextInput placeholder="Nombre (opcional)" value={nombre} onChangeText={setNombre} style={inputStyle} />
-      <TextInput placeholder="Señas: color, tamaño, collar…" value={descripcion} onChangeText={setDescripcion}
-        multiline style={[inputStyle, { height: 90 }]} />
-      <TextInput placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} style={inputStyle} />
-      <Button title="Elegir foto 📸" onPress={pickImage} />
-      {fotoUri && <Image source={{ uri: fotoUri }} style={{ height: 180, borderRadius: 8 }} />}
-      <Text style={{ fontWeight: '600' }}>Ubicación (mueve el pin):</Text>
-      <Button title="Usar mi ubicación 📍" onPress={useMyLocation} />
-      <MapView style={{ height: 200, borderRadius: 8 }}
-        region={{ latitude: coords.lat, longitude: coords.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
-        onPress={(e) => setCoords({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude })}>
-        <Marker draggable coordinate={{ latitude: coords.lat, longitude: coords.lng }}
-          onDragEnd={(e) => setCoords({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude })} />
-      </MapView>
-      <Button title={saving ? 'Publicando…' : 'Publicar'} onPress={onSubmit} disabled={saving} />
-    </ScrollView>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Title size={24} style={styles.pageTitle}>
+          Publicar un reporte
+        </Title>
+        <AppText muted size={14} style={styles.pageSubtitle}>
+          Completa los datos y ayúdanos a encontrar a esta mascota.
+        </AppText>
+
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            ¿Qué pasó?
+          </Title>
+          <View style={styles.chipsRow}>
+            {estadoOptions.map((o) => {
+              const active = estado === o.key;
+              return (
+                <TouchableOpacity
+                  key={o.key}
+                  activeOpacity={0.8}
+                  onPress={() => setEstado(o.key)}
+                  style={[
+                    styles.chip,
+                    active ? { backgroundColor: o.color, borderColor: o.color } : styles.chipInactive,
+                  ]}
+                >
+                  <AppText weight="bold" size={14} color={active ? colors.white : colors.muted}>
+                    {o.label}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            Sobre la mascota
+          </Title>
+          <View style={styles.chipsRow}>
+            {especieOptions.map((o) => {
+              const active = especie === o.key;
+              return (
+                <TouchableOpacity
+                  key={o.key}
+                  activeOpacity={0.8}
+                  onPress={() => setEspecie(o.key)}
+                  style={[styles.chip, active ? styles.chipActiveBrand : styles.chipInactive]}
+                >
+                  <AppText weight="bold" size={14} color={active ? colors.white : colors.muted}>
+                    {o.label}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Input placeholder="Raza (opcional)" value={raza} onChangeText={setRaza} />
+          <Input placeholder="Nombre (opcional)" value={nombre} onChangeText={setNombre} />
+          <Input
+            placeholder="Señas: color, tamaño, collar…"
+            value={descripcion}
+            onChangeText={setDescripcion}
+            multiline
+          />
+          <Input placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} />
+
+          <Button
+            title="Elegir foto"
+            variant="secondary"
+            icon="image"
+            onPress={pickImage}
+            style={styles.actionButton}
+          />
+          {fotoUri ? <Image source={{ uri: fotoUri }} style={styles.photoPreview} /> : null}
+        </Card>
+
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            ¿Dónde?
+          </Title>
+          <AppText muted size={13} style={styles.helper}>
+            Toca el mapa o arrastra el pin para ajustar el punto exacto.
+          </AppText>
+          <Button
+            title="Usar mi ubicación"
+            variant="secondary"
+            icon="location"
+            onPress={useMyLocation}
+            style={styles.actionButton}
+          />
+          <MapView
+            style={styles.map}
+            region={{ latitude: coords.lat, longitude: coords.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
+            onPress={(e) =>
+              setCoords({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude })
+            }
+          >
+            <Marker
+              draggable
+              coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+              onDragEnd={(e) =>
+                setCoords({ lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude })
+              }
+            />
+          </MapView>
+        </Card>
+
+        <Button
+          title="Publicar"
+          icon="paw"
+          onPress={onSubmit}
+          disabled={saving}
+          loading={saving}
+          style={styles.submitButton}
+        />
+      </ScrollView>
+    </Screen>
   );
 }
 
-const inputStyle = { borderWidth: 1, borderRadius: 8, padding: 12 } as const;
+const styles = StyleSheet.create({
+  content: {
+    padding: spacing.xl,
+    gap: spacing.md,
+    paddingBottom: spacing.xxxl,
+  },
+  pageTitle: {
+    marginBottom: spacing.xs,
+  },
+  pageSubtitle: {
+    marginBottom: spacing.xs,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    marginBottom: spacing.xs,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  chipInactive: {
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+  },
+  chipActiveBrand: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  actionButton: {
+    alignSelf: 'stretch',
+    marginTop: spacing.xs,
+  },
+  photoPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+  },
+  helper: {
+    marginBottom: spacing.xs,
+  },
+  map: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+  },
+  submitButton: {
+    alignSelf: 'stretch',
+    marginTop: spacing.sm,
+  },
+});
