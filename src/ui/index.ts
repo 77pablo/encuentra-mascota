@@ -18,3 +18,7 @@ export { Loading } from './Loading';
 export type { LoadingProps } from './Loading';
 export { ErrorState } from './ErrorState';
 export type { ErrorStateProps } from './ErrorState';
+export { Mascota } from './Mascota';
+export type { MascotaProps } from './Mascota';
+export { Squiggle } from './Squiggle';
+export type { SquiggleProps } from './Squiggle';

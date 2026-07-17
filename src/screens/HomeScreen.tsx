@@ -5,7 +5,7 @@ import { countReunidas, listActivePets, Pet } from '../services/pets';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { distanceKm as getDistanceKm, distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
-import { AppText, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
+import { AppText, Button, Card, ErrorState, Loading, Mascota, Screen, Squiggle, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -63,14 +63,13 @@ export default function HomeScreen({ navigation }: any) {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.hero}>
-          <AppText size={48} align="center" style={styles.heroEmoji}>
-            🐾
-          </AppText>
-          <Title size={26} align="center">
+          <Mascota size={64} color={colors.brandDark} />
+          <Title size={26} align="center" style={styles.heroTitle}>
             Encuentra tu Mascota
           </Title>
+          <Squiggle width={110} style={styles.heroSquiggle} />
           <AppText muted align="center" style={styles.heroSubtitle}>
-            Reunamos mascotas con su familia 💛
+            Aquí el barrio se organiza para que ninguna mascota se quede sin volver a casa.
           </AppText>
         </Card>
 
@@ -81,10 +80,12 @@ export default function HomeScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Publicar', { estado: 'perdida' })}
           >
             <Card style={[styles.actionCard, styles.actionCardLost]}>
-              <AppText size={32}>🔴</AppText>
-              <Title size={16} align="center" style={styles.actionTitle}>
-                Perdí mi mascota
+              <Title size={16} align="center">
+                Se me perdió
               </Title>
+              <AppText muted align="center" size={12} style={styles.actionSubtitle}>
+                Pide ayuda para buscarla
+              </AppText>
             </Card>
           </TouchableOpacity>
           <TouchableOpacity
@@ -93,16 +94,18 @@ export default function HomeScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Publicar', { estado: 'encontrada' })}
           >
             <Card style={[styles.actionCard, styles.actionCardFound]}>
-              <AppText size={32}>🟢</AppText>
-              <Title size={16} align="center" style={styles.actionTitle}>
-                Encontré una
+              <Title size={16} align="center">
+                Me encontré una
               </Title>
+              <AppText muted align="center" size={12} style={styles.actionSubtitle}>
+                Veamos de quién es
+              </AppText>
             </Card>
           </TouchableOpacity>
         </View>
 
         <Button
-          title="🔍 Buscar cerca mío"
+          title="Ver quiénes andan perdidos cerca"
           icon="search"
           onPress={() => navigation.navigate('Lista')}
           style={styles.searchButton}
@@ -111,18 +114,18 @@ export default function HomeScreen({ navigation }: any) {
         <Card style={[styles.statCard, reunidas > 0 && styles.statCardCelebrate]}>
           <AppText weight="bold" align="center" size={16}>
             {reunidas > 0
-              ? `🎉 ${reunidas} mascota${reunidas === 1 ? '' : 's'} reunida${reunidas === 1 ? '' : 's'}`
-              : 'Aún no hay reencuentros, ¡sé parte! 🐾'}
+              ? `Ya van ${reunidas} vuelta${reunidas === 1 ? '' : 's'} a casa`
+              : 'Todavía no hay reencuentros. Puedes empezar tú.'}
           </AppText>
         </Card>
 
         <Title size={18} style={styles.sectionTitle}>
-          Recientes cerca
+          Perdidos y encontrados cerca
         </Title>
 
         {recientes.length === 0 ? (
           <AppText muted style={styles.emptyRecientes}>
-            Aún no hay reportes. Publica el primero 🐾
+            Aún no hay reportes por acá. Publica el primero.
           </AppText>
         ) : (
           <View style={styles.recientesList}>
@@ -137,7 +140,7 @@ export default function HomeScreen({ navigation }: any) {
                     <Image source={{ uri: pet.fotos[0] }} style={styles.recientePhoto} />
                   ) : (
                     <View style={[styles.recientePhoto, styles.recientePhotoPlaceholder]}>
-                      <AppText size={22}>🐾</AppText>
+                      <Mascota size={30} color={colors.muted} />
                     </View>
                   )}
                   <View style={styles.recienteInfo}>
@@ -170,7 +173,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky,
     alignItems: 'center',
   },
-  heroEmoji: {
+  heroTitle: {
+    marginTop: spacing.sm,
+  },
+  heroSquiggle: {
+    marginTop: spacing.xs,
     marginBottom: spacing.xs,
   },
   heroSubtitle: {
@@ -194,8 +201,8 @@ const styles = StyleSheet.create({
   actionCardFound: {
     borderColor: colors.found,
   },
-  actionTitle: {
-    marginTop: spacing.xs,
+  actionSubtitle: {
+    marginTop: 2,
   },
   searchButton: {
     alignSelf: 'stretch',

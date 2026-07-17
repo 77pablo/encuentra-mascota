@@ -3,8 +3,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
-import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
-import { spacing } from '../../theme';
+import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
+import { colors, spacing } from '../../theme';
 
 export default function RegisterScreen({ navigation }: any) {
   const [nombre, setNombre] = useState('');
@@ -48,12 +48,12 @@ export default function RegisterScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.hero}>
-            <AppText size={56}>🐶</AppText>
+            <Mascota size={56} color={colors.brandDark} />
             <Title size={26} align="center" style={styles.heroTitle}>
               Crea tu cuenta
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
-              Únete y ayuda a reunir mascotas con su familia.
+              Únete al barrio. Juntos encontramos más.
             </AppText>
           </View>
 

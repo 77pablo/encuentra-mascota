@@ -2,14 +2,14 @@ export const colors = {
   brand: '#7C5CFC', // grape purple — primary actions, active nav
   brandDark: '#5B3FD1',
   sun: '#FFC93C', // sunny yellow — highlights
-  lost: '#FF5A5F', // coral — estado "perdida"
-  found: '#1DC6A0', // mint — estado "encontrada"
-  ink: '#241C3B', // primary text (deep plum)
-  muted: '#8A8699', // secondary text
-  line: '#ECEAF3', // borders/dividers
-  bg: '#F7F6FB', // app background
-  card: '#FFFFFF',
-  sky: '#EEF1FF', // soft brand tint surface
+  lost: '#E4574E', // terracota — estado "perdida"
+  found: '#1FB08C', // mint profundo — estado "encontrada"
+  ink: '#2B2420', // primary text (warm near-black)
+  muted: '#8C8377', // secondary text (warm grey)
+  line: '#EBE3D8', // borders/dividers (warm hairline)
+  bg: '#FBF7F1', // app background (warm paper cream)
+  card: '#FFFDFA', // warm white
+  sky: '#F3ECFB', // soft warm brand tint surface
   white: '#FFFFFF',
 };
 
@@ -27,7 +27,7 @@ export const font = {
 
 export const shadow = {
   card: {
-    shadowColor: '#241C3B',
+    shadowColor: '#2B2420',
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { AppText, Badge, Card, Title } from '../ui';
+import { AppText, Badge, Card, Mascota, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
@@ -29,7 +29,7 @@ export default function PetCard({
             <Image source={{ uri: pet.fotos[0] }} style={styles.photo} />
           ) : (
             <View style={[styles.photo, styles.photoPlaceholder]}>
-              <AppText size={28}>🐾</AppText>
+              <Mascota size={40} color={colors.muted} />
             </View>
           )}
           <View style={styles.info}>

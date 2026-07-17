@@ -3,8 +3,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { loginSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
-import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
-import { spacing } from '../../theme';
+import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
+import { colors, spacing } from '../../theme';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -41,12 +41,12 @@ export default function LoginScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.hero}>
-            <AppText size={56}>🐾</AppText>
+            <Mascota size={56} color={colors.brandDark} />
             <Title size={26} align="center" style={styles.heroTitle}>
               Encuentra tu Mascota
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
-              Reunamos mascotas con su familia.
+              Bienvenido de vuelta. El barrio te estaba esperando.
             </AppText>
           </View>
 

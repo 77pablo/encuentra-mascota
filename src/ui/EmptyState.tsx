@@ -1,20 +1,28 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { spacing } from '../theme';
+import { colors, spacing } from '../theme';
 import { AppText, Title } from './AppText';
+import { Mascota } from './Mascota';
 
 export interface EmptyStateProps {
-  emoji: string;
+  emoji?: string;
   title: string;
   subtitle?: string;
+  illustration?: boolean;
 }
 
-export function EmptyState({ emoji, title, subtitle }: EmptyStateProps) {
+export function EmptyState({ emoji, title, subtitle, illustration }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <AppText size={56} style={styles.emoji}>
-        {emoji}
-      </AppText>
+      {illustration ? (
+        <View style={styles.emoji}>
+          <Mascota size={72} color={colors.muted} />
+        </View>
+      ) : emoji ? (
+        <AppText size={56} style={styles.emoji}>
+          {emoji}
+        </AppText>
+      ) : null}
       <Title size={20} align="center" style={styles.title}>
         {title}
       </Title>

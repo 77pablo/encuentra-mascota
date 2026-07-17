@@ -200,21 +200,21 @@ export default function ListScreen({ navigation }: any) {
         ListEmptyComponent={
           sinResultadosPorBusqueda ? (
             <EmptyState
-              emoji="🔍"
-              title="Sin resultados"
-              subtitle="Prueba con otra palabra o quita filtros."
+              illustration
+              title="No encontramos nada así"
+              subtitle="Prueba con otra palabra o suelta algún filtro."
             />
           ) : sinResultadosPorRadio ? (
             <EmptyState
-              emoji="📍"
-              title="Nada cerca todavía"
+              illustration
+              title="No encontramos nada así"
               subtitle="Prueba ampliar el radio de búsqueda para ver más reportes."
             />
           ) : (
             <EmptyState
-              emoji="🐾"
-              title="Aún no hay mascotas"
-              subtitle="Sé el primero en publicar un reporte."
+              illustration
+              title="Por ahora, nada por acá"
+              subtitle="Ojalá siga así. Si viste algo, cuéntale al barrio."
             />
           )
         }
