@@ -101,3 +101,13 @@ export async function deletePet(id: string): Promise<void> {
   if (error) throw error;
   activePetsCache.clear();
 }
+
+// Cuenta reencuentros (reportes cerrados) para mostrar en la pantalla de Inicio.
+export async function countReunidas(): Promise<number> {
+  const { count, error } = await supabase
+    .from('pets')
+    .select('id', { count: 'exact', head: true })
+    .eq('activo', false);
+  if (error) throw error;
+  return count ?? 0;
+}

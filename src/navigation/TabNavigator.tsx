@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import PublishScreen from '../screens/PublishScreen';
+import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
 import EncontreScreen from '../screens/EncontreScreen';
@@ -20,6 +21,17 @@ const Tab = createBottomTabNavigator();
 // Cada pestaña que puede navegar a un detalle de mascota (Mapa, Lista) tiene
 // su propio stack nativo con las pantallas PetDetail y Chat registradas, para
 // que tocar un pin/tarjeta pueda abrir el detalle y, desde ahí, el chat.
+const InicioStackNav = createNativeStackNavigator();
+function InicioStack() {
+  return (
+    <InicioStackNav.Navigator>
+      <InicioStackNav.Screen name="Inicio" component={HomeScreen} />
+      <InicioStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <InicioStackNav.Screen name="Chat" component={ChatScreen} />
+    </InicioStackNav.Navigator>
+  );
+}
+
 const MapStackNav = createNativeStackNavigator();
 function MapStack() {
   return (
@@ -75,6 +87,7 @@ function ProfileStack() {
 }
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  Inicio: 'home',
   Mapa: 'map',
   Lista: 'list',
   Publicar: 'add-circle',
@@ -87,6 +100,7 @@ export default function TabNavigator() {
 
   return (
     <Tab.Navigator
+      initialRouteName="Inicio"
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.muted,
@@ -110,6 +124,7 @@ export default function TabNavigator() {
         },
       })}
     >
+      <Tab.Screen name="Inicio" component={InicioStack} options={{ headerShown: false }} />
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} />
