@@ -49,6 +49,17 @@ export async function listActivePets(opts?: { force?: boolean }): Promise<Pet[]>
   return pets;
 }
 
+export async function listMyReports(userId: string, activo: boolean): Promise<Pet[]> {
+  const { data, error } = await supabase
+    .from('pets')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('activo', activo)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Pet[];
+}
+
 export async function listLostBySpecies(especie: Pet['especie']): Promise<Pet[]> {
   const { data, error } = await supabase
     .from('pets')
