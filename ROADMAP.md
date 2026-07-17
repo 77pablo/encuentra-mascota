@@ -14,7 +14,7 @@ Mejoras acordadas (1–15). Estado: ⬜ pendiente · 🔨 en curso · ✅ listo 
 ## Seguridad y confianza
 - ✅ **#4 Moderación / denunciar** — botón denunciar + tabla + ocultar + admin mínimo.
 - ✅ **#6 Privacidad y términos** — pantallas + textos (revisar legalmente).
-- ⬜ **#2 Recuperar contraseña** — flujo "olvidé mi clave" (envía correo → necesita #3).
+- ✅ **#2 Recuperar contraseña** — flujo "olvidé mi clave" (envía correo → necesita #3).
 
 ## Infra y distribución (necesitan cuenta/llave)
 - 🔑 **#7 Link compartible** — deep links + ficha pública; requiere desplegar la web.
