@@ -3,7 +3,7 @@ import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { listActivePets, Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
-import { AppText, Button, EmptyState, Input, Screen } from '../ui';
+import { AppText, Button, EmptyState, ErrorState, Input, Loading, Screen } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { distanceKm as getDistanceKm } from '../lib/geo';
 import { useMyLocation } from '../hooks/useMyLocation';
@@ -36,6 +36,8 @@ const radios: { key: Radio; label: string }[] = [
 
 export default function ListScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [estado, setEstado] = useState<Filtro>('todas');
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [cercaDeMi, setCercaDeMi] = useState(false);
@@ -43,11 +45,16 @@ export default function ListScreen({ navigation }: any) {
   const [busqueda, setBusqueda] = useState('');
   const location = useMyLocation();
 
-  useFocusEffect(
-    useCallback(() => {
-      listActivePets().then(setPets).catch(() => setPets([]));
-    }, []),
-  );
+  const cargar = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    listActivePets()
+      .then(setPets)
+      .catch((e: any) => setError(e?.message ?? 'No se pudieron cargar las mascotas.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useFocusEffect(cargar);
 
   // Si el usuario negó el permiso mientras "Cerca de mí" estaba activo,
   // avisamos y volvemos a mostrar todo (sin filtrar por distancia).
@@ -94,6 +101,18 @@ export default function ListScreen({ navigation }: any) {
 
   const sinResultadosPorRadio = cercaDeMi && location.coords !== null && itemsConDistancia.length === 0 && pets.length > 0;
   const sinResultadosPorBusqueda = busqueda.trim() !== '' && itemsConDistancia.length === 0 && pets.length > 0;
+
+  if (loading) {
+    return <Loading />;
+  }
+
+  if (error) {
+    return (
+      <Screen padded>
+        <ErrorState message={error} onRetry={cargar} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen padded>

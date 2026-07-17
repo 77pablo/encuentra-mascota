@@ -14,3 +14,7 @@ export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
 export { Confetti } from './Confetti';
 export type { ConfettiProps } from './Confetti';
+export { Loading } from './Loading';
+export type { LoadingProps } from './Loading';
+export { ErrorState } from './ErrorState';
+export type { ErrorStateProps } from './ErrorState';

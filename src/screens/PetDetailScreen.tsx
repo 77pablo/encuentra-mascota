@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { timeAgo } from '../lib/time';
-import { AppText, Badge, Button, Card, Screen, Title } from '../ui';
+import { AppText, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -18,12 +18,23 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
   const { user } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  useEffect(() => {
-    getPet(id).then(setPet).catch(() => setPet(null));
+  const cargar = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    getPet(id)
+      .then(setPet)
+      .catch((e: any) => setError(e?.message ?? 'No se pudo cargar el reporte.'))
+      .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   const onCarouselLayout = (e: LayoutChangeEvent) => {
     setCarouselWidth(e.nativeEvent.layout.width);
@@ -35,12 +46,14 @@ export default function PetDetailScreen({ route, navigation }: any) {
     setActiveIndex(index);
   };
 
-  if (!pet) {
+  if (loading) {
+    return <Loading />;
+  }
+
+  if (error || !pet) {
     return (
       <Screen padded>
-        <AppText muted style={styles.loading}>
-          Cargando…
-        </AppText>
+        <ErrorState message={error ?? undefined} onRetry={cargar} />
       </Screen>
     );
   }
@@ -147,9 +160,6 @@ export default function PetDetailScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  loading: {
-    marginTop: spacing.xl,
-  },
   content: {
     padding: spacing.xl,
     gap: spacing.sm,

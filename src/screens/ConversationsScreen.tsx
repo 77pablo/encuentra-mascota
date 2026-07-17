@@ -3,20 +3,38 @@ import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { listConversations, Conversation } from '../services/messages';
 import { useAuth } from '../hooks/useAuth';
-import { AppText, EmptyState, Screen } from '../ui';
+import { AppText, EmptyState, ErrorState, Loading, Screen } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 export default function ConversationsScreen({ navigation }: any) {
   const { user } = useAuth();
   const [convs, setConvs] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      listConversations(user!.id)
-        .then(setConvs)
-        .catch((e) => console.error('No se pudieron cargar las conversaciones:', e));
-    }, [user]),
-  );
+  const cargar = useCallback(() => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    listConversations(user.id)
+      .then(setConvs)
+      .catch((e: any) => setError(e?.message ?? 'No se pudieron cargar las conversaciones.'))
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  useFocusEffect(cargar);
+
+  if (loading) {
+    return <Loading />;
+  }
+
+  if (error) {
+    return (
+      <Screen padded>
+        <ErrorState message={error} onRetry={cargar} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen padded>
