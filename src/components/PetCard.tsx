@@ -4,6 +4,7 @@ import { AppText, Badge, Card, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
+import { timeAgo } from '../lib/time';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -45,6 +46,9 @@ export default function PetCard({
             </Title>
             <AppText muted size={13} numberOfLines={2} style={styles.description}>
               {pet.descripcion}
+            </AppText>
+            <AppText muted size={12}>
+              🕓 {timeAgo(pet.creado_en)}
             </AppText>
             {distanceKm !== undefined ? (
               <AppText muted size={12}>

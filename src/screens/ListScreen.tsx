@@ -3,11 +3,12 @@ import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { listActivePets, Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
-import { AppText, Button, EmptyState, Screen } from '../ui';
+import { AppText, Button, EmptyState, Input, Screen } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { distanceKm as getDistanceKm } from '../lib/geo';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
+import { normalize } from '../lib/text';
 
 type Filtro = 'todas' | 'perdida' | 'encontrada';
 type EspecieFiltro = 'todas' | Pet['especie'];
@@ -39,6 +40,7 @@ export default function ListScreen({ navigation }: any) {
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [cercaDeMi, setCercaDeMi] = useState(false);
   const [radioKm, setRadioKm] = useState<Radio>(20);
+  const [busqueda, setBusqueda] = useState('');
   const location = useMyLocation();
 
   useFocusEffect(
@@ -69,9 +71,15 @@ export default function ListScreen({ navigation }: any) {
   };
 
   const itemsConDistancia = useMemo(() => {
-    const base = pets.filter(
-      (p) => (estado === 'todas' || p.estado === estado) && (especie === 'todas' || p.especie === especie),
-    );
+    const query = normalize(busqueda.trim());
+    const base = pets.filter((p) => {
+      const coincideEstado = estado === 'todas' || p.estado === estado;
+      const coincideEspecie = especie === 'todas' || p.especie === especie;
+      const coincideBusqueda =
+        query === '' ||
+        [p.nombre, p.raza, p.descripcion].some((campo) => campo && normalize(campo).includes(query));
+      return coincideEstado && coincideEspecie && coincideBusqueda;
+    });
 
     if (cercaDeMi && location.coords) {
       const origen = location.coords;
@@ -82,9 +90,10 @@ export default function ListScreen({ navigation }: any) {
     }
 
     return base.map((p) => ({ pet: p, distanceKm: undefined as number | undefined }));
-  }, [pets, estado, especie, cercaDeMi, location.coords, radioKm]);
+  }, [pets, estado, especie, busqueda, cercaDeMi, location.coords, radioKm]);
 
   const sinResultadosPorRadio = cercaDeMi && location.coords !== null && itemsConDistancia.length === 0 && pets.length > 0;
+  const sinResultadosPorBusqueda = busqueda.trim() !== '' && itemsConDistancia.length === 0 && pets.length > 0;
 
   return (
     <Screen padded>
@@ -93,6 +102,12 @@ export default function ListScreen({ navigation }: any) {
         icon="search"
         onPress={() => navigation.navigate('Encontre')}
         style={styles.findButton}
+      />
+      <Input
+        value={busqueda}
+        onChangeText={setBusqueda}
+        placeholder="Buscar por nombre, raza o color…"
+        icon="search"
       />
       <View style={styles.chipsRow}>
         {filtros.map((f) => {
@@ -164,7 +179,13 @@ export default function ListScreen({ navigation }: any) {
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          sinResultadosPorRadio ? (
+          sinResultadosPorBusqueda ? (
+            <EmptyState
+              emoji="🔍"
+              title="Sin resultados"
+              subtitle="Prueba con otra palabra o quita filtros."
+            />
+          ) : sinResultadosPorRadio ? (
             <EmptyState
               emoji="📍"
               title="Nada cerca todavía"

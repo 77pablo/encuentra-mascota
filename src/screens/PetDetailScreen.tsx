@@ -4,6 +4,7 @@ import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
+import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -87,6 +88,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
           {especieLabel[pet.especie]}
           {pet.nombre ? ` · ${pet.nombre}` : ''}
         </Title>
+
+        <AppText muted size={13}>
+          🕓 {timeAgo(pet.creado_en)}
+        </AppText>
 
         {pet.raza ? (
           <AppText muted size={14}>
