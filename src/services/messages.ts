@@ -10,6 +10,27 @@ export interface Message {
   creado_en: string;
 }
 
+export async function countUnread(me: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('to_user', me)
+    .eq('leido', false);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function markThreadRead(petId: string, me: string, other: string): Promise<void> {
+  const { error } = await supabase
+    .from('messages')
+    .update({ leido: true })
+    .eq('pet_id', petId)
+    .eq('to_user', me)
+    .eq('from_user', other)
+    .eq('leido', false);
+  if (error) throw error;
+}
+
 export async function sendMessage(petId: string, fromUser: string, toUser: string, texto: string) {
   const clean = texto.trim();
   if (!clean) throw new Error('Mensaje vacío');

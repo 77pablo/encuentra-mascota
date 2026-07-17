@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,7 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
-import { sendMessage } from '../services/messages';
+import { useUnread } from '../hooks/useUnread';
+import { markThreadRead, sendMessage } from '../services/messages';
 import { supabase } from '../lib/supabase';
 import { AppText, Screen } from '../ui';
 import { colors, font, radius, spacing } from '../theme';
@@ -22,6 +23,13 @@ export default function ChatScreen({ route }: any) {
   const me = user!.id;
   const messages = useRealtimeMessages(petId, me, otherUserId);
   const [texto, setTexto] = useState('');
+  const { refresh: refreshUnread } = useUnread();
+
+  useEffect(() => {
+    markThreadRead(petId, me, otherUserId)
+      .then(() => refreshUnread())
+      .catch((e) => console.error('No se pudo marcar el hilo como leído:', e));
+  }, [petId, me, otherUserId, messages.length, refreshUnread]);
 
   const onSend = async () => {
     const t = texto;

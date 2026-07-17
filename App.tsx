@@ -6,6 +6,7 @@ import {
   NunitoSans_700Bold,
 } from '@expo-google-fonts/nunito-sans';
 import { AuthProvider } from './src/hooks/useAuth';
+import { UnreadProvider } from './src/hooks/useUnread';
 import RootNavigator from './src/navigation/RootNavigator';
 
 export default function App() {
@@ -24,7 +25,9 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <RootNavigator />
+      <UnreadProvider>
+        <RootNavigator />
+      </UnreadProvider>
     </AuthProvider>
   );
 }

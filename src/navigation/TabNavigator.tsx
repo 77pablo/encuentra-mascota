@@ -12,6 +12,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
+import { useUnread } from '../hooks/useUnread';
 import { colors, font } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -82,6 +83,8 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function TabNavigator() {
+  const { count } = useUnread();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -110,7 +113,15 @@ export default function TabNavigator() {
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} />
-      <Tab.Screen name="Mensajes" component={MsgStack} options={{ headerShown: false }} />
+      <Tab.Screen
+        name="Mensajes"
+        component={MsgStack}
+        options={{
+          headerShown: false,
+          tabBarBadge: count > 0 ? count : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.lost, color: colors.white },
+        }}
+      />
       <Tab.Screen name="Perfil" component={ProfileStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
