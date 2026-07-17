@@ -149,6 +149,15 @@ Entrar / Registrarse
 - Sin permiso de ubicación → el usuario mueve el pin / escribe la zona a mano.
 - Campos vacíos al publicar → avisa qué falta antes de enviar (validación zod).
 
+**Operaciones en segundo plano (no congelar la UI):**
+- Nota: `AsyncTask` (Android nativo) está **descontinuado** y no existe en React Native;
+  no se usa. Su intención se cubre así:
+- **`async/await`** para toda espera de red (subir fotos, cargar mapa, chat) → la pantalla
+  nunca se bloquea.
+- **Compresión de fotos** antes de subir, fuera del hilo de UI.
+- **`expo-background-fetch` / `expo-task-manager`** reservados para tareas futuras con la
+  app cerrada (ej. revisar mascotas nuevas cercanas).
+
 ## 7. Seguridad
 
 Estándar del proyecto (traducido al stack React Native + Supabase; se aplica el
@@ -178,6 +187,10 @@ Estándar del proyecto (traducido al stack React Native + Supabase; se aplica el
    Storage tienen reglas de acceso.
 8. **Privacidad de contacto:** el teléfono no se muestra; el contacto es **solo** por chat
    interno.
+9. **Ofuscación del código (ProGuard/R8):** en el build de producción de Android se activa
+   R8/ProGuard vía `expo-build-properties` (`enableProguardInReleaseBuilds: true`) para
+   encoger y ofuscar el código (más difícil de reversear). Aplica solo al APK de release
+   (EAS build), no a Expo Go.
 
 ## 8. Pruebas
 
