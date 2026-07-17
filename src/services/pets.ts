@@ -15,6 +15,7 @@ export interface Pet {
   lng: number;
   recompensa: string | null;
   activo: boolean;
+  oculto: boolean;
   creado_en: string;
 }
 
@@ -42,6 +43,7 @@ export async function listActivePets(opts?: { force?: boolean }): Promise<Pet[]>
     .from('pets')
     .select('*')
     .eq('activo', true)
+    .eq('oculto', false)
     .order('creado_en', { ascending: false });
   if (error) throw error;
   const pets = (data ?? []) as Pet[];
@@ -67,6 +69,7 @@ export async function listLostBySpecies(especie: Pet['especie']): Promise<Pet[]>
     .eq('activo', true)
     .eq('estado', 'perdida')
     .eq('especie', especie)
+    .eq('oculto', false)
     .order('creado_en', { ascending: false });
   if (error) throw error;
   return (data ?? []) as Pet[];

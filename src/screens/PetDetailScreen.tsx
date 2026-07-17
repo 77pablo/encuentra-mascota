@@ -2,11 +2,20 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
+import { denunciarPet } from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { timeAgo } from '../lib/time';
+import { notify } from '../lib/notify';
 import { AppText, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
+
+const MOTIVOS_DENUNCIA = [
+  'Contenido falso o engañoso',
+  'Contenido ofensivo',
+  'Spam',
+  'Otro',
+] as const;
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -22,6 +31,8 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [mostrarMotivos, setMostrarMotivos] = useState(false);
+  const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -59,6 +70,25 @@ export default function PetDetailScreen({ route, navigation }: any) {
   }
 
   const esMio = pet.user_id === user?.id;
+
+  const denunciar = async (motivo: string) => {
+    if (!user || !pet) return;
+    setEnviandoDenuncia(true);
+    try {
+      await denunciarPet(pet.id, user.id, motivo);
+      setMostrarMotivos(false);
+      notify('Gracias', 'Recibimos tu denuncia y la revisaremos.');
+    } catch (e: any) {
+      if (e?.code === '23505') {
+        setMostrarMotivos(false);
+        notify('Ya habías denunciado este reporte.');
+      } else {
+        notify('Error', e?.message ?? 'No se pudo enviar la denuncia.');
+      }
+    } finally {
+      setEnviandoDenuncia(false);
+    }
+  };
 
   return (
     <Screen>
@@ -154,6 +184,37 @@ export default function PetDetailScreen({ route, navigation }: any) {
           onPress={() => shareReport(pet)}
           style={styles.shareButton}
         />
+
+        {!esMio && (
+          <View style={styles.reportSection}>
+            <Button
+              title="Denunciar"
+              variant="ghost"
+              icon="flag-outline"
+              disabled={enviandoDenuncia}
+              onPress={() => setMostrarMotivos((v) => !v)}
+              style={styles.reportButton}
+            />
+            {mostrarMotivos ? (
+              <View style={styles.reasonList}>
+                <AppText muted size={13} style={styles.reasonTitle}>
+                  ¿Por qué quieres denunciar este reporte?
+                </AppText>
+                {MOTIVOS_DENUNCIA.map((motivo) => (
+                  <Button
+                    key={motivo}
+                    title={motivo}
+                    variant="secondary"
+                    loading={enviandoDenuncia}
+                    disabled={enviandoDenuncia}
+                    onPress={() => denunciar(motivo)}
+                    style={styles.reasonButton}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </View>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -219,5 +280,25 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     marginTop: spacing.sm,
+  },
+  reportSection: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  reportButton: {
+    minHeight: 0,
+    paddingVertical: spacing.xs,
+  },
+  reasonList: {
+    width: '100%',
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  reasonTitle: {
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  reasonButton: {
+    width: '100%',
   },
 });
