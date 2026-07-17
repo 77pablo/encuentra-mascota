@@ -6,7 +6,7 @@ Mejoras acordadas (1–15). Estado: ⬜ pendiente · 🔨 en curso · ✅ listo 
 - ✅ **#1 Ubicación "cerca de mí" + filtro por especie** — filtrar/ordenar por distancia; chips de especie.
 - ✅ **#5 "Hace cuánto" + fecha del reporte** — mostrar tiempo relativo y última ubicación.
 - ✅ **#9 Buscar por texto** — nombre, raza, color.
-- ⬜ **#10 Perfil completo** — foto de perfil, editar perfil, historial de reportes resueltos.
+- ✅ **#10 Perfil completo** — foto de perfil, editar perfil, historial de reportes resueltos.
 - ⬜ **#11 Robustez** — estados de carga/error con reintentar; manejo sin internet.
 - ⬜ **#14 Anti-spam** — límite de reportes por usuario/tiempo.
 - ⬜ **#12 Tests** — cubrir updatePet, deletePet, listLostBySpecies, listConversations.
