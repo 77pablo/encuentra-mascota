@@ -20,8 +20,8 @@ Mejoras acordadas (1–15). Estado: ⬜ pendiente · 🔨 en curso · ✅ listo 
 - ✅ **#7 Link compartible** — deep links + ficha pública; requiere desplegar la web.
 - 🔑 **#3 Correo/SMTP** — SMTP propio (Resend) + confirmación de correo ON.
 - ✅ **#8 Notificaciones** — indicador de no leídos (programable) + push real (necesita EAS).
-- 🔑 **#13 Sentry** — monitoreo de errores (necesita DSN).
-- 🔑 **#15 Google Maps key** — mapa en Android nativo.
+- ✅ **#13 Sentry** — monitoreo de errores (necesita DSN).
+- ✅ **#15 Google Maps key** — mapa en Android nativo.
 
 ---
 Rama: `feat/mvp-encuentra-mascota`. Se construye por fases, probando cada una.
