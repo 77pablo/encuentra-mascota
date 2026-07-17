@@ -191,6 +191,24 @@ Estándar del proyecto (traducido al stack React Native + Supabase; se aplica el
    R8/ProGuard vía `expo-build-properties` (`enableProguardInReleaseBuilds: true`) para
    encoger y ofuscar el código (más difícil de reversear). Aplica solo al APK de release
    (EAS build), no a Expo Go.
+10. **Anti fuerza bruta:** cubierto por el rate limit de login de Supabase Auth (bloquea
+    reintentos masivos por IP).
+11. **Anti DoS/DDoS:** lo provee la plataforma Supabase a nivel de infraestructura.
+
+### 7.1 Endurecimiento de servidor — NO aplica a la v1 (stack gestionado)
+
+El stack es **Expo + Supabase**, ambos **servicios gestionados**: no administramos un
+servidor Linux propio, no hay SSH, ni usuario root, ni puertos que abrir/cerrar de nuestro
+lado. Por eso las siguientes reglas de endurecimiento de VPS **no tienen dónde aplicarse en
+la v1**, y se guardan como checklist para el día que montemos un servidor o una web con
+dominio propio:
+
+- Cambiar el puerto SSH (22) — no hay SSH propio.
+- No trabajar como root — no hay servidor con root nuestro.
+- Abrir solo los puertos en uso (firewall) — Supabase/Expo gestionan sus puertos.
+- Servir solo por DNS y devolver 404 al acceso por IP — no hay servidor web propio.
+- **Cloudflare** (WAF, anti-DDoS, DNS) — se pondría **delante de una web/landing con dominio
+  propio** (como en los sitios de ServicioWebSP), no delante de la app móvil.
 
 ## 8. Pruebas
 
