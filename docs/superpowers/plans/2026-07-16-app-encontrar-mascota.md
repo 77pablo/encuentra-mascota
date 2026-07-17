@@ -358,6 +358,18 @@ create policy "gestionar mis tokens"
   on public.push_tokens for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- ÍNDICES (para que las búsquedas no recorran toda la tabla — como no buscar
+-- una llave en un cajón lleno de ropa)
+create index pets_activo_idx on public.pets (activo);
+create index pets_user_id_idx on public.pets (user_id);
+create index pets_creado_en_idx on public.pets (creado_en desc);
+create index pets_estado_especie_idx on public.pets (estado, especie);
+create index pets_lat_lng_idx on public.pets (lat, lng);
+create index messages_pet_id_idx on public.messages (pet_id);
+create index messages_to_user_leido_idx on public.messages (to_user, leido);
+create index messages_creado_en_idx on public.messages (creado_en);
+create index push_tokens_user_id_idx on public.push_tokens (user_id);
+
 -- STORAGE: bucket de fotos
 insert into storage.buckets (id, name, public) values ('pet-photos', 'pet-photos', true);
 
@@ -914,21 +926,95 @@ git commit -m "feat: servicio para comprimir y subir fotos a Storage"
 
 ---
 
-### Task 9: Servicio de mascotas (CRUD) + pruebas
+### Task 9: Servicio de mascotas (CRUD) + caché + pruebas
 
 **Files:**
-- Create: `src/services/pets.ts`, `__tests__/services/pets.test.ts`
+- Create: `src/lib/cache.ts`, `src/services/pets.ts`, `__tests__/lib/cache.test.ts`, `__tests__/services/pets.test.ts`
 
 **Interfaces:**
 - Consumes: `supabase`, `PetInput`.
 - Produces:
-  - `createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet>`
-  - `listActivePets(): Promise<Pet[]>`
+  - `src/lib/cache.ts`: `ttlCache<T>(ttlMs)` → `{ get(): T | null, set(v: T): void, clear(): void }`. Caché en memoria con vencimiento (para no recorrer/pedir todo en cada cambio de pestaña).
+  - `createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet>` (invalida la caché de la lista).
+  - `listActivePets(opts?: { force?: boolean }): Promise<Pet[]>` (usa caché; `force: true` la salta).
   - `getPet(id: string): Promise<Pet>`
-  - `closePet(id: string): Promise<void>` (marca `activo=false`)
+  - `closePet(id: string): Promise<void>` (marca `activo=false`; invalida la caché).
   - tipo `Pet` (fila de la tabla).
 
-- [ ] **Step 1: Escribir el test que falla (con Supabase mockeado)**
+- [ ] **Step 1: Escribir el test de la caché (TDD) y correrlo (falla)**
+
+Create `__tests__/lib/cache.test.ts`:
+
+```typescript
+import { ttlCache } from '../../src/lib/cache';
+
+describe('ttlCache', () => {
+  it('devuelve null antes de guardar', () => {
+    const c = ttlCache<number>(1000);
+    expect(c.get()).toBeNull();
+  });
+  it('devuelve el valor guardado dentro del TTL', () => {
+    const c = ttlCache<string>(1000, () => 500); // reloj fijo en 500ms
+    c.set('hola');
+    expect(c.get()).toBe('hola');
+  });
+  it('vence pasado el TTL', () => {
+    let ahora = 0;
+    const c = ttlCache<string>(1000, () => ahora);
+    c.set('hola');
+    ahora = 1500;
+    expect(c.get()).toBeNull();
+  });
+  it('clear borra el valor', () => {
+    const c = ttlCache<string>(1000, () => 0);
+    c.set('hola');
+    c.clear();
+    expect(c.get()).toBeNull();
+  });
+});
+```
+
+Run: `npm test -- cache.test`
+Expected: FAIL ("Cannot find module '../../src/lib/cache'").
+
+- [ ] **Step 2: Implementar `src/lib/cache.ts`**
+
+```typescript
+// Caché en memoria con vencimiento. Recibe un `now` inyectable para poder
+// probar el vencimiento sin depender del reloj real.
+export interface Cache<T> {
+  get(): T | null;
+  set(value: T): void;
+  clear(): void;
+}
+
+export function ttlCache<T>(ttlMs: number, now: () => number = () => Date.now()): Cache<T> {
+  let value: T | null = null;
+  let savedAt = 0;
+  return {
+    get() {
+      if (value === null) return null;
+      if (now() - savedAt > ttlMs) {
+        value = null;
+        return null;
+      }
+      return value;
+    },
+    set(v: T) {
+      value = v;
+      savedAt = now();
+    },
+    clear() {
+      value = null;
+    },
+  };
+}
+```
+
+Run: `npm test -- cache.test`
+Expected: PASS (4 tests).
+
+- [ ] **Step 3: Escribir el test que falla (pets, con Supabase mockeado)**
 
 Create `__tests__/services/pets.test.ts`:
 
@@ -959,16 +1045,17 @@ describe('createPet', () => {
 });
 ```
 
-- [ ] **Step 2: Correr el test para ver que falla**
+- [ ] **Step 4: Correr el test para ver que falla**
 
 Run: `npm test -- pets.test`
 Expected: FAIL ("Cannot find module ... services/pets").
 
-- [ ] **Step 3: Implementar `src/services/pets.ts`**
+- [ ] **Step 5: Implementar `src/services/pets.ts` (con caché)**
 
 ```typescript
 import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
+import { ttlCache } from '../lib/cache';
 
 export interface Pet {
   id: string;
@@ -986,6 +1073,10 @@ export interface Pet {
   creado_en: string;
 }
 
+// Caché de la lista de reportes activos (30s). Evita pedir todo a la base
+// cada vez que se cambia entre Mapa y Lista.
+const activePetsCache = ttlCache<Pet[]>(30_000);
+
 export async function createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet> {
   const { data, error } = await supabase
     .from('pets')
@@ -993,17 +1084,24 @@ export async function createPet(input: PetInput, fotos: string[], userId: string
     .select()
     .single();
   if (error) throw error;
+  activePetsCache.clear(); // hay un reporte nuevo → refrescar
   return data as Pet;
 }
 
-export async function listActivePets(): Promise<Pet[]> {
+export async function listActivePets(opts?: { force?: boolean }): Promise<Pet[]> {
+  if (!opts?.force) {
+    const cached = activePetsCache.get();
+    if (cached) return cached;
+  }
   const { data, error } = await supabase
     .from('pets')
     .select('*')
     .eq('activo', true)
     .order('creado_en', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Pet[];
+  const pets = (data ?? []) as Pet[];
+  activePetsCache.set(pets);
+  return pets;
 }
 
 export async function getPet(id: string): Promise<Pet> {
@@ -1015,19 +1113,20 @@ export async function getPet(id: string): Promise<Pet> {
 export async function closePet(id: string): Promise<void> {
   const { error } = await supabase.from('pets').update({ activo: false }).eq('id', id);
   if (error) throw error;
+  activePetsCache.clear(); // se cerró un reporte → refrescar
 }
 ```
 
-- [ ] **Step 4: Correr el test para ver que pasa**
+- [ ] **Step 6: Correr el test para ver que pasa**
 
 Run: `npm test -- pets.test`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/services/pets.ts __tests__/services/pets.test.ts
-git commit -m "feat: servicio CRUD de mascotas con pruebas"
+git add src/lib/cache.ts src/services/pets.ts __tests__/lib/cache.test.ts __tests__/services/pets.test.ts
+git commit -m "feat: servicio CRUD de mascotas con cache y pruebas"
 ```
 
 ---
