@@ -11,6 +11,7 @@ import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
+import LegalScreen from '../screens/LegalScreen';
 import { colors, font } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -63,6 +64,11 @@ function ProfileStack() {
     <ProfileStackNav.Navigator>
       <ProfileStackNav.Screen name="Perfil" component={ProfileScreen} />
       <ProfileStackNav.Screen name="EditPet" component={EditPetScreen} options={{ title: 'Editar reporte' }} />
+      <ProfileStackNav.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={{ title: 'Privacidad y términos' }}
+      />
     </ProfileStackNav.Navigator>
   );
 }

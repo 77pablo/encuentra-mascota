@@ -93,6 +93,9 @@ export default function RegisterScreen({ navigation }: any) {
               variant="ghost"
               onPress={() => navigation.goBack()}
             />
+            <AppText muted size={12} align="center" style={styles.legalNote}>
+              Al crear tu cuenta aceptas los Términos y la Política de Privacidad.
+            </AppText>
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -127,5 +130,9 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  legalNote: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
 });
