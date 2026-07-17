@@ -1,0 +1,221 @@
+import React, { useEffect, useState } from 'react';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import PetCard from '../components/PetCard';
+import { listLostBySpecies, Pet } from '../services/pets';
+import { notify } from '../lib/notify';
+import { pickFromLibrary, takePhoto } from '../lib/pickImage';
+import { AppText, Button, Card, EmptyState, Screen, Title } from '../ui';
+import { radius, spacing } from '../theme';
+
+const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
+  { key: 'perro', label: 'Perro' },
+  { key: 'gato', label: 'Gato' },
+  { key: 'otro', label: 'Otro' },
+];
+
+export default function EncontreScreen({ navigation }: any) {
+  const [fotoUri, setFotoUri] = useState<string | null>(null);
+  const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro' | null>(null);
+  const [resultados, setResultados] = useState<Pet[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [buscado, setBuscado] = useState(false);
+
+  // Nota: la foto es solo de referencia visual para el usuario, no se
+  // analiza ni compara automáticamente; el "match" es a simple vista.
+  useEffect(() => {
+    if (!especie) return;
+    let cancelled = false;
+    setLoading(true);
+    setBuscado(false);
+    listLostBySpecies(especie)
+      .then((pets) => {
+        if (cancelled) return;
+        setResultados(pets);
+        setBuscado(true);
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        notify('Error al buscar', e.message ?? 'Intenta de nuevo.');
+        setResultados([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [especie]);
+
+  const onTakePhoto = async () => {
+    const uri = await takePhoto();
+    if (uri) setFotoUri(uri);
+  };
+
+  const onPickFromLibrary = async () => {
+    const uris = await pickFromLibrary(1);
+    if (uris.length > 0) setFotoUri(uris[0]);
+  };
+
+  const goPublicarComoEncontrada = () => {
+    navigation.navigate('Publicar', { estado: 'encontrada', fotoUri: fotoUri ?? undefined });
+  };
+
+  return (
+    <Screen padded>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Title size={24} style={styles.pageTitle}>
+          ¿Encontraste una mascota?
+        </Title>
+        <AppText muted size={14} style={styles.pageSubtitle}>
+          Compara con los reportes de mascotas perdidas para ayudarla a volver a casa.
+        </AppText>
+
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            Foto de referencia (opcional)
+          </Title>
+          <AppText muted size={13} style={styles.helper}>
+            Solo para que la compares tú mismo con los reportes, no la analizamos.
+          </AppText>
+          <View style={styles.photoButtonsRow}>
+            <Button
+              title="Tomar foto"
+              variant="secondary"
+              icon="camera"
+              onPress={onTakePhoto}
+              style={styles.photoButton}
+            />
+            <Button
+              title="Galería"
+              variant="secondary"
+              icon="image"
+              onPress={onPickFromLibrary}
+              style={styles.photoButton}
+            />
+          </View>
+          {fotoUri ? <Image source={{ uri: fotoUri }} style={styles.preview} /> : null}
+        </Card>
+
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            ¿Qué especie es?
+          </Title>
+          <View style={styles.chipsRow}>
+            {especieOptions.map((o) => {
+              const active = especie === o.key;
+              return (
+                <Button
+                  key={o.key}
+                  title={o.label}
+                  variant={active ? 'primary' : 'secondary'}
+                  onPress={() => setEspecie(o.key)}
+                  style={styles.chipButton}
+                />
+              );
+            })}
+          </View>
+        </Card>
+
+        {loading ? (
+          <AppText muted style={styles.centerText}>
+            Buscando reportes…
+          </AppText>
+        ) : null}
+
+        {!loading && buscado && resultados.length > 0 ? (
+          <View style={styles.section}>
+            <AppText weight="bold" size={15}>
+              Encontramos {resultados.length} perdida{resultados.length === 1 ? '' : 's'} de este
+              tipo. ¿Es alguna de estas?
+            </AppText>
+            {resultados.map((pet) => (
+              <PetCard
+                key={pet.id}
+                pet={pet}
+                onPress={() => navigation.navigate('PetDetail', { id: pet.id })}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {!loading && buscado && resultados.length === 0 ? (
+          <View style={styles.section}>
+            <EmptyState
+              emoji="🐾"
+              title="No hay perdidas de este tipo reportadas"
+              subtitle="Puedes publicarla como encontrada para que su familia la encuentre."
+            />
+            <Button
+              title="Publicar como encontrada"
+              icon="paw"
+              onPress={goPublicarComoEncontrada}
+              style={styles.actionButton}
+            />
+          </View>
+        ) : null}
+
+        <Button
+          title="Publicarla como encontrada"
+          variant="ghost"
+          onPress={goPublicarComoEncontrada}
+          style={styles.actionButton}
+        />
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingBottom: spacing.xxxl,
+  },
+  pageTitle: {
+    marginBottom: spacing.xs,
+  },
+  pageSubtitle: {
+    marginBottom: spacing.xs,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    marginBottom: spacing.xs,
+  },
+  helper: {
+    marginBottom: spacing.xs,
+  },
+  photoButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  photoButton: {
+    flex: 1,
+  },
+  preview: {
+    width: 120,
+    height: 120,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+    alignSelf: 'center',
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chipButton: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+  },
+  centerText: {
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  actionButton: {
+    alignSelf: 'stretch',
+    marginTop: spacing.sm,
+  },
+});

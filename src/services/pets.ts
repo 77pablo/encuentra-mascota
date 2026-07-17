@@ -49,6 +49,18 @@ export async function listActivePets(opts?: { force?: boolean }): Promise<Pet[]>
   return pets;
 }
 
+export async function listLostBySpecies(especie: Pet['especie']): Promise<Pet[]> {
+  const { data, error } = await supabase
+    .from('pets')
+    .select('*')
+    .eq('activo', true)
+    .eq('estado', 'perdida')
+    .eq('especie', especie)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Pet[];
+}
+
 export async function getPet(id: string): Promise<Pet> {
   const { data, error } = await supabase.from('pets').select('*').eq('id', id).single();
   if (error) throw error;

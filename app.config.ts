@@ -8,13 +8,14 @@ const config: ExpoConfig = {
   scheme: 'encuentramascota',
   android: {
     package: 'com.pabloespinoza.encuentramascota',
-    permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+    permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'android.permission.CAMERA'],
   },
   ios: {
     bundleIdentifier: 'com.pabloespinoza.encuentramascota',
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         'Usamos tu ubicación para mostrar y publicar mascotas cerca de ti.',
+      NSCameraUsageDescription: 'Usamos la cámara para tomar fotos de la mascota.',
     },
   },
   plugins: [

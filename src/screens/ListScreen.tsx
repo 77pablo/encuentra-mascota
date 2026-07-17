@@ -3,7 +3,7 @@ import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { listActivePets, Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
-import { AppText, EmptyState, Screen } from '../ui';
+import { AppText, Button, EmptyState, Screen } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 type Filtro = 'todas' | 'perdida' | 'encontrada';
@@ -31,6 +31,12 @@ export default function ListScreen({ navigation }: any) {
 
   return (
     <Screen padded>
+      <Button
+        title="¿Encontraste una mascota?"
+        icon="search"
+        onPress={() => navigation.navigate('Encontre')}
+        style={styles.findButton}
+      />
       <View style={styles.chipsRow}>
         {filtros.map((f) => {
           const active = estado === f.key;
@@ -73,6 +79,10 @@ export default function ListScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
+  findButton: {
+    alignSelf: 'stretch',
+    marginTop: spacing.md,
+  },
   chipsRow: {
     flexDirection: 'row',
     gap: spacing.sm,

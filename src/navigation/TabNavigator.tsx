@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PublishScreen from '../screens/PublishScreen';
 import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
+import EncontreScreen from '../screens/EncontreScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -33,6 +34,11 @@ function ListStack() {
   return (
     <ListStackNav.Navigator>
       <ListStackNav.Screen name="Lista" component={ListScreen} />
+      <ListStackNav.Screen
+        name="Encontre"
+        component={EncontreScreen}
+        options={{ title: 'Encontré una mascota' }}
+      />
       <ListStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <ListStackNav.Screen name="Chat" component={ChatScreen} />
     </ListStackNav.Navigator>

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
@@ -9,6 +8,7 @@ import { uploadPetPhotos } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { notify } from '../lib/notify';
+import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -25,30 +25,39 @@ const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
 
 const MAX_FOTOS = 4;
 
-export default function PublishScreen({ navigation }: any) {
+export default function PublishScreen({ navigation, route }: any) {
   const { user } = useAuth();
-  const [estado, setEstado] = useState<'perdida' | 'encontrada'>('perdida');
+  const params = route?.params ?? {};
+  const [estado, setEstado] = useState<'perdida' | 'encontrada'>(
+    params.estado === 'perdida' || params.estado === 'encontrada' ? params.estado : 'perdida',
+  );
   const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro'>('perro');
   const [raza, setRaza] = useState('');
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [recompensa, setRecompensa] = useState('');
-  const [fotoUris, setFotoUris] = useState<string[]>([]);
+  const [fotoUris, setFotoUris] = useState<string[]>(
+    typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
+  );
   const [coords, setCoords] = useState({ lat: -33.45, lng: -70.66 });
   const [saving, setSaving] = useState(false);
 
-  const pickImage = async () => {
+  const addFotos = (nuevas: string[]) => {
+    if (nuevas.length === 0) return;
+    setFotoUris((prev) => [...prev, ...nuevas].slice(0, MAX_FOTOS));
+  };
+
+  const onTakePhoto = async () => {
+    if (fotoUris.length >= MAX_FOTOS) return;
+    const uri = await takePhoto();
+    if (uri) addFotos([uri]);
+  };
+
+  const onPickFromLibrary = async () => {
     const restantes = MAX_FOTOS - fotoUris.length;
     if (restantes <= 0) return;
-    const res = await ImagePicker.launchImageLibraryAsync({
-      quality: 1,
-      allowsMultipleSelection: true,
-      selectionLimit: restantes,
-    });
-    if (!res.canceled) {
-      const nuevas = res.assets.map((a) => a.uri);
-      setFotoUris((prev) => [...prev, ...nuevas].slice(0, MAX_FOTOS));
-    }
+    const uris = await pickFromLibrary(restantes);
+    addFotos(uris);
   };
 
   const removeFoto = (uri: string) => {
@@ -157,13 +166,22 @@ export default function PublishScreen({ navigation }: any) {
           <Input placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} />
 
           {fotoUris.length < MAX_FOTOS ? (
-            <Button
-              title={fotoUris.length === 0 ? 'Elegir fotos' : 'Agregar otra foto'}
-              variant="secondary"
-              icon="image"
-              onPress={pickImage}
-              style={styles.actionButton}
-            />
+            <View style={styles.photoButtonsRow}>
+              <Button
+                title="Tomar foto"
+                variant="secondary"
+                icon="camera"
+                onPress={onTakePhoto}
+                style={styles.photoButton}
+              />
+              <Button
+                title="Galería"
+                variant="secondary"
+                icon="image"
+                onPress={onPickFromLibrary}
+                style={styles.photoButton}
+              />
+            </View>
           ) : null}
           <AppText muted size={12} style={styles.photoHint}>
             {fotoUris.length}/{MAX_FOTOS} fotos
@@ -271,6 +289,14 @@ const styles = StyleSheet.create({
   actionButton: {
     alignSelf: 'stretch',
     marginTop: spacing.xs,
+  },
+  photoButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  photoButton: {
+    flex: 1,
   },
   photoHint: {
     marginTop: spacing.xs,
