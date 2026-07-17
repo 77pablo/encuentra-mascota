@@ -1,24 +1,90 @@
 import React from 'react';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppText, Badge, Card, Title } from '../ui';
+import { colors, radius, spacing } from '../theme';
 import { Pet } from '../services/pets';
+
+const especieLabel: Record<Pet['especie'], string> = {
+  perro: 'Perro',
+  gato: 'Gato',
+  otro: 'Mascota',
+};
 
 export default function PetCard({ pet, onPress }: { pet: Pet; onPress: () => void }) {
   return (
-    <TouchableOpacity onPress={onPress}
-      style={{ flexDirection: 'row', gap: 12, padding: 12, borderBottomWidth: 1, borderColor: '#eee' }}>
-      {pet.fotos[0] ? (
-        <Image source={{ uri: pet.fotos[0] }} style={{ width: 64, height: 64, borderRadius: 8 }} />
-      ) : (
-        <View style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: '#ddd' }} />
-      )}
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontWeight: '700' }}>
-          {pet.estado === 'perdida' ? '🔴 Perdida' : '🟢 Encontrada'} · {pet.especie}
-          {pet.raza ? ` (${pet.raza})` : ''}
-        </Text>
-        <Text numberOfLines={2}>{pet.descripcion}</Text>
-        {pet.recompensa ? <Text style={{ color: '#b8860b' }}>Recompensa: {pet.recompensa}</Text> : null}
-      </View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      <Card style={styles.card}>
+        <View style={styles.row}>
+          {pet.fotos[0] ? (
+            <Image source={{ uri: pet.fotos[0] }} style={styles.photo} />
+          ) : (
+            <View style={[styles.photo, styles.photoPlaceholder]}>
+              <AppText size={28}>🐾</AppText>
+            </View>
+          )}
+          <View style={styles.info}>
+            <Badge estado={pet.estado} />
+            <Title size={16} numberOfLines={1} style={styles.title}>
+              {especieLabel[pet.especie]}
+              {pet.nombre ? ` · ${pet.nombre}` : ''}
+              {pet.raza ? (
+                <AppText muted size={13}>
+                  {' '}
+                  ({pet.raza})
+                </AppText>
+              ) : null}
+            </Title>
+            <AppText muted size={13} numberOfLines={2} style={styles.description}>
+              {pet.descripcion}
+            </AppText>
+            {pet.recompensa ? (
+              <View style={styles.rewardPill}>
+                <AppText weight="bold" size={12} color={colors.ink}>
+                  🎁 Recompensa: {pet.recompensa}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Card>
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    padding: spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  photo: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+  },
+  photoPlaceholder: {
+    backgroundColor: colors.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  title: {
+    marginTop: spacing.xs,
+  },
+  description: {
+    lineHeight: 18,
+  },
+  rewardPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.sun,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    marginTop: spacing.xs,
+  },
+});
