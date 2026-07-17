@@ -30,6 +30,8 @@ const config: ExpoConfig = {
     ],
     'expo-secure-store',
     'expo-notifications',
+    'expo-font',
+    'expo-splash-screen',
   ],
 };
 

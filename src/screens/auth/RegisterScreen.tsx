@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Button, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
+import { spacing } from '../../theme';
 
-export default function RegisterScreen() {
+export default function RegisterScreen({ navigation }: any) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,15 +38,94 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
-      <Text style={{ fontSize: 22, fontWeight: '700', textAlign: 'center' }}>Crear cuenta</Text>
-      <TextInput placeholder="Tu nombre" value={nombre} onChangeText={setNombre}
-        style={{ borderWidth: 1, borderRadius: 8, padding: 12 }} />
-      <TextInput placeholder="Correo" autoCapitalize="none" keyboardType="email-address"
-        value={email} onChangeText={setEmail} style={{ borderWidth: 1, borderRadius: 8, padding: 12 }} />
-      <TextInput placeholder="Contraseña (mín. 6)" secureTextEntry value={password} onChangeText={setPassword}
-        style={{ borderWidth: 1, borderRadius: 8, padding: 12 }} />
-      <Button title={loading ? 'Creando…' : 'Registrarme'} onPress={onSubmit} disabled={loading} />
-    </View>
+    <Screen>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.hero}>
+            <AppText size={56}>🐶</AppText>
+            <Title size={26} align="center" style={styles.heroTitle}>
+              Crea tu cuenta
+            </Title>
+            <AppText muted align="center" style={styles.heroSubtitle}>
+              Únete y ayuda a reunir mascotas con su familia.
+            </AppText>
+          </View>
+
+          <Card style={styles.card}>
+            <Input
+              label="Nombre"
+              icon="person"
+              placeholder="Tu nombre"
+              value={nombre}
+              onChangeText={setNombre}
+            />
+            <Input
+              label="Correo"
+              icon="mail"
+              placeholder="tucorreo@ejemplo.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Input
+              label="Contraseña"
+              icon="lock-closed"
+              placeholder="Mínimo 6 caracteres"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            <Button
+              title={loading ? 'Creando…' : 'Registrarme'}
+              onPress={onSubmit}
+              loading={loading}
+              style={styles.primaryButton}
+            />
+            <Button
+              title="¿Ya tienes cuenta? Inicia sesión"
+              variant="ghost"
+              onPress={() => navigation.goBack()}
+            />
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  hero: {
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
+  },
+  heroTitle: {
+    marginTop: spacing.sm,
+  },
+  heroSubtitle: {
+    marginTop: spacing.xs,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+  },
+  primaryButton: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+});

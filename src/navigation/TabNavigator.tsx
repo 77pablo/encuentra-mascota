@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import PublishScreen from '../screens/PublishScreen';
 import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
@@ -9,16 +9,9 @@ import PetDetailScreen from '../screens/PetDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
+import { colors, font } from '../theme';
 
 const Tab = createBottomTabNavigator();
-
-function Placeholder({ nombre }: { nombre: string }) {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>{nombre}</Text>
-    </View>
-  );
-}
 
 // Cada pestaña que puede navegar a un detalle de mascota (Mapa, Lista) tiene
 // su propio stack nativo con las pantallas PetDetail y Chat registradas, para
@@ -55,9 +48,40 @@ function MsgStack() {
   );
 }
 
+const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  Mapa: 'map',
+  Lista: 'list',
+  Publicar: 'add-circle',
+  Mensajes: 'chatbubble-ellipses',
+  Perfil: 'person',
+};
+
 export default function TabNavigator() {
   return (
-    <Tab.Navigator>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarActiveTintColor: colors.brand,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: {
+          backgroundColor: colors.white,
+          borderTopColor: colors.line,
+        },
+        tabBarLabelStyle: {
+          fontFamily: font.bodySemi,
+          fontSize: 11,
+        },
+        tabBarIcon: ({ color, focused }) => {
+          const isPublish = route.name === 'Publicar';
+          return (
+            <Ionicons
+              name={TAB_ICONS[route.name]}
+              size={isPublish ? 30 : 24}
+              color={isPublish && focused ? colors.brand : color}
+            />
+          );
+        },
+      })}
+    >
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} />
