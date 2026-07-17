@@ -7,7 +7,11 @@ export function useRealtimeMessages(petId: string, me: string, other: string): M
 
   useEffect(() => {
     let active = true;
-    listMessages(petId, me, other).then((m) => active && setMessages(m));
+    listMessages(petId, me, other)
+      .then((m) => {
+        if (active) setMessages(m);
+      })
+      .catch((e) => console.error('No se pudieron cargar los mensajes:', e));
 
     const channel = supabase
       .channel(`chat-${petId}-${me}`)
