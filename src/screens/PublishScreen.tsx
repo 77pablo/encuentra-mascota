@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Button, Image, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../components/PlatformMap';
 import { petSchema } from '../schemas/pet';
 import { uploadPetPhoto } from '../services/storage';
 import { createPet } from '../services/pets';

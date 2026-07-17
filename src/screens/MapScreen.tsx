@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../components/PlatformMap';
 import { useFocusEffect } from '@react-navigation/native';
 import { listActivePets, Pet } from '../services/pets';
 

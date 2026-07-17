@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Image, ScrollView, Text } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 
