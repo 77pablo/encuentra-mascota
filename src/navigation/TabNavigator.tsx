@@ -8,6 +8,7 @@ import ListScreen from '../screens/ListScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ConversationsScreen from '../screens/ConversationsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -44,13 +45,24 @@ function ListStack() {
   );
 }
 
+const MsgStackNav = createNativeStackNavigator();
+function MsgStack() {
+  return (
+    <MsgStackNav.Navigator>
+      <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} />
+      <MsgStackNav.Screen name="Chat" component={ChatScreen} />
+    </MsgStackNav.Navigator>
+  );
+}
+
 export default function TabNavigator() {
   return (
     <Tab.Navigator>
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} />
-      <Tab.Screen name="Mensajes" component={ProfileScreen} />
+      <Tab.Screen name="Mensajes" component={MsgStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Perfil" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
