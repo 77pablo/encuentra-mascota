@@ -1,5 +1,6 @@
 import { Linking, Platform, Share } from 'react-native';
 import { Pet } from '../services/pets';
+import { petUrl } from './links';
 
 // Arma el texto de un reporte listo para compartir por WhatsApp u otra app.
 export function buildShareText(pet: Pet): string {
@@ -8,7 +9,9 @@ export function buildShareText(pet: Pet): string {
   const raza = pet.raza ? ` (${pet.raza})` : '';
   const recompensa = pet.recompensa ? `\n🎁 Recompensa: ${pet.recompensa}` : '';
   const foto = pet.fotos?.[0] ? `\n${pet.fotos[0]}` : '';
-  return `${estado}: ${pet.especie}${nombre}${raza}\n${pet.descripcion}${recompensa}${foto}\n\n📲 Compartido desde Encuentra tu Mascota`;
+  const url = petUrl(pet.id);
+  const link = url ? `\n👉 Ver ficha: ${url}` : '';
+  return `${estado}: ${pet.especie}${nombre}${raza}\n${pet.descripcion}${recompensa}${foto}${link}\n\n📲 Compartido desde Encuentra tu Mascota`;
 }
 
 // Comparte un reporte: en web abre WhatsApp Web/deep link en una pestaña
