@@ -3,7 +3,7 @@
 Mejoras acordadas (1–15). Estado: ⬜ pendiente · 🔨 en curso · ✅ listo · 🔑 necesita cuenta/llave del usuario.
 
 ## Producto core
-- ⬜ **#1 Ubicación "cerca de mí" + filtro por especie** — filtrar/ordenar por distancia; chips de especie.
+- ✅ **#1 Ubicación "cerca de mí" + filtro por especie** — filtrar/ordenar por distancia; chips de especie.
 - ⬜ **#5 "Hace cuánto" + fecha del reporte** — mostrar tiempo relativo y última ubicación.
 - ⬜ **#9 Buscar por texto** — nombre, raza, color.
 - ⬜ **#10 Perfil completo** — foto de perfil, editar perfil, historial de reportes resueltos.
