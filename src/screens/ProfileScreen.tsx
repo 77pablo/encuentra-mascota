@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { closePet, deletePet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { confirmAction, notify } from '../lib/notify';
-import { AppText, Badge, Button, Card, EmptyState, Screen } from '../ui';
+import { AppText, Badge, Button, Card, Confetti, EmptyState, Screen } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -17,6 +17,7 @@ const especieLabel: Record<Pet['especie'], string> = {
 export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
   const [mis, setMis] = useState<Pet[]>([]);
+  const [celebrating, setCelebrating] = useState(false);
 
   const cargar = useCallback(() => {
     supabase.from('pets').select('*').eq('user_id', user!.id).eq('activo', true)
@@ -27,6 +28,7 @@ export default function ProfileScreen({ navigation }: any) {
 
   const marcar = async (id: string) => {
     await closePet(id);
+    setCelebrating(true);
     notify('¡Genial!', 'Reporte cerrado.');
     cargar();
   };
@@ -117,6 +119,8 @@ export default function ProfileScreen({ navigation }: any) {
       />
 
       <Button title="Cerrar sesión" variant="danger" onPress={signOut} style={styles.signOutButton} />
+
+      <Confetti visible={celebrating} onDone={() => setCelebrating(false)} />
     </Screen>
   );
 }

@@ -3,6 +3,7 @@ import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Scro
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
+import { shareReport } from '../lib/share';
 import { AppText, Badge, Button, Card, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -127,6 +128,14 @@ export default function PetDetailScreen({ route, navigation }: any) {
             style={styles.contactButton}
           />
         )}
+
+        <Button
+          title="Compartir"
+          variant="secondary"
+          icon="logo-whatsapp"
+          onPress={() => shareReport(pet)}
+          style={styles.shareButton}
+        />
       </ScrollView>
     </Screen>
   );
@@ -192,5 +201,8 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     marginTop: spacing.md,
+  },
+  shareButton: {
+    marginTop: spacing.sm,
   },
 });

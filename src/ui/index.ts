@@ -12,3 +12,5 @@ export { Screen } from './Screen';
 export type { ScreenProps } from './Screen';
 export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
+export { Confetti } from './Confetti';
+export type { ConfettiProps } from './Confetti';
