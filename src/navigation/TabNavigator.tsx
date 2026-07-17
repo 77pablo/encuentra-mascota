@@ -7,6 +7,7 @@ import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -49,7 +50,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} />
-      <Tab.Screen name="Mensajes">{() => <Placeholder nombre="Mensajes" />}</Tab.Screen>
+      <Tab.Screen name="Mensajes" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
