@@ -3,6 +3,7 @@ import { Button, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View
 import { useAuth } from '../hooks/useAuth';
 import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { sendMessage } from '../services/messages';
+import { supabase } from '../lib/supabase';
 
 export default function ChatScreen({ route }: any) {
   const { petId, otherUserId } = route.params;
@@ -16,6 +17,12 @@ export default function ChatScreen({ route }: any) {
     setTexto('');
     try {
       await sendMessage(petId, me, otherUserId, t);
+      // Push "best effort": si falla, el chat igual funcionó.
+      supabase.functions
+        .invoke('send-push', {
+          body: { toUserId: otherUserId, title: 'Nuevo mensaje sobre una mascota', body: t.slice(0, 80) },
+        })
+        .catch(() => {});
     } catch {
       setTexto(t); // restaurar si falla
     }
