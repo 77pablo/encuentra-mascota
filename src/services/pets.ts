@@ -60,3 +60,18 @@ export async function closePet(id: string): Promise<void> {
   if (error) throw error;
   activePetsCache.clear(); // se cerró un reporte → refrescar
 }
+
+export async function updatePet(
+  id: string,
+  fields: Partial<Pick<Pet, 'estado' | 'especie' | 'raza' | 'nombre' | 'descripcion' | 'recompensa'>>,
+): Promise<void> {
+  const { error } = await supabase.from('pets').update(fields).eq('id', id);
+  if (error) throw error;
+  activePetsCache.clear();
+}
+
+export async function deletePet(id: string): Promise<void> {
+  const { error } = await supabase.from('pets').delete().eq('id', id);
+  if (error) throw error;
+  activePetsCache.clear();
+}

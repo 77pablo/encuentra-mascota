@@ -2,9 +2,9 @@ import React, { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { closePet, Pet } from '../services/pets';
+import { closePet, deletePet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
-import { notify } from '../lib/notify';
+import { confirmAction, notify } from '../lib/notify';
 import { AppText, Badge, Button, Card, EmptyState, Screen } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -14,7 +14,7 @@ const especieLabel: Record<Pet['especie'], string> = {
   otro: 'Mascota',
 };
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
   const [mis, setMis] = useState<Pet[]>([]);
 
@@ -29,6 +29,22 @@ export default function ProfileScreen() {
     await closePet(id);
     notify('¡Genial!', 'Reporte cerrado.');
     cargar();
+  };
+
+  const editar = (item: Pet) => {
+    navigation.navigate('EditPet', { pet: item });
+  };
+
+  const borrar = async (id: string) => {
+    const ok = await confirmAction('¿Borrar reporte?', 'Esta acción no se puede deshacer.');
+    if (!ok) return;
+    try {
+      await deletePet(id);
+      notify('Borrado', 'El reporte se eliminó.');
+      cargar();
+    } catch (e: any) {
+      notify('Error', e?.message ?? 'No se pudo borrar.');
+    }
   };
 
   const inicial = user?.email ? user.email.charAt(0).toUpperCase() : '🐾';
@@ -80,6 +96,22 @@ export default function ProfileScreen() {
               onPress={() => marcar(item.id)}
               style={styles.reportButton}
             />
+            <View style={styles.reportActionsRow}>
+              <Button
+                title="Editar"
+                variant="ghost"
+                icon="create"
+                onPress={() => editar(item)}
+                style={styles.reportActionButton}
+              />
+              <Button
+                title="Borrar"
+                variant="ghost"
+                icon="trash"
+                onPress={() => borrar(item.id)}
+                style={styles.reportActionButton}
+              />
+            </View>
           </Card>
         )}
       />
@@ -129,6 +161,14 @@ const styles = StyleSheet.create({
   reportButton: {
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
+  },
+  reportActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  reportActionButton: {
+    paddingHorizontal: spacing.md,
   },
   signOutButton: {
     marginTop: spacing.md,

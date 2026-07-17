@@ -10,3 +10,19 @@ export function notify(title: string, message?: string): void {
   }
   Alert.alert(title, message);
 }
+
+// Pide confirmación al usuario antes de una acción destructiva. Resuelve
+// `true` si confirma, `false` si cancela. En web usa window.confirm; en
+// móvil usa Alert.alert con dos botones.
+export function confirmAction(title: string, message: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    return Promise.resolve(window.confirm(message ? `${title}\n\n${message}` : title));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Confirmar', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}

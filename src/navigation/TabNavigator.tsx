@@ -8,6 +8,7 @@ import ListScreen from '../screens/ListScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import { colors, font } from '../theme';
 
@@ -45,6 +46,18 @@ function MsgStack() {
       <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} />
       <MsgStackNav.Screen name="Chat" component={ChatScreen} />
     </MsgStackNav.Navigator>
+  );
+}
+
+// Perfil también es un stack propio: desde la lista de reportes se puede
+// entrar a EditPet para editar los campos de texto de un reporte.
+const ProfileStackNav = createNativeStackNavigator();
+function ProfileStack() {
+  return (
+    <ProfileStackNav.Navigator>
+      <ProfileStackNav.Screen name="Perfil" component={ProfileScreen} />
+      <ProfileStackNav.Screen name="EditPet" component={EditPetScreen} options={{ title: 'Editar reporte' }} />
+    </ProfileStackNav.Navigator>
   );
 }
 
@@ -86,7 +99,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} />
       <Tab.Screen name="Mensajes" component={MsgStack} options={{ headerShown: false }} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} />
+      <Tab.Screen name="Perfil" component={ProfileStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
