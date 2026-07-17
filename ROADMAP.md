@@ -17,7 +17,7 @@ Mejoras acordadas (1–15). Estado: ⬜ pendiente · 🔨 en curso · ✅ listo 
 - ✅ **#2 Recuperar contraseña** — flujo "olvidé mi clave" (envía correo → necesita #3).
 
 ## Infra y distribución (necesitan cuenta/llave)
-- 🔑 **#7 Link compartible** — deep links + ficha pública; requiere desplegar la web.
+- ✅ **#7 Link compartible** — deep links + ficha pública; requiere desplegar la web.
 - 🔑 **#3 Correo/SMTP** — SMTP propio (Resend) + confirmación de correo ON.
 - 🔑 **#8 Notificaciones** — indicador de no leídos (programable) + push real (necesita EAS).
 - 🔑 **#13 Sentry** — monitoreo de errores (necesita DSN).
