@@ -1,28 +1,36 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { loginSchema } from '../../schemas/auth';
+import { forgotPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
 import { spacing } from '../../theme';
 
-export default function LoginScreen({ navigation }: any) {
+export default function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async () => {
-    const parsed = loginSchema.safeParse({ email, password });
+    const parsed = forgotPasswordSchema.safeParse({ email });
     if (!parsed.success) {
       notify('Revisa los datos', parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword(parsed.data);
+      const redirectTo = Platform.OS === 'web' ? window.location.origin : undefined;
+      const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+        redirectTo,
+      });
       if (error) {
-        notify('No se pudo entrar', error.message);
+        notify('No se pudo enviar el enlace', error.message);
+        return;
       }
+      notify(
+        'Revisa tu correo',
+        'Te enviamos un enlace para restablecer tu contraseña. Revisa también spam.'
+      );
+      navigation.goBack();
     } catch (e: any) {
       notify('Error de red', e?.message ?? 'Intenta de nuevo.');
     } finally {
@@ -41,12 +49,12 @@ export default function LoginScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.hero}>
-            <AppText size={56}>🐾</AppText>
+            <AppText size={56}>🔑</AppText>
             <Title size={26} align="center" style={styles.heroTitle}>
-              Encuentra tu Mascota
+              ¿Olvidaste tu contraseña?
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
-              Reunamos mascotas con su familia.
+              Escribe tu correo y te enviaremos un enlace para restablecerla.
             </AppText>
           </View>
 
@@ -60,29 +68,16 @@ export default function LoginScreen({ navigation }: any) {
               value={email}
               onChangeText={setEmail}
             />
-            <Input
-              label="Contraseña"
-              icon="lock-closed"
-              placeholder="Tu contraseña"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
             <Button
-              title={loading ? 'Entrando…' : 'Entrar'}
+              title={loading ? 'Enviando…' : 'Enviar enlace'}
               onPress={onSubmit}
               loading={loading}
               style={styles.primaryButton}
             />
             <Button
-              title="¿Olvidaste tu contraseña?"
+              title="Volver a iniciar sesión"
               variant="ghost"
-              onPress={() => navigation.navigate('ForgotPassword')}
-            />
-            <Button
-              title="¿No tienes cuenta? Crea una"
-              variant="ghost"
-              onPress={() => navigation.navigate('Register')}
+              onPress={() => navigation.goBack()}
             />
           </Card>
         </ScrollView>

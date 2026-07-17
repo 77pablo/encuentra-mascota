@@ -1,28 +1,33 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { loginSchema } from '../../schemas/auth';
+import { resetPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { useAuth } from '../../hooks/useAuth';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
 import { spacing } from '../../theme';
 
-export default function LoginScreen({ navigation }: any) {
-  const [email, setEmail] = useState('');
+export default function ResetPasswordScreen() {
+  const { clearRecovering } = useAuth();
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async () => {
-    const parsed = loginSchema.safeParse({ email, password });
+    const parsed = resetPasswordSchema.safeParse({ password, confirmPassword });
     if (!parsed.success) {
       notify('Revisa los datos', parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword(parsed.data);
+      const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
       if (error) {
-        notify('No se pudo entrar', error.message);
+        notify('No se pudo actualizar', error.message);
+        return;
       }
+      notify('Listo', 'Tu contraseña se actualizó.');
+      clearRecovering();
     } catch (e: any) {
       notify('Error de red', e?.message ?? 'Intenta de nuevo.');
     } finally {
@@ -41,48 +46,37 @@ export default function LoginScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.hero}>
-            <AppText size={56}>🐾</AppText>
+            <AppText size={56}>🔒</AppText>
             <Title size={26} align="center" style={styles.heroTitle}>
-              Encuentra tu Mascota
+              Nueva contraseña
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
-              Reunamos mascotas con su familia.
+              Elige una contraseña nueva para tu cuenta.
             </AppText>
           </View>
 
           <Card style={styles.card}>
             <Input
-              label="Correo"
-              icon="mail"
-              placeholder="tucorreo@ejemplo.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Input
-              label="Contraseña"
+              label="Nueva contraseña"
               icon="lock-closed"
-              placeholder="Tu contraseña"
+              placeholder="Mínimo 6 caracteres"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
             />
+            <Input
+              label="Confirmar contraseña"
+              icon="lock-closed"
+              placeholder="Repite tu contraseña"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
             <Button
-              title={loading ? 'Entrando…' : 'Entrar'}
+              title={loading ? 'Guardando…' : 'Guardar contraseña'}
               onPress={onSubmit}
               loading={loading}
               style={styles.primaryButton}
-            />
-            <Button
-              title="¿Olvidaste tu contraseña?"
-              variant="ghost"
-              onPress={() => navigation.navigate('ForgotPassword')}
-            />
-            <Button
-              title="¿No tienes cuenta? Crea una"
-              variant="ghost"
-              onPress={() => navigation.navigate('Register')}
             />
           </Card>
         </ScrollView>
