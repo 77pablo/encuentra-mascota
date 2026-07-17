@@ -3,11 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from '../components/PlatformMap';
 import { useFocusEffect } from '@react-navigation/native';
 import { listActivePets, Pet } from '../services/pets';
+import { useMyLocation } from '../hooks/useMyLocation';
 import { AppText, Screen } from '../ui';
 import { colors, radius, shadow, spacing } from '../theme';
 
+const SANTIAGO_REGION = { latitude: -33.45, longitude: -70.66, latitudeDelta: 0.3, longitudeDelta: 0.3 };
+
 export default function MapScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
+  const { coords } = useMyLocation(true);
 
   useFocusEffect(
     useCallback(() => {
@@ -15,12 +19,17 @@ export default function MapScreen({ navigation }: any) {
     }, []),
   );
 
+  const initialRegion = coords
+    ? { latitude: coords.lat, longitude: coords.lng, latitudeDelta: 0.3, longitudeDelta: 0.3 }
+    : SANTIAGO_REGION;
+
   return (
     <Screen>
       <View style={styles.mapWrap}>
         <MapView
+          key={coords ? 'user-location' : 'santiago'}
           style={styles.map}
-          initialRegion={{ latitude: -33.45, longitude: -70.66, latitudeDelta: 0.3, longitudeDelta: 0.3 }}
+          initialRegion={initialRegion}
         >
           {pets.map((p) => (
             <Marker

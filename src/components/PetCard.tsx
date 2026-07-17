@@ -3,6 +3,7 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { AppText, Badge, Card, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { Pet } from '../services/pets';
+import { distanceLabel } from '../lib/geo';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -10,7 +11,15 @@ const especieLabel: Record<Pet['especie'], string> = {
   otro: 'Mascota',
 };
 
-export default function PetCard({ pet, onPress }: { pet: Pet; onPress: () => void }) {
+export default function PetCard({
+  pet,
+  onPress,
+  distanceKm,
+}: {
+  pet: Pet;
+  onPress: () => void;
+  distanceKm?: number;
+}) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
       <Card style={styles.card}>
@@ -37,6 +46,11 @@ export default function PetCard({ pet, onPress }: { pet: Pet; onPress: () => voi
             <AppText muted size={13} numberOfLines={2} style={styles.description}>
               {pet.descripcion}
             </AppText>
+            {distanceKm !== undefined ? (
+              <AppText muted size={12}>
+                📍 {distanceLabel(distanceKm)}
+              </AppText>
+            ) : null}
             {pet.recompensa ? (
               <View style={styles.rewardPill}>
                 <AppText weight="bold" size={12} color={colors.ink}>
