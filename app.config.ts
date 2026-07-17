@@ -9,6 +9,9 @@ const config: ExpoConfig = {
   android: {
     package: 'com.pabloespinoza.encuentramascota',
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'android.permission.CAMERA'],
+    config: {
+      googleMaps: { apiKey: process.env.GOOGLE_MAPS_API_KEY },
+    },
   },
   ios: {
     bundleIdentifier: 'com.pabloespinoza.encuentramascota',

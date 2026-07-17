@@ -8,6 +8,9 @@ import {
 import { AuthProvider } from './src/hooks/useAuth';
 import { UnreadProvider } from './src/hooks/useUnread';
 import RootNavigator from './src/navigation/RootNavigator';
+import { initMonitoring } from './src/lib/monitoring';
+
+initMonitoring();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
