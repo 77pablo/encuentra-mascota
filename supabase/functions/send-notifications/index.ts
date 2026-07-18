@@ -37,6 +37,19 @@ interface EventoRow {
 
 type Supa = ReturnType<typeof createClient>;
 
+// Escapa el texto antes de meterlo en el HTML del correo.
+// NO ES OPCIONAL: el cuerpo de un aviso de tipo 'pista' incluye un extracto
+// escrito por cualquier vecino, así que sin esto una pista maliciosa podría
+// inyectar HTML en el correo que le llega al dueño del reporte.
+function escaparHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Manda un correo por la API de Resend. Si falta la configuración, el canal se
 // salta en silencio y devuelve false: el otro canal igual se intenta.
 async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: string): Promise<boolean> {
@@ -46,9 +59,9 @@ async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: s
 
   const html = `
     <div style="font-family: system-ui, sans-serif; color: #23231D; line-height: 1.5;">
-      <h2 style="color: #17654B; margin-bottom: 8px;">${titulo}</h2>
-      <p style="margin-top: 0;">${cuerpo}</p>
-      <p><a href="${url}" style="background: #17654B; color: #fff; padding: 10px 18px;
+      <h2 style="color: #17654B; margin-bottom: 8px;">${escaparHtml(titulo)}</h2>
+      <p style="margin-top: 0;">${escaparHtml(cuerpo)}</p>
+      <p><a href="${encodeURI(url)}" style="background: #17654B; color: #fff; padding: 10px 18px;
         border-radius: 999px; text-decoration: none; display: inline-block;">Ver el reporte</a></p>
       <p style="color: #7E7B6F; font-size: 12px;">Encuentra tu Mascota · Podés cambiar tus avisos
         desde Perfil → Avisos.</p>
