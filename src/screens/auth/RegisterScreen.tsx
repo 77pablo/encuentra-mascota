@@ -4,7 +4,7 @@ import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
-import { colors, spacing } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 
 export default function RegisterScreen({ navigation }: any) {
   const [nombre, setNombre] = useState('');
@@ -47,9 +47,9 @@ export default function RegisterScreen({ navigation }: any) {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.hero}>
+          <View style={styles.heroBand}>
             <Mascota size={56} color={colors.brandDark} />
-            <Title size={26} align="center" style={styles.heroTitle}>
+            <Title size={24} align="center" style={styles.heroTitle}>
               Crea tu cuenta
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
@@ -57,46 +57,48 @@ export default function RegisterScreen({ navigation }: any) {
             </AppText>
           </View>
 
-          <Card style={styles.card}>
-            <Input
-              label="Nombre"
-              icon="person"
-              placeholder="Tu nombre"
-              value={nombre}
-              onChangeText={setNombre}
-            />
-            <Input
-              label="Correo"
-              icon="mail"
-              placeholder="tucorreo@ejemplo.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Input
-              label="Contraseña"
-              icon="lock-closed"
-              placeholder="Mínimo 6 caracteres"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <Button
-              title={loading ? 'Creando…' : 'Registrarme'}
-              onPress={onSubmit}
-              loading={loading}
-              style={styles.primaryButton}
-            />
-            <Button
-              title="¿Ya tienes cuenta? Inicia sesión"
-              variant="ghost"
-              onPress={() => navigation.goBack()}
-            />
-            <AppText muted size={12} align="center" style={styles.legalNote}>
-              Al crear tu cuenta aceptas los Términos y la Política de Privacidad.
-            </AppText>
-          </Card>
+          <View style={styles.body}>
+            <Card style={styles.card}>
+              <Input
+                label="Nombre"
+                icon="person"
+                placeholder="Tu nombre"
+                value={nombre}
+                onChangeText={setNombre}
+              />
+              <Input
+                label="Correo"
+                icon="mail"
+                placeholder="tucorreo@ejemplo.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Input
+                label="Contraseña"
+                icon="lock-closed"
+                placeholder="Mínimo 6 caracteres"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Button
+                title={loading ? 'Creando…' : 'Registrarme'}
+                onPress={onSubmit}
+                loading={loading}
+                style={styles.primaryButton}
+              />
+              <Button
+                title="¿Ya tienes cuenta? Inicia sesión"
+                variant="ghost"
+                onPress={() => navigation.goBack()}
+              />
+              <AppText muted size={12} align="center" style={styles.legalNote}>
+                Al crear tu cuenta aceptas los Términos y la Política de Privacidad.
+              </AppText>
+            </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -109,18 +111,26 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: spacing.xl,
+    paddingBottom: spacing.xxxl,
   },
-  hero: {
+  heroBand: {
+    backgroundColor: colors.sky,
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
   },
   heroTitle: {
     marginTop: spacing.sm,
   },
   heroSubtitle: {
     marginTop: spacing.xs,
+    maxWidth: 280,
+  },
+  body: {
+    padding: spacing.xl,
   },
   card: {
     width: '100%',

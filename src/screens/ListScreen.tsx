@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { listActivePets, Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
-import { AppText, Button, EmptyState, ErrorState, Input, Loading, Screen } from '../ui';
+import { AppText, Card, Chip, EmptyState, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { distanceKm as getDistanceKm } from '../lib/geo';
 import { useMyLocation } from '../hooks/useMyLocation';
@@ -116,82 +117,66 @@ export default function ListScreen({ navigation }: any) {
 
   return (
     <Screen padded>
-      <Button
-        title="¿Encontraste una mascota?"
-        icon="search"
-        onPress={() => navigation.navigate('Encontre')}
-        style={styles.findButton}
-      />
+      <Title size={22} style={styles.screenTitle}>
+        Todas las mascotas
+      </Title>
+
+      <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Encontre')}>
+        <Card style={styles.findCard}>
+          <View style={styles.findRow}>
+            <View style={styles.findIconWrap}>
+              <Ionicons name="search" size={20} color={colors.brand} />
+            </View>
+            <View style={styles.findTextWrap}>
+              <AppText weight="bold" size={14}>
+                ¿Encontraste una mascota?
+              </AppText>
+              <AppText muted size={12}>
+                Publícala y ayuda a que vuelva a casa.
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </View>
+        </Card>
+      </TouchableOpacity>
+
       <Input
         value={busqueda}
         onChangeText={setBusqueda}
         placeholder="Buscar por nombre, raza o color…"
         icon="search"
       />
+
       <View style={styles.chipsRow}>
-        {filtros.map((f) => {
-          const active = estado === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              onPress={() => setEstado(f.key)}
-              activeOpacity={0.8}
-              style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
-            >
-              <AppText weight="bold" size={13} color={active ? colors.white : colors.muted}>
-                {f.label}
-              </AppText>
-            </TouchableOpacity>
-          );
-        })}
+        {filtros.map((f) => (
+          <Chip key={f.key} label={f.label} active={estado === f.key} onPress={() => setEstado(f.key)} />
+        ))}
       </View>
       <View style={styles.chipsRow}>
-        {especieFiltros.map((f) => {
-          const active = especie === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              onPress={() => setEspecie(f.key)}
-              activeOpacity={0.8}
-              style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
-            >
-              <AppText weight="bold" size={13} color={active ? colors.white : colors.muted}>
-                {f.label}
-              </AppText>
-            </TouchableOpacity>
-          );
-        })}
+        {especieFiltros.map((f) => (
+          <Chip
+            key={f.key}
+            label={f.label}
+            active={especie === f.key}
+            onPress={() => setEspecie(f.key)}
+          />
+        ))}
       </View>
       <View style={styles.chipsRow}>
-        <TouchableOpacity
+        <Chip
+          label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
+          active={cercaDeMi}
           onPress={toggleCercaDeMi}
-          activeOpacity={0.8}
-          style={[styles.chip, cercaDeMi ? styles.chipActive : styles.chipInactive]}
-        >
-          <AppText weight="bold" size={13} color={cercaDeMi ? colors.white : colors.muted}>
-            📍 {location.status === 'loading' ? 'Buscando…' : 'Cerca de mí'}
-          </AppText>
-        </TouchableOpacity>
+        />
       </View>
       {cercaDeMi ? (
         <View style={styles.chipsRow}>
-          {radios.map((r) => {
-            const active = radioKm === r.key;
-            return (
-              <TouchableOpacity
-                key={r.label}
-                onPress={() => setRadioKm(r.key)}
-                activeOpacity={0.8}
-                style={[styles.radioChip, active ? styles.chipActive : styles.chipInactive]}
-              >
-                <AppText weight="bold" size={12} color={active ? colors.white : colors.muted}>
-                  {r.label}
-                </AppText>
-              </TouchableOpacity>
-            );
-          })}
+          {radios.map((r) => (
+            <Chip key={r.label} label={r.label} active={radioKm === r.key} onPress={() => setRadioKm(r.key)} />
+          ))}
         </View>
       ) : null}
+
       <FlatList
         data={itemsConDistancia}
         keyExtractor={(item) => item.pet.id}
@@ -231,35 +216,37 @@ export default function ListScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  findButton: {
-    alignSelf: 'stretch',
-    marginTop: spacing.md,
+  screenTitle: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  findCard: {
+    backgroundColor: colors.sky,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  findRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  findIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  findTextWrap: {
+    flex: 1,
+    gap: 2,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
     paddingTop: spacing.md,
-  },
-  chip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  radioChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  chipActive: {
-    backgroundColor: colors.brand,
-    borderColor: colors.brand,
-  },
-  chipInactive: {
-    backgroundColor: colors.card,
-    borderColor: colors.line,
   },
   list: {
     paddingTop: spacing.md,

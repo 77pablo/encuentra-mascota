@@ -4,7 +4,7 @@ import { forgotPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
-import { spacing } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -48,9 +48,9 @@ export default function ForgotPasswordScreen({ navigation }: any) {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.hero}>
-            <AppText size={56}>🔑</AppText>
-            <Title size={26} align="center" style={styles.heroTitle}>
+          <View style={styles.heroBand}>
+            <AppText size={48}>🔑</AppText>
+            <Title size={24} align="center" style={styles.heroTitle}>
               ¿Olvidaste tu contraseña?
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
@@ -58,28 +58,30 @@ export default function ForgotPasswordScreen({ navigation }: any) {
             </AppText>
           </View>
 
-          <Card style={styles.card}>
-            <Input
-              label="Correo"
-              icon="mail"
-              placeholder="tucorreo@ejemplo.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Button
-              title={loading ? 'Enviando…' : 'Enviar enlace'}
-              onPress={onSubmit}
-              loading={loading}
-              style={styles.primaryButton}
-            />
-            <Button
-              title="Volver a iniciar sesión"
-              variant="ghost"
-              onPress={() => navigation.goBack()}
-            />
-          </Card>
+          <View style={styles.body}>
+            <Card style={styles.card}>
+              <Input
+                label="Correo"
+                icon="mail"
+                placeholder="tucorreo@ejemplo.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Button
+                title={loading ? 'Enviando…' : 'Enviar enlace'}
+                onPress={onSubmit}
+                loading={loading}
+                style={styles.primaryButton}
+              />
+              <Button
+                title="Volver a iniciar sesión"
+                variant="ghost"
+                onPress={() => navigation.goBack()}
+              />
+            </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -92,18 +94,26 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: spacing.xl,
+    paddingBottom: spacing.xxxl,
   },
-  hero: {
+  heroBand: {
+    backgroundColor: colors.sky,
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
   },
   heroTitle: {
     marginTop: spacing.sm,
   },
   heroSubtitle: {
     marginTop: spacing.xs,
+    maxWidth: 280,
+  },
+  body: {
+    padding: spacing.xl,
   },
   card: {
     width: '100%',

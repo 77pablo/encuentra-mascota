@@ -4,7 +4,7 @@ import { loginSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
-import { colors, spacing } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -40,51 +40,53 @@ export default function LoginScreen({ navigation }: any) {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.hero}>
-            <Mascota size={56} color={colors.brandDark} />
-            <Title size={26} align="center" style={styles.heroTitle}>
+          <View style={styles.heroBand}>
+            <Mascota size={72} color={colors.brandDark} />
+            <Title size={28} align="center" style={styles.heroTitle}>
               Encuentra tu Mascota
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
-              Bienvenido de vuelta. El barrio te estaba esperando.
+              Bienvenido de vuelta. Tu barrio te estaba esperando.
             </AppText>
           </View>
 
-          <Card style={styles.card}>
-            <Input
-              label="Correo"
-              icon="mail"
-              placeholder="tucorreo@ejemplo.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Input
-              label="Contraseña"
-              icon="lock-closed"
-              placeholder="Tu contraseña"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <Button
-              title={loading ? 'Entrando…' : 'Entrar'}
-              onPress={onSubmit}
-              loading={loading}
-              style={styles.primaryButton}
-            />
-            <Button
-              title="¿Olvidaste tu contraseña?"
-              variant="ghost"
-              onPress={() => navigation.navigate('ForgotPassword')}
-            />
-            <Button
-              title="¿No tienes cuenta? Crea una"
-              variant="ghost"
-              onPress={() => navigation.navigate('Register')}
-            />
-          </Card>
+          <View style={styles.body}>
+            <Card style={styles.card}>
+              <Input
+                label="Correo"
+                icon="mail"
+                placeholder="tucorreo@ejemplo.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Input
+                label="Contraseña"
+                icon="lock-closed"
+                placeholder="Tu contraseña"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Button
+                title={loading ? 'Entrando…' : 'Entrar'}
+                onPress={onSubmit}
+                loading={loading}
+                style={styles.primaryButton}
+              />
+              <Button
+                title="¿Olvidaste tu contraseña?"
+                variant="ghost"
+                onPress={() => navigation.navigate('ForgotPassword')}
+              />
+              <Button
+                title="¿No tienes cuenta? Crea una"
+                variant="ghost"
+                onPress={() => navigation.navigate('Register')}
+              />
+            </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -97,18 +99,26 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: spacing.xl,
+    paddingBottom: spacing.xxxl,
   },
-  hero: {
+  heroBand: {
+    backgroundColor: colors.sky,
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    paddingTop: spacing.xxxl,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
   },
   heroTitle: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   heroSubtitle: {
     marginTop: spacing.xs,
+    maxWidth: 280,
+  },
+  body: {
+    padding: spacing.xl,
   },
   card: {
     width: '100%',

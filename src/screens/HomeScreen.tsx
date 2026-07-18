@@ -74,18 +74,24 @@ export default function HomeScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Encabezado de saludo */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <AppText muted size={13}>
               Hola 👋
             </AppText>
-            <Title size={20} style={styles.headerTitle}>
+            <Title size={20} numberOfLines={1} style={styles.headerTitle}>
               {greetingName ? `¿Buscamos juntos, ${greetingName}?` : '¿Buscamos juntos?'}
             </Title>
           </View>
           <View style={styles.headerRight}>
             <View style={styles.locationChip}>
               <Ionicons name="location" size={13} color={colors.brand} />
-              <AppText size={12} weight="semi" color={colors.brand} style={styles.locationChipLabel}>
+              <AppText
+                size={12}
+                weight="semi"
+                color={colors.brand}
+                numberOfLines={1}
+                style={styles.locationChipLabel}
+              >
                 {hasCoords ? 'Tu zona' : 'Tu barrio'}
               </AppText>
             </View>
@@ -230,6 +236,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerLeft: {
+    flexShrink: 1,
+    flexGrow: 1,
+    marginRight: spacing.sm,
+  },
   headerTitle: {
     marginTop: 2,
   },
@@ -237,14 +248,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexShrink: 0,
   },
   locationChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
     backgroundColor: colors.sky,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    maxWidth: 96,
   },
   locationChipLabel: {
     marginLeft: 4,

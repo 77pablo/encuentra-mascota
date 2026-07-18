@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
 import { useAuth } from '../../hooks/useAuth';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
-import { spacing } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 
 export default function ResetPasswordScreen() {
   const { clearRecovering } = useAuth();
@@ -45,9 +45,9 @@ export default function ResetPasswordScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.hero}>
-            <AppText size={56}>🔒</AppText>
-            <Title size={26} align="center" style={styles.heroTitle}>
+          <View style={styles.heroBand}>
+            <AppText size={48}>🔒</AppText>
+            <Title size={24} align="center" style={styles.heroTitle}>
               Nueva contraseña
             </Title>
             <AppText muted align="center" style={styles.heroSubtitle}>
@@ -55,30 +55,32 @@ export default function ResetPasswordScreen() {
             </AppText>
           </View>
 
-          <Card style={styles.card}>
-            <Input
-              label="Nueva contraseña"
-              icon="lock-closed"
-              placeholder="Mínimo 6 caracteres"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <Input
-              label="Confirmar contraseña"
-              icon="lock-closed"
-              placeholder="Repite tu contraseña"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            <Button
-              title={loading ? 'Guardando…' : 'Guardar contraseña'}
-              onPress={onSubmit}
-              loading={loading}
-              style={styles.primaryButton}
-            />
-          </Card>
+          <View style={styles.body}>
+            <Card style={styles.card}>
+              <Input
+                label="Nueva contraseña"
+                icon="lock-closed"
+                placeholder="Mínimo 6 caracteres"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Input
+                label="Confirmar contraseña"
+                icon="lock-closed"
+                placeholder="Repite tu contraseña"
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+              <Button
+                title={loading ? 'Guardando…' : 'Guardar contraseña'}
+                onPress={onSubmit}
+                loading={loading}
+                style={styles.primaryButton}
+              />
+            </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -91,18 +93,26 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: spacing.xl,
+    paddingBottom: spacing.xxxl,
   },
-  hero: {
+  heroBand: {
+    backgroundColor: colors.sky,
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
   },
   heroTitle: {
     marginTop: spacing.sm,
   },
   heroSubtitle: {
     marginTop: spacing.xs,
+    maxWidth: 280,
+  },
+  body: {
+    padding: spacing.xl,
   },
   card: {
     width: '100%',

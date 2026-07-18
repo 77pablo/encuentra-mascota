@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { AppText, Badge, Card, Mascota, Title } from '../ui';
+import { Ionicons } from '@expo/vector-icons';
+import { AppText, Badge, Card } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
@@ -29,30 +30,33 @@ export default function PetCard({
             <Image source={{ uri: pet.fotos[0] }} style={styles.photo} />
           ) : (
             <View style={[styles.photo, styles.photoPlaceholder]}>
-              <Mascota size={40} color={colors.muted} />
+              <Ionicons name="paw" size={26} color={colors.muted} />
             </View>
           )}
           <View style={styles.info}>
-            <Badge estado={pet.estado} />
-            <Title size={16} numberOfLines={1} style={styles.title}>
+            <View style={styles.nameRow}>
+              <AppText weight="bold" size={15} numberOfLines={1} style={styles.name}>
+                {pet.nombre || especieLabel[pet.especie]}
+              </AppText>
+              <Badge estado={pet.estado} />
+            </View>
+            <AppText muted size={12} numberOfLines={1}>
               {especieLabel[pet.especie]}
-              {pet.nombre ? ` · ${pet.nombre}` : ''}
-              {pet.raza ? (
-                <AppText muted size={13}>
-                  {' '}
-                  ({pet.raza})
-                </AppText>
+              {pet.raza ? ` · ${pet.raza}` : ''}
+              {distanceKm !== undefined ? (
+                <>
+                  {'  ·  '}
+                  <AppText weight="bold" color={colors.found} size={12}>
+                    {distanceLabel(distanceKm)}
+                  </AppText>
+                </>
               ) : null}
-            </Title>
-            <AppText muted size={13} numberOfLines={2} style={styles.description}>
-              {pet.descripcion}
+              {'  ·  '}
+              {timeAgo(pet.creado_en)}
             </AppText>
-            <AppText muted size={12}>
-              🕓 {timeAgo(pet.creado_en)}
-            </AppText>
-            {distanceKm !== undefined ? (
-              <AppText muted size={12}>
-                📍 {distanceLabel(distanceKm)}
+            {pet.descripcion ? (
+              <AppText muted size={13} numberOfLines={2} style={styles.description}>
+                {pet.descripcion}
               </AppText>
             ) : null}
             {pet.recompensa ? (
@@ -63,6 +67,15 @@ export default function PetCard({
               </View>
             ) : null}
           </View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.heartButton}
+            onPress={(e) => {
+              e.stopPropagation?.();
+            }}
+          >
+            <Ionicons name="heart-outline" size={20} color={colors.muted} />
+          </TouchableOpacity>
         </View>
       </Card>
     </TouchableOpacity>
@@ -78,24 +91,30 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   photo: {
-    width: 76,
-    height: 76,
+    width: 64,
+    height: 64,
     borderRadius: radius.md,
   },
   photoPlaceholder: {
-    backgroundColor: colors.sky,
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   info: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 4,
   },
-  title: {
-    marginTop: spacing.xs,
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  name: {
+    flexShrink: 1,
   },
   description: {
     lineHeight: 18,
+    marginTop: 2,
   },
   rewardPill: {
     alignSelf: 'flex-start',
@@ -103,6 +122,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
-    marginTop: spacing.xs,
+    marginTop: 2,
+  },
+  heartButton: {
+    padding: spacing.xs,
+    alignSelf: 'flex-start',
   },
 });

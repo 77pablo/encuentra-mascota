@@ -25,7 +25,7 @@ const InicioStackNav = createNativeStackNavigator();
 function InicioStack() {
   return (
     <InicioStackNav.Navigator>
-      <InicioStackNav.Screen name="Inicio" component={HomeScreen} />
+      <InicioStackNav.Screen name="Inicio" component={HomeScreen} options={{ headerShown: false }} />
       <InicioStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <InicioStackNav.Screen name="Chat" component={ChatScreen} />
     </InicioStackNav.Navigator>
