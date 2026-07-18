@@ -7,6 +7,9 @@ import { denunciarPet } from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { findMatches, PetMatch } from '../lib/matches';
+import { listSightings, Sighting } from '../services/sightings';
+import { sortByRecency, sightingDistanceKm, summaryLabel } from '../lib/sightings';
+import { distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
 import { notify } from '../lib/notify';
 import PetCard from '../components/PetCard';
@@ -40,6 +43,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [mostrarMotivos, setMostrarMotivos] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [matches, setMatches] = useState<PetMatch[]>([]);
+  const [sightings, setSightings] = useState<Sighting[]>([]);
   const [perfil, setPerfil] = useState<Profile | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
 
@@ -77,6 +81,20 @@ export default function PetDetailScreen({ route, navigation }: any) {
     };
   }, [pet]);
 
+  // Carga el rastro de avistamientos del reporte. Se vuelve a llamar cada vez
+  // que la pantalla recupera el foco (p. ej. al volver de "Lo vi por acá").
+  const cargarAvistamientos = useCallback(() => {
+    listSightings(id)
+      .then(setSightings)
+      .catch(() => setSightings([]));
+  }, [id]);
+
+  useEffect(() => {
+    cargarAvistamientos();
+    const off = navigation.addListener('focus', cargarAvistamientos);
+    return off;
+  }, [navigation, cargarAvistamientos]);
+
   const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
   const onAficheError = useCallback(
     (m: string) => {
@@ -109,6 +127,12 @@ export default function PetDetailScreen({ route, navigation }: any) {
   }
 
   const esMio = pet.user_id === user?.id;
+  const origen = { lat: pet.lat, lng: pet.lng };
+  const rastro = sortByRecency(sightings);
+  const resumenAvistamientos = summaryLabel(origen, sightings);
+
+  const reportarAvistamiento = () =>
+    navigation.navigate('AddSighting', { petId: pet.id, petLat: pet.lat, petLng: pet.lng });
 
   const crearAfiche = async () => {
     if (!user) return;
@@ -213,6 +237,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
           region={{ latitude: pet.lat, longitude: pet.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
         >
           <Marker coordinate={{ latitude: pet.lat, longitude: pet.lng }} />
+          {sightings.map((s) => (
+            <Marker
+              key={s.id}
+              coordinate={{ latitude: s.lat, longitude: s.lng }}
+              pinColor={colors.sun}
+              title="Visto por acá"
+              description={s.nota ?? undefined}
+            />
+          ))}
         </MapView>
 
         {!esMio && (
@@ -242,6 +275,52 @@ export default function PetDetailScreen({ route, navigation }: any) {
             style={styles.shareButton}
           />
         )}
+
+        <View style={styles.sightingsSection}>
+          <View style={styles.matchesHeader}>
+            <Ionicons name="paw" size={18} color={colors.brand} />
+            <Title size={17} style={styles.matchesTitle}>
+              Visto por acá
+            </Title>
+          </View>
+          <AppText muted size={13} style={styles.matchesSubtitle}>
+            {resumenAvistamientos ?? 'Todavía nadie reportó haberlo visto. Si lo viste, marca el punto en el mapa.'}
+          </AppText>
+
+          <Button
+            title="Lo vi por acá"
+            icon="location"
+            onPress={reportarAvistamiento}
+            style={styles.sightingButton}
+          />
+
+          {rastro.length > 0 ? (
+            <View style={styles.sightingsList}>
+              {rastro.map((s) => (
+                <Card key={s.id} style={styles.sightingCard}>
+                  <View style={styles.sightingRow}>
+                    <Ionicons name="pin" size={16} color={colors.sun} style={styles.sightingIcon} />
+                    <View style={styles.sightingBody}>
+                      {s.nota ? (
+                        <AppText size={14} style={styles.sightingNote}>
+                          {s.nota}
+                        </AppText>
+                      ) : (
+                        <AppText size={14} muted style={styles.sightingNote}>
+                          Sin nota
+                        </AppText>
+                      )}
+                      <AppText muted size={12} style={styles.sightingMeta}>
+                        {distanceLabel(sightingDistanceKm(origen, s))} del reporte · {timeAgo(s.creado_en)}
+                      </AppText>
+                    </View>
+                  </View>
+                  {s.foto ? <Image source={{ uri: s.foto }} style={styles.sightingPhoto} /> : null}
+                </Card>
+              ))}
+            </View>
+          ) : null}
+        </View>
 
         {matches.length > 0 && (
           <View style={styles.matchesSection}>
@@ -383,6 +462,41 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     marginTop: spacing.md,
+  },
+  sightingsSection: {
+    marginTop: spacing.lg,
+  },
+  sightingButton: {
+    marginTop: spacing.md,
+  },
+  sightingsList: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  sightingCard: {
+    gap: spacing.sm,
+  },
+  sightingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sightingIcon: {
+    marginTop: 2,
+    marginRight: spacing.sm,
+  },
+  sightingBody: {
+    flex: 1,
+  },
+  sightingNote: {
+    lineHeight: 20,
+  },
+  sightingMeta: {
+    marginTop: 2,
+  },
+  sightingPhoto: {
+    width: '100%',
+    height: 160,
+    borderRadius: radius.md,
   },
   matchesSection: {
     marginTop: spacing.lg,
