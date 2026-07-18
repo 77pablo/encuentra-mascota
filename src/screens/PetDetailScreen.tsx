@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, listActivePets, Pet } from '../services/pets';
@@ -11,12 +11,14 @@ import { shareReport } from '../lib/share';
 import { findMatches, PetMatch } from '../lib/matches';
 import { listSightings, Sighting } from '../services/sightings';
 import { addUpdate, listUpdates, PetUpdate } from '../services/petUpdates';
+import { borrarTip, crearTip, listarTips } from '../services/tips';
+import { firmaAutor, puedeBorrarTip, validarTip, Tip, TIP_MAX } from '../lib/tips';
 import { sortByRecency, sightingDistanceKm, summaryLabel } from '../lib/sightings';
 import { distanceLabel } from '../lib/geo';
 import { isReunited, reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { buildTimeline, TimelineTipo } from '../lib/timeline';
-import { notify } from '../lib/notify';
+import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary } from '../lib/pickImage';
 import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
@@ -69,6 +71,11 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [novedades, setNovedades] = useState<PetUpdate[]>([]);
   const [nuevaNovedad, setNuevaNovedad] = useState('');
   const [publicandoNovedad, setPublicandoNovedad] = useState(false);
+  // Pistas del barrio (la voz del vecindario sobre este reporte)
+  const [pistas, setPistas] = useState<Tip[]>([]);
+  const [nuevaPista, setNuevaPista] = useState('');
+  const [dejandoPista, setDejandoPista] = useState(false);
+  const [borrandoPista, setBorrandoPista] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<Profile | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
   // Flujo "¡Volvió a casa!" (final feliz)
@@ -156,6 +163,52 @@ export default function PetDetailScreen({ route, navigation }: any) {
       setPublicandoNovedad(false);
     }
   };
+
+  // Carga las pistas del barrio. `listarTips` ya degrada a vacío si falta la
+  // migración 0012, así que acá solo nos protegemos de un error inesperado.
+  const cargarPistas = useCallback(() => {
+    listarTips(id)
+      .then(setPistas)
+      .catch(() => setPistas([]));
+  }, [id]);
+
+  useEffect(() => {
+    cargarPistas();
+    const off = navigation.addListener('focus', cargarPistas);
+    return off;
+  }, [navigation, cargarPistas]);
+
+  const dejarPista = async () => {
+    const validacion = validarTip(nuevaPista);
+    if (!validacion.ok) return;
+    setDejandoPista(true);
+    try {
+      await crearTip(id, validacion.texto);
+      setNuevaPista('');
+      cargarPistas();
+    } catch (e: any) {
+      notify('No se pudo dejar la pista', e?.message ?? 'Intentá de nuevo en un momento.');
+    } finally {
+      setDejandoPista(false);
+    }
+  };
+
+  const eliminarPista = async (tip: Tip) => {
+    const ok = await confirmAction('¿Borrar esta pista?', 'Se va a eliminar del reporte para todos.');
+    if (!ok) return;
+    setBorrandoPista(tip.id);
+    try {
+      await borrarTip(tip.id);
+      setPistas((actuales) => actuales.filter((t) => t.id !== tip.id));
+    } catch (e: any) {
+      notify('No se pudo borrar', e?.message ?? 'Intentá de nuevo en un momento.');
+    } finally {
+      setBorrandoPista(null);
+    }
+  };
+
+  // TODO(merge): reemplazar el cuerpo por `if (!requireAuth('dejar_pista')) return;` (Función C).
+  const pedirCuentaParaPista = () => notify('Creá tu cuenta para dejar una pista');
 
   const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
   const onAficheError = useCallback(
@@ -576,6 +629,100 @@ export default function PetDetailScreen({ route, navigation }: any) {
           )}
         </View>
 
+        {/* Pistas del barrio: la voz del vecindario. A diferencia de Novedades
+            (tarjeta llena, voz del dueño), acá cada pista va liviana, con la
+            firma de quien la dejó arriba y una guarda de color al costado. */}
+        <View style={styles.pistasSection}>
+          <View style={styles.matchesHeader}>
+            <Ionicons name="chatbubbles-outline" size={18} color={colors.brand} />
+            <Title size={17} style={styles.matchesTitle}>
+              Pistas del barrio
+            </Title>
+          </View>
+          <AppText muted size={13} style={styles.matchesSubtitle}>
+            Lo que fue viendo el vecindario.
+          </AppText>
+
+          {user ? (
+            <View style={styles.pistaComposer}>
+              <Input
+                value={nuevaPista}
+                onChangeText={setNuevaPista}
+                placeholder="Lo vi cruzando la plaza como a las 8 de la tarde…"
+                multiline
+              />
+              {nuevaPista.length > TIP_MAX - 100 ? (
+                <AppText
+                  muted={nuevaPista.length <= TIP_MAX}
+                  size={12}
+                  color={nuevaPista.length > TIP_MAX ? colors.lost : undefined}
+                  style={styles.pistaContador}
+                >
+                  {nuevaPista.length} / {TIP_MAX}
+                </AppText>
+              ) : null}
+              <Button
+                title="Dejar una pista"
+                icon="add-circle-outline"
+                variant="secondary"
+                loading={dejandoPista}
+                disabled={!validarTip(nuevaPista).ok}
+                onPress={dejarPista}
+                style={styles.pistaBoton}
+              />
+            </View>
+          ) : (
+            <Button
+              title="Dejar una pista"
+              icon="add-circle-outline"
+              variant="secondary"
+              onPress={pedirCuentaParaPista}
+              style={styles.pistaBoton}
+            />
+          )}
+
+          {pistas.length > 0 ? (
+            <View style={styles.pistasList}>
+              {pistas.map((t) => (
+                <View key={t.id} style={styles.pistaItem}>
+                  <View style={styles.pistaFirmaRow}>
+                    <Ionicons
+                      name="person-circle-outline"
+                      size={16}
+                      color={colors.muted}
+                      style={styles.pistaFirmaIcono}
+                    />
+                    <AppText weight="semi" size={13} style={styles.pistaFirma}>
+                      {firmaAutor(t.autorNombre ?? null)}
+                    </AppText>
+                    <AppText muted size={12}>
+                      {' · '}
+                      {timeAgo(t.creadoEn)}
+                    </AppText>
+                    <View style={styles.pistaSpacer} />
+                    {puedeBorrarTip(t, user?.id ?? null, pet.user_id) ? (
+                      <TouchableOpacity
+                        onPress={() => eliminarPista(t)}
+                        disabled={borrandoPista === t.id}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  <AppText size={14} style={styles.pistaTexto}>
+                    {t.texto}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <AppText muted size={13} style={styles.pistasVacio}>
+              Todavía nadie dejó una pista. Si viste algo, contalo — cualquier dato suma.
+            </AppText>
+          )}
+        </View>
+
         {/* Historia: la línea de tiempo del caso (publicado → avistamientos →
             reencuentro), derivada de datos que ya tenemos. */}
         <View style={styles.historiaSection}>
@@ -870,6 +1017,51 @@ const styles = StyleSheet.create({
   },
   novedadesVacio: {
     marginTop: spacing.sm,
+  },
+  pistasSection: {
+    marginTop: spacing.lg,
+  },
+  pistaComposer: {
+    marginTop: spacing.xs,
+  },
+  pistaContador: {
+    textAlign: 'right',
+    marginTop: 2,
+  },
+  pistaBoton: {
+    marginTop: spacing.sm,
+  },
+  pistasList: {
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  // Sin tarjeta: una guarda de color al costado deja la pista más liviana que
+  // una novedad del dueño, que sí va en Card.
+  pistaItem: {
+    borderLeftWidth: 2,
+    borderLeftColor: colors.line,
+    paddingLeft: spacing.md,
+  },
+  pistaFirmaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pistaFirmaIcono: {
+    marginRight: spacing.xs,
+  },
+  pistaFirma: {
+    flexShrink: 1,
+  },
+  pistaSpacer: {
+    flex: 1,
+  },
+  pistaTexto: {
+    marginTop: spacing.xs,
+    lineHeight: 20,
+  },
+  pistasVacio: {
+    marginTop: spacing.md,
+    lineHeight: 19,
   },
   matchesSection: {
     marginTop: spacing.lg,
