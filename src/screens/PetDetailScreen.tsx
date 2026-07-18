@@ -10,6 +10,9 @@ import { findMatches, PetMatch } from '../lib/matches';
 import { timeAgo } from '../lib/time';
 import { notify } from '../lib/notify';
 import PetCard from '../components/PetCard';
+import AficheGenerator from '../components/AficheGenerator';
+import { faltaWhatsapp } from '../lib/afiche';
+import { getMyProfile, Profile } from '../services/profile';
 import { AppText, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -37,6 +40,8 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [mostrarMotivos, setMostrarMotivos] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [matches, setMatches] = useState<PetMatch[]>([]);
+  const [perfil, setPerfil] = useState<Profile | null>(null);
+  const [generandoAfiche, setGenerandoAfiche] = useState(false);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -72,6 +77,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
     };
   }, [pet]);
 
+  const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
+  const onAficheError = useCallback(
+    (m: string) => {
+      setGenerandoAfiche(false);
+      notify('Error', m);
+    },
+    [],
+  );
+
   const onCarouselLayout = (e: LayoutChangeEvent) => {
     setCarouselWidth(e.nativeEvent.layout.width);
   };
@@ -95,6 +109,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
   }
 
   const esMio = pet.user_id === user?.id;
+
+  const crearAfiche = async () => {
+    if (!user) return;
+    try {
+      const p = await getMyProfile(user.id);
+      setPerfil(p);
+      if (faltaWhatsapp(p)) {
+        notify('Agregá tu WhatsApp', 'Cargá tu WhatsApp en tu perfil para que puedan contactarte desde el afiche.');
+        navigation.navigate('Perfil');
+        return;
+      }
+      setGenerandoAfiche(true);
+    } catch (e: any) {
+      notify('Error', e?.message ?? 'No se pudo preparar el afiche.');
+    }
+  };
 
   const denunciar = async (motivo: string) => {
     if (!user || !pet) return;
@@ -202,6 +232,17 @@ export default function PetDetailScreen({ route, navigation }: any) {
           style={styles.shareButton}
         />
 
+        {esMio && (
+          <Button
+            title="Crear afiche"
+            variant="secondary"
+            icon="print"
+            loading={generandoAfiche}
+            onPress={crearAfiche}
+            style={styles.shareButton}
+          />
+        )}
+
         {matches.length > 0 && (
           <View style={styles.matchesSection}>
             <View style={styles.matchesHeader}>
@@ -257,6 +298,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
               </View>
             ) : null}
           </View>
+        )}
+
+        {generandoAfiche && perfil && (
+          <AficheGenerator pet={pet} profile={perfil} onDone={onAficheDone} onError={onAficheError} />
         )}
       </ScrollView>
     </Screen>
