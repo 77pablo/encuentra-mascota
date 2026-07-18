@@ -11,8 +11,10 @@ import { AuthProvider } from './src/hooks/useAuth';
 import { UnreadProvider } from './src/hooks/useUnread';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initMonitoring } from './src/lib/monitoring';
+import { setupPushNotifications } from './src/lib/pushSetup';
 
 initMonitoring();
+setupPushNotifications();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
