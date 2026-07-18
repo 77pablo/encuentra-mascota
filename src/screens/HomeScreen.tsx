@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { distanceKm as getDistanceKm, distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
+import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -154,6 +155,8 @@ export default function HomeScreen({ navigation }: any) {
             Ya van {reunidas} vuelta{reunidas === 1 ? '' : 's'} a casa 🎉
           </AppText>
         ) : null}
+
+        <ZoneAlertBanner pets={pets} onPress={() => navigation.navigate('Lista')} />
 
         {/* Sección "cerca de ti" */}
         <View style={styles.sectionHeader}>
