@@ -358,6 +358,18 @@ create policy "gestionar mis tokens"
   on public.push_tokens for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- ÍNDICES (para que las búsquedas no recorran toda la tabla — como no buscar
+-- una llave en un cajón lleno de ropa)
+create index pets_activo_idx on public.pets (activo);
+create index pets_user_id_idx on public.pets (user_id);
+create index pets_creado_en_idx on public.pets (creado_en desc);
+create index pets_estado_especie_idx on public.pets (estado, especie);
+create index pets_lat_lng_idx on public.pets (lat, lng);
+create index messages_pet_id_idx on public.messages (pet_id);
+create index messages_to_user_leido_idx on public.messages (to_user, leido);
+create index messages_creado_en_idx on public.messages (creado_en);
+create index push_tokens_user_id_idx on public.push_tokens (user_id);
+
 -- STORAGE: bucket de fotos
 insert into storage.buckets (id, name, public) values ('pet-photos', 'pet-photos', true);
 
@@ -914,21 +926,95 @@ git commit -m "feat: servicio para comprimir y subir fotos a Storage"
 
 ---
 
-### Task 9: Servicio de mascotas (CRUD) + pruebas
+### Task 9: Servicio de mascotas (CRUD) + caché + pruebas
 
 **Files:**
-- Create: `src/services/pets.ts`, `__tests__/services/pets.test.ts`
+- Create: `src/lib/cache.ts`, `src/services/pets.ts`, `__tests__/lib/cache.test.ts`, `__tests__/services/pets.test.ts`
 
 **Interfaces:**
 - Consumes: `supabase`, `PetInput`.
 - Produces:
-  - `createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet>`
-  - `listActivePets(): Promise<Pet[]>`
+  - `src/lib/cache.ts`: `ttlCache<T>(ttlMs)` → `{ get(): T | null, set(v: T): void, clear(): void }`. Caché en memoria con vencimiento (para no recorrer/pedir todo en cada cambio de pestaña).
+  - `createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet>` (invalida la caché de la lista).
+  - `listActivePets(opts?: { force?: boolean }): Promise<Pet[]>` (usa caché; `force: true` la salta).
   - `getPet(id: string): Promise<Pet>`
-  - `closePet(id: string): Promise<void>` (marca `activo=false`)
+  - `closePet(id: string): Promise<void>` (marca `activo=false`; invalida la caché).
   - tipo `Pet` (fila de la tabla).
 
-- [ ] **Step 1: Escribir el test que falla (con Supabase mockeado)**
+- [ ] **Step 1: Escribir el test de la caché (TDD) y correrlo (falla)**
+
+Create `__tests__/lib/cache.test.ts`:
+
+```typescript
+import { ttlCache } from '../../src/lib/cache';
+
+describe('ttlCache', () => {
+  it('devuelve null antes de guardar', () => {
+    const c = ttlCache<number>(1000);
+    expect(c.get()).toBeNull();
+  });
+  it('devuelve el valor guardado dentro del TTL', () => {
+    const c = ttlCache<string>(1000, () => 500); // reloj fijo en 500ms
+    c.set('hola');
+    expect(c.get()).toBe('hola');
+  });
+  it('vence pasado el TTL', () => {
+    let ahora = 0;
+    const c = ttlCache<string>(1000, () => ahora);
+    c.set('hola');
+    ahora = 1500;
+    expect(c.get()).toBeNull();
+  });
+  it('clear borra el valor', () => {
+    const c = ttlCache<string>(1000, () => 0);
+    c.set('hola');
+    c.clear();
+    expect(c.get()).toBeNull();
+  });
+});
+```
+
+Run: `npm test -- cache.test`
+Expected: FAIL ("Cannot find module '../../src/lib/cache'").
+
+- [ ] **Step 2: Implementar `src/lib/cache.ts`**
+
+```typescript
+// Caché en memoria con vencimiento. Recibe un `now` inyectable para poder
+// probar el vencimiento sin depender del reloj real.
+export interface Cache<T> {
+  get(): T | null;
+  set(value: T): void;
+  clear(): void;
+}
+
+export function ttlCache<T>(ttlMs: number, now: () => number = () => Date.now()): Cache<T> {
+  let value: T | null = null;
+  let savedAt = 0;
+  return {
+    get() {
+      if (value === null) return null;
+      if (now() - savedAt > ttlMs) {
+        value = null;
+        return null;
+      }
+      return value;
+    },
+    set(v: T) {
+      value = v;
+      savedAt = now();
+    },
+    clear() {
+      value = null;
+    },
+  };
+}
+```
+
+Run: `npm test -- cache.test`
+Expected: PASS (4 tests).
+
+- [ ] **Step 3: Escribir el test que falla (pets, con Supabase mockeado)**
 
 Create `__tests__/services/pets.test.ts`:
 
@@ -959,16 +1045,17 @@ describe('createPet', () => {
 });
 ```
 
-- [ ] **Step 2: Correr el test para ver que falla**
+- [ ] **Step 4: Correr el test para ver que falla**
 
 Run: `npm test -- pets.test`
 Expected: FAIL ("Cannot find module ... services/pets").
 
-- [ ] **Step 3: Implementar `src/services/pets.ts`**
+- [ ] **Step 5: Implementar `src/services/pets.ts` (con caché)**
 
 ```typescript
 import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
+import { ttlCache } from '../lib/cache';
 
 export interface Pet {
   id: string;
@@ -986,6 +1073,10 @@ export interface Pet {
   creado_en: string;
 }
 
+// Caché de la lista de reportes activos (30s). Evita pedir todo a la base
+// cada vez que se cambia entre Mapa y Lista.
+const activePetsCache = ttlCache<Pet[]>(30_000);
+
 export async function createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet> {
   const { data, error } = await supabase
     .from('pets')
@@ -993,17 +1084,24 @@ export async function createPet(input: PetInput, fotos: string[], userId: string
     .select()
     .single();
   if (error) throw error;
+  activePetsCache.clear(); // hay un reporte nuevo → refrescar
   return data as Pet;
 }
 
-export async function listActivePets(): Promise<Pet[]> {
+export async function listActivePets(opts?: { force?: boolean }): Promise<Pet[]> {
+  if (!opts?.force) {
+    const cached = activePetsCache.get();
+    if (cached) return cached;
+  }
   const { data, error } = await supabase
     .from('pets')
     .select('*')
     .eq('activo', true)
     .order('creado_en', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Pet[];
+  const pets = (data ?? []) as Pet[];
+  activePetsCache.set(pets);
+  return pets;
 }
 
 export async function getPet(id: string): Promise<Pet> {
@@ -1015,19 +1113,20 @@ export async function getPet(id: string): Promise<Pet> {
 export async function closePet(id: string): Promise<void> {
   const { error } = await supabase.from('pets').update({ activo: false }).eq('id', id);
   if (error) throw error;
+  activePetsCache.clear(); // se cerró un reporte → refrescar
 }
 ```
 
-- [ ] **Step 4: Correr el test para ver que pasa**
+- [ ] **Step 6: Correr el test para ver que pasa**
 
 Run: `npm test -- pets.test`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/services/pets.ts __tests__/services/pets.test.ts
-git commit -m "feat: servicio CRUD de mascotas con pruebas"
+git add src/lib/cache.ts src/services/pets.ts __tests__/lib/cache.test.ts __tests__/services/pets.test.ts
+git commit -m "feat: servicio CRUD de mascotas con cache y pruebas"
 ```
 
 ---
@@ -1814,6 +1913,210 @@ Expected: "sin secretos" (o solo referencias en `.env.example` sin valores).
 ```bash
 git add README.md
 git commit -m "docs: README con setup, seguridad y notas de release"
+```
+
+---
+
+### Task 19: Servicio de conversaciones (bandeja de chats) + prueba
+
+**Files:**
+- Modify: `src/services/messages.ts`
+- Test: `__tests__/services/conversations.test.ts`
+
+**Interfaces:**
+- Produces:
+  - `foldConversations(msgs: Message[], me: string): ConversationKey[]` — función pura que reduce una lista de mensajes a un hilo por `(petId, otherUser)`, quedándose con el más reciente (asume `msgs` ordenados de más nuevo a más viejo). Fácil de testear.
+  - `type ConversationKey = { petId: string; otherUser: string; lastTexto: string; lastAt: string }`
+  - `type Conversation = ConversationKey & { otherNombre: string; petLabel: string }`
+  - `listConversations(me: string): Promise<Conversation[]>` — trae los mensajes del usuario, los pliega con `foldConversations`, y enriquece con el nombre del otro usuario y una etiqueta de la mascota.
+
+- [ ] **Step 1: Escribir el test de `foldConversations` (TDD) y correrlo (falla)**
+
+Create `__tests__/services/conversations.test.ts`:
+
+```typescript
+import { foldConversations } from '../../src/services/messages';
+
+const me = 'me';
+// más nuevo primero (como los devuelve listConversations)
+const msgs = [
+  { id: '4', pet_id: 'petA', from_user: 'me', to_user: 'otro1', texto: 'último a otro1', leido: false, creado_en: '2026-07-16T10:00:00Z' },
+  { id: '3', pet_id: 'petA', from_user: 'otro1', to_user: 'me', texto: 'viejo de otro1', leido: true, creado_en: '2026-07-16T09:00:00Z' },
+  { id: '2', pet_id: 'petB', from_user: 'otro2', to_user: 'me', texto: 'de otro2', leido: false, creado_en: '2026-07-16T08:00:00Z' },
+] as any;
+
+describe('foldConversations', () => {
+  it('agrupa por (petId, otro usuario) y conserva el más reciente', () => {
+    const convs = foldConversations(msgs, me);
+    expect(convs).toHaveLength(2);
+    const a = convs.find((c) => c.petId === 'petA')!;
+    expect(a.otherUser).toBe('otro1');
+    expect(a.lastTexto).toBe('último a otro1');
+    const b = convs.find((c) => c.petId === 'petB')!;
+    expect(b.otherUser).toBe('otro2');
+  });
+  it('devuelve vacío sin mensajes', () => {
+    expect(foldConversations([], me)).toEqual([]);
+  });
+});
+```
+
+Run: `npm test -- conversations.test`
+Expected: FAIL ("foldConversations is not a function" / no exportada).
+
+- [ ] **Step 2: Implementar en `src/services/messages.ts`** (añadir al final, sin tocar lo existente)
+
+```typescript
+export type ConversationKey = {
+  petId: string;
+  otherUser: string;
+  lastTexto: string;
+  lastAt: string;
+};
+
+export type Conversation = ConversationKey & {
+  otherNombre: string;
+  petLabel: string;
+};
+
+// Pura: asume msgs ordenados de más nuevo a más viejo. Un hilo por (petId, otro usuario).
+export function foldConversations(msgs: Message[], me: string): ConversationKey[] {
+  const threads = new Map<string, ConversationKey>();
+  for (const m of msgs) {
+    const otherUser = m.from_user === me ? m.to_user : m.from_user;
+    const key = `${m.pet_id}:${otherUser}`;
+    if (!threads.has(key)) {
+      threads.set(key, { petId: m.pet_id, otherUser, lastTexto: m.texto, lastAt: m.creado_en });
+    }
+  }
+  return [...threads.values()];
+}
+
+export async function listConversations(me: string): Promise<Conversation[]> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .or(`from_user.eq.${me},to_user.eq.${me}`)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  const base = foldConversations((data ?? []) as Message[], me);
+  if (base.length === 0) return [];
+
+  const userIds = [...new Set(base.map((t) => t.otherUser))];
+  const petIds = [...new Set(base.map((t) => t.petId))];
+  const [profsRes, petsRes] = await Promise.all([
+    supabase.from('profiles').select('id, nombre').in('id', userIds),
+    supabase.from('pets').select('id, estado, especie').in('id', petIds),
+  ]);
+  const nombreById = new Map<string, string>((profsRes.data ?? []).map((p: any) => [p.id, p.nombre]));
+  const petById = new Map<string, string>(
+    (petsRes.data ?? []).map((p: any) => [p.id, `${p.estado} · ${p.especie}`]),
+  );
+
+  return base.map((t) => ({
+    ...t,
+    otherNombre: nombreById.get(t.otherUser) ?? 'Usuario',
+    petLabel: petById.get(t.petId) ?? 'Mascota',
+  }));
+}
+```
+
+- [ ] **Step 3: Correr el test (pasa)**
+
+Run: `npm test -- conversations.test`
+Expected: PASS (2 tests). Luego `npm test` completo para confirmar que nada se rompió.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/services/messages.ts __tests__/services/conversations.test.ts
+git commit -m "feat: servicio de conversaciones para la bandeja de mensajes"
+```
+
+---
+
+### Task 20: Pantalla Conversaciones + pestaña Perfil separada
+
+**Files:**
+- Create: `src/screens/ConversationsScreen.tsx`
+- Modify: `src/navigation/TabNavigator.tsx`
+
+**Interfaces:**
+- Consumes: `listConversations`, `Conversation`, `useAuth`.
+- Produces: la pestaña "Mensajes" ahora muestra la bandeja de conversaciones (tocar una abre el Chat), y se agrega una 5ª pestaña "Perfil" con `ProfileScreen` (que antes vivía en "Mensajes").
+
+- [ ] **Step 1: Implementar `src/screens/ConversationsScreen.tsx`**
+
+```typescript
+import React, { useCallback, useState } from 'react';
+import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { listConversations, Conversation } from '../services/messages';
+import { useAuth } from '../hooks/useAuth';
+
+export default function ConversationsScreen({ navigation }: any) {
+  const { user } = useAuth();
+  const [convs, setConvs] = useState<Conversation[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      listConversations(user!.id)
+        .then(setConvs)
+        .catch((e) => console.error('No se pudieron cargar las conversaciones:', e));
+    }, [user]),
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={convs}
+        keyExtractor={(c) => `${c.petId}:${c.otherUser}`}
+        ListEmptyComponent={<Text style={{ padding: 24 }}>Aún no tienes conversaciones.</Text>}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Chat', { petId: item.petId, otherUserId: item.otherUser })}
+            style={{ padding: 14, borderBottomWidth: 1, borderColor: '#eee' }}>
+            <Text style={{ fontWeight: '700' }}>{item.otherNombre} · {item.petLabel}</Text>
+            <Text numberOfLines={1} style={{ color: '#555' }}>{item.lastTexto}</Text>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  );
+}
+```
+
+- [ ] **Step 2: Reestructurar `src/navigation/TabNavigator.tsx`**
+
+- Envolver la pestaña "Mensajes" en un native-stack propio que registre `Conversaciones` (ConversationsScreen) y `Chat` (ChatScreen):
+
+```typescript
+import ConversationsScreen from '../screens/ConversationsScreen';
+
+const MsgStackNav = createNativeStackNavigator();
+function MsgStack() {
+  return (
+    <MsgStackNav.Navigator>
+      <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} />
+      <MsgStackNav.Screen name="Chat" component={ChatScreen} />
+    </MsgStackNav.Navigator>
+  );
+}
+```
+
+- La pestaña "Mensajes" pasa a `component={MsgStack}` (con `headerShown: false` en el Tab.Screen para no duplicar header, igual que Mapa/Lista).
+- Agregar una 5ª pestaña "Perfil" con `component={ProfileScreen}` (mover ahí lo que antes estaba en "Mensajes"). Mantener Mapa, Lista y Publicar intactos.
+
+- [ ] **Step 3: Verificar typecheck**
+
+Run: `npx tsc --noEmit`
+Expected: sin errores. (Prueba en dispositivo diferida.)
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/screens/ConversationsScreen.tsx src/navigation/TabNavigator.tsx
+git commit -m "feat: bandeja de conversaciones en pestaña Mensajes + pestaña Perfil"
 ```
 
 ---

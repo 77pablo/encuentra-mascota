@@ -136,6 +136,14 @@ Entrar / Registrarse
 
 ## 6. Comportamiento (tiempo real, notificaciones, errores)
 
+**Rendimiento (indexing + caching + async):**
+- **Índices** en las columnas más consultadas (`pets.activo`, `pets.user_id`, `pets.creado_en`,
+  `(estado,especie)`, `(lat,lng)`; `messages.pet_id`, `(to_user,leido)`; `push_tokens.user_id`)
+  para que la base no recorra toda la tabla en cada búsqueda.
+- **Caché** en memoria con vencimiento (30s) para la lista de reportes activos, que comparten
+  Mapa y Lista: al cambiar de pestaña no se vuelve a pedir todo; se invalida al publicar o cerrar.
+- **Async** en toda espera de red (`async/await`), para no congelar la pantalla.
+
 **Chat en tiempo real:** Supabase Realtime; los mensajes aparecen solos, sin recargar.
 
 **Notificaciones push (Expo):**
