@@ -18,7 +18,7 @@ const especieLabel: Record<Pet['especie'], string> = {
 // compartido incluso sin haber iniciado sesión. No permite denunciar; en vez
 // de "Contactar" invita a iniciar sesión (o lleva al chat si ya hay sesión).
 export default function PublicPetScreen({ route, navigation }: any) {
-  const { id } = route.params;
+  const id: string | undefined = route?.params?.id;
   const { user } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,11 @@ export default function PublicPetScreen({ route, navigation }: any) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const cargar = useCallback(() => {
+    if (!id) {
+      setError('No se encontró el reporte.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     getPet(id)

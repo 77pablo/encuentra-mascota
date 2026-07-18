@@ -37,7 +37,7 @@ export default function RootNavigator() {
   const initialRouteName = recovering ? 'ResetPassword' : session ? 'App' : 'Login';
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+      <Stack.Navigator key={initialRouteName} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
         <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ title: 'Reporte' }} />
         {recovering ? (
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
