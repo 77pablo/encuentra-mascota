@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pet } from '../services/pets';
 import { AlertZone, getMyZone } from '../services/alertZones';
 import { countNewPetsInZone } from '../lib/alerts';
@@ -55,8 +55,12 @@ export function useZoneAlert(pets: Pet[]): ZoneAlertResult {
       .catch(() => {});
   }, []);
 
-  const count =
-    ready && !dismissed ? countNewPetsInZone(pets, zone, lastVisit ?? undefined) : 0;
+  // Memoizado: recalcular el Haversine sobre toda la lista solo cuando cambian
+  // los reportes, la zona o la última visita (no en cada render de Inicio).
+  const count = useMemo(
+    () => (ready && !dismissed ? countNewPetsInZone(pets, zone, lastVisit ?? undefined) : 0),
+    [ready, dismissed, pets, zone, lastVisit],
+  );
 
   return { count, dismiss };
 }

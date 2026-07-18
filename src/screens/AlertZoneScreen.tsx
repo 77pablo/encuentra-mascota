@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useMyLocation } from '../hooks/useMyLocation';
@@ -41,7 +40,12 @@ export default function AlertZoneScreen() {
       .finally(() => setLoading(false));
   }, [user]);
 
-  useFocusEffect(cargar);
+  // Cargamos la zona guardada UNA sola vez (al montar / cuando hay sesión), no
+  // en cada focus: si no, al volver a la pantalla se pisaría un centro recién
+  // elegido con "Usar mi ubicación" que todavía no se guardó.
+  React.useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   const usarMiUbicacion = async () => {
     await location.request();

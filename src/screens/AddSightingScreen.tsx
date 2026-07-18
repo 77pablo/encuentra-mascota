@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
 import { addSighting } from '../services/sightings';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
+import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
@@ -17,20 +17,24 @@ import { colors, radius, spacing } from '../theme';
 export default function AddSightingScreen({ route, navigation }: any) {
   const { user } = useAuth();
   const { petId, petLat, petLng } = route.params;
+  const location = useMyLocation();
   const [coords, setCoords] = useState({ lat: petLat, lng: petLng });
   const [nota, setNota] = useState('');
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const usarMiUbicacion = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      notify('Sin permiso', 'Puedes mover el pin en el mapa a mano.');
-      return;
-    }
-    const loc = await Location.getCurrentPositionAsync({});
-    setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+  // Reusamos useMyLocation: nunca lanza (maneja permiso y errores de GPS adentro).
+  const usarMiUbicacion = () => {
+    location.request();
   };
+  useEffect(() => {
+    if (location.coords) setCoords(location.coords);
+  }, [location.coords]);
+  useEffect(() => {
+    if (location.status === 'denied') {
+      notify('Sin ubicación', 'Puedes mover el pin en el mapa a mano.');
+    }
+  }, [location.status]);
 
   const onTakePhoto = async () => {
     const uri = await takePhoto();

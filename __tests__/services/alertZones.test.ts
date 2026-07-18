@@ -1,4 +1,4 @@
-import { getMyZone, setActivo, upsertMyZone } from '../../src/services/alertZones';
+import { getMyZone, upsertMyZone } from '../../src/services/alertZones';
 
 // Builder falso encadenable (mismo patrón que profile.test.ts). select/upsert/
 // update/eq son chainable; el resultado final se resuelve al hacer `await`, o al
@@ -94,26 +94,5 @@ describe('upsertMyZone', () => {
     await expect(
       upsertMyZone('u1', { lat: 0, lng: 0, radio_km: 5, activo: true }),
     ).rejects.toEqual({ message: 'boom' });
-  });
-});
-
-describe('setActivo', () => {
-  it('actualiza solo el flag activo filtrando por user_id', async () => {
-    const builder = makeQueryBuilder({ data: null, error: null });
-    mockFrom.mockReturnValue(builder);
-
-    await setActivo('u1', false);
-
-    expect(mockFrom).toHaveBeenCalledWith('alert_zones');
-    expect(builder.update).toHaveBeenCalledTimes(1);
-    expect(builder.update.mock.calls[0][0]).toMatchObject({ activo: false });
-    expect(builder.eq).toHaveBeenCalledWith('user_id', 'u1');
-  });
-
-  it('lanza el error cuando supabase falla', async () => {
-    const builder = makeQueryBuilder({ data: null, error: { message: 'boom' } });
-    mockFrom.mockReturnValue(builder);
-
-    await expect(setActivo('u1', true)).rejects.toEqual({ message: 'boom' });
   });
 });

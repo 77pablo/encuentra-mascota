@@ -50,12 +50,3 @@ export async function upsertMyZone(userId: string, input: AlertZoneInput): Promi
   if (error) throw error;
   return data as AlertZone;
 }
-
-// Activa o desactiva la zona sin tocar el centro ni el radio.
-export async function setActivo(userId: string, activo: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('alert_zones')
-    .update({ activo, actualizado_en: new Date().toISOString() })
-    .eq('user_id', userId);
-  if (error) throw error;
-}

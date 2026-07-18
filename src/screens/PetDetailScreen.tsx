@@ -380,25 +380,28 @@ export default function PetDetailScreen({ route, navigation }: any) {
               </Card>
             )}
 
-            <Button
-              title="Compartir"
-              variant="secondary"
-              icon="logo-whatsapp"
-              onPress={() => shareReport(pet)}
-              style={styles.shareButton}
-            />
-
-            {esMio && (
-              <Button
-                title="Crear afiche"
-                variant="secondary"
-                icon="print"
-                loading={generandoAfiche}
-                onPress={crearAfiche}
-                style={styles.shareButton}
-              />
-            )}
           </>
+        )}
+
+        {/* Compartir y afiche están SIEMPRE disponibles, también en un final
+            feliz: un reencuentro es justo lo que más ganas dan de compartir. */}
+        <Button
+          title="Compartir"
+          variant="secondary"
+          icon="logo-whatsapp"
+          onPress={() => shareReport(pet)}
+          style={styles.shareButton}
+        />
+
+        {esMio && (
+          <Button
+            title="Crear afiche"
+            variant="secondary"
+            icon="print"
+            loading={generandoAfiche}
+            onPress={crearAfiche}
+            style={styles.shareButton}
+          />
         )}
 
         <View style={styles.sightingsSection}>
@@ -409,15 +412,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
             </Title>
           </View>
           <AppText muted size={13} style={styles.matchesSubtitle}>
-            {resumenAvistamientos ?? 'Todavía nadie reportó haberlo visto. Si lo viste, marca el punto en el mapa.'}
+            {resumenAvistamientos ??
+              (reunida
+                ? 'No quedaron avistamientos registrados.'
+                : 'Todavía nadie reportó haberlo visto. Si lo viste, marca el punto en el mapa.')}
           </AppText>
 
-          <Button
-            title="Lo vi por acá"
-            icon="location"
-            onPress={reportarAvistamiento}
-            style={styles.sightingButton}
-          />
+          {/* No se aceptan avistamientos nuevos en un reporte ya reunido; el
+              rastro se mantiene como historia del reencuentro. */}
+          {!reunida && (
+            <Button
+              title="Lo vi por acá"
+              icon="location"
+              onPress={reportarAvistamiento}
+              style={styles.sightingButton}
+            />
+          )}
 
           {rastro.length > 0 ? (
             <View style={styles.sightingsList}>
