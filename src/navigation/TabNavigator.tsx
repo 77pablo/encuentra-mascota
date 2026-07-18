@@ -10,6 +10,7 @@ import EncontreScreen from '../screens/EncontreScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import AlertZoneScreen from '../screens/AlertZoneScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
@@ -77,6 +78,11 @@ function ProfileStack() {
     <ProfileStackNav.Navigator>
       <ProfileStackNav.Screen name="Perfil" component={ProfileScreen} options={{ headerShown: false }} />
       <ProfileStackNav.Screen name="EditPet" component={EditPetScreen} options={{ title: 'Editar reporte' }} />
+      <ProfileStackNav.Screen
+        name="AlertZone"
+        component={AlertZoneScreen}
+        options={{ title: 'Mi zona de alerta' }}
+      />
       <ProfileStackNav.Screen
         name="Legal"
         component={LegalScreen}
