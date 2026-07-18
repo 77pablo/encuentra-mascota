@@ -1,6 +1,6 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-Última sesión: 2026-07-18 · Rama de trabajo: `feat/mvp-encuentra-mascota`. El repo no tiene remoto en GitHub todavía. ⚠️ **`master` quedó DETRÁS**: las 3 funciones nuevas de esta sesión (alertas por zona, visto por acá, reencuentro) están en `feat/mvp-encuentra-mascota` pero aún NO fusionadas a `master` (falta `git checkout master && git merge --no-ff feat/mvp-encuentra-mascota` cuando quieras).
+Última sesión: 2026-07-18 · Rama de trabajo: `feat/mvp-encuentra-mascota`. El repo no tiene remoto en GitHub todavía. ✅ **`master` ya tiene TODO fusionado** (merge local `--no-ff`; ambas ramas idénticas en `a657fe7`), incluidas las 3 funciones nuevas de esta sesión (alertas por zona, visto por acá, reencuentro).
 
 ## Cómo retomar / probar
 - App web (dev): `cd C:\Users\pdani\encuentra-mascota` → `npx expo start --web` → abrir `http://localhost:8091`.
@@ -36,8 +36,8 @@
 
 ## Ideas / siguientes
 - **Probar el afiche en el navegador** (ver ⚠️ arriba) y, si todo bien, dar por cerrada la función.
-- ~~alertas por zona · "visto por acá" · verificación de reencuentro~~ ✅ **CONSTRUIDAS (jul-18)**, ver arriba.
-- Fusionar `feat/mvp-encuentra-mascota` → `master` (quedó detrás esta sesión).
+- ~~alertas por zona · "visto por acá" · verificación de reencuentro~~ ✅ **CONSTRUIDAS y verificadas (jul-18)**, ver arriba.
+- ~~Fusionar `feat/mvp-encuentra-mascota` → `master`~~ ✅ **HECHO (jul-18)**.
 - Crear remoto en GitHub y `push -u origin master` cuando quieras respaldo/PRs.
 - Terminar de conectar el push (EAS) y el correo (dominio) siguiendo `SETUP-PUSH-CORREO.md`.
 - Ver ROADMAP.md para el estado de las 15 mejoras (todas hechas en código).
