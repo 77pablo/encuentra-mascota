@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { findMatches, PetMatch } from '../lib/matches';
 import { listSightings, Sighting } from '../services/sightings';
+import { addUpdate, listUpdates, PetUpdate } from '../services/petUpdates';
 import { sortByRecency, sightingDistanceKm, summaryLabel } from '../lib/sightings';
 import { distanceLabel } from '../lib/geo';
 import { isReunited, reunionLabel } from '../lib/reunion';
@@ -48,6 +49,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [matches, setMatches] = useState<PetMatch[]>([]);
   const [sightings, setSightings] = useState<Sighting[]>([]);
+  // Novedades del dueño (bitácora del reporte)
+  const [novedades, setNovedades] = useState<PetUpdate[]>([]);
+  const [nuevaNovedad, setNuevaNovedad] = useState('');
+  const [publicandoNovedad, setPublicandoNovedad] = useState(false);
   const [perfil, setPerfil] = useState<Profile | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
   // Flujo "¡Volvió a casa!" (final feliz)
@@ -104,6 +109,36 @@ export default function PetDetailScreen({ route, navigation }: any) {
     const off = navigation.addListener('focus', cargarAvistamientos);
     return off;
   }, [navigation, cargarAvistamientos]);
+
+  // Carga la bitácora de novedades del dueño. Se refresca al recuperar el foco,
+  // igual que los avistamientos. Silencioso: si falla, dejamos la lista vacía.
+  const cargarNovedades = useCallback(() => {
+    listUpdates(id)
+      .then(setNovedades)
+      .catch(() => setNovedades([]));
+  }, [id]);
+
+  useEffect(() => {
+    cargarNovedades();
+    const off = navigation.addListener('focus', cargarNovedades);
+    return off;
+  }, [navigation, cargarNovedades]);
+
+  const publicarNovedad = async () => {
+    if (!user) return;
+    const texto = nuevaNovedad.trim();
+    if (!texto) return;
+    setPublicandoNovedad(true);
+    try {
+      await addUpdate(id, user.id, texto);
+      setNuevaNovedad('');
+      cargarNovedades();
+    } catch (e: any) {
+      notify('No se pudo publicar', e?.message ?? 'Intentá de nuevo en un momento.');
+    } finally {
+      setPublicandoNovedad(false);
+    }
+  };
 
   const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
   const onAficheError = useCallback(
@@ -457,6 +492,58 @@ export default function PetDetailScreen({ route, navigation }: any) {
           ) : null}
         </View>
 
+        <View style={styles.novedadesSection}>
+          <View style={styles.matchesHeader}>
+            <Ionicons name="megaphone" size={18} color={colors.brand} />
+            <Title size={17} style={styles.matchesTitle}>
+              Novedades
+            </Title>
+          </View>
+          <AppText muted size={13} style={styles.matchesSubtitle}>
+            {esMio
+              ? 'Contá cómo va la búsqueda. Cada novedad avisa al barrio que el reporte sigue vivo.'
+              : 'Lo que el dueño va contando sobre la búsqueda.'}
+          </AppText>
+
+          {esMio && (
+            <>
+              <Input
+                value={nuevaNovedad}
+                onChangeText={setNuevaNovedad}
+                placeholder="Sigo buscando por el sector… gracias a todos."
+                multiline
+              />
+              <Button
+                title="Publicar novedad"
+                icon="send"
+                loading={publicandoNovedad}
+                disabled={!nuevaNovedad.trim()}
+                onPress={publicarNovedad}
+                style={styles.novedadButton}
+              />
+            </>
+          )}
+
+          {novedades.length > 0 ? (
+            <View style={styles.novedadesList}>
+              {novedades.map((n) => (
+                <Card key={n.id} style={styles.novedadCard}>
+                  <AppText size={14} style={styles.novedadTexto}>
+                    {n.texto}
+                  </AppText>
+                  <AppText muted size={12} style={styles.novedadMeta}>
+                    {timeAgo(n.creado_en)}
+                  </AppText>
+                </Card>
+              ))}
+            </View>
+          ) : (
+            <AppText muted size={13} style={styles.novedadesVacio}>
+              El dueño todavía no publicó novedades.
+            </AppText>
+          )}
+        </View>
+
         {matches.length > 0 && (
           <View style={styles.matchesSection}>
             <View style={styles.matchesHeader}>
@@ -693,6 +780,28 @@ const styles = StyleSheet.create({
   },
   reunionAction: {
     marginTop: spacing.xs,
+  },
+  novedadesSection: {
+    marginTop: spacing.lg,
+  },
+  novedadButton: {
+    marginTop: spacing.sm,
+  },
+  novedadesList: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  novedadCard: {
+    gap: spacing.xs,
+  },
+  novedadTexto: {
+    lineHeight: 20,
+  },
+  novedadMeta: {
+    marginTop: 2,
+  },
+  novedadesVacio: {
+    marginTop: spacing.sm,
   },
   matchesSection: {
     marginTop: spacing.lg,
