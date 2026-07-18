@@ -3,9 +3,12 @@ import { distanceKm } from './geo';
 // Lógica de targeting de los avisos que salen de la app (correo y push).
 //
 // IMPORTANTE: este archivo es puro a propósito — nada de red ni de Supabase.
-// Lo importan la app y la Edge Function `send-notifications`, que es la única
-// que decide a quién le llega cada aviso. Si cambia una regla acá, cambia para
-// los dos lados.
+//
+// ⚠️⚠️ ARCHIVO ESPEJADO ⚠️⚠️
+// Existe una copia en `supabase/functions/send-notifications/notifyTargets.ts`,
+// porque el runtime de Deno de las Edge Functions solo empaqueta lo que está
+// dentro de la carpeta de la función y no puede importar desde `src/`.
+// SI CAMBIÁS UNA REGLA DE TARGETING, CAMBIALA EN LOS DOS ARCHIVOS.
 
 export type TipoEvento = 'reporte_nuevo' | 'avistamiento' | 'pista';
 
