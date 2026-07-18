@@ -4,7 +4,7 @@ import PetCard from '../components/PetCard';
 import { listLostBySpecies, Pet } from '../services/pets';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
-import { AppText, Button, Card, EmptyState, Screen, Title } from '../ui';
+import { AppText, Button, Card, Chip, EmptyState, Mascota, Screen, Title } from '../ui';
 import { radius, spacing } from '../theme';
 
 const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
@@ -63,12 +63,15 @@ export default function EncontreScreen({ navigation }: any) {
   return (
     <Screen padded>
       <ScrollView contentContainerStyle={styles.content}>
-        <Title size={24} style={styles.pageTitle}>
-          ¿Encontraste una mascota?
-        </Title>
-        <AppText muted size={14} style={styles.pageSubtitle}>
-          Compara con los reportes de mascotas perdidas para ayudarla a volver a casa.
-        </AppText>
+        <View style={styles.intro}>
+          <Mascota size={64} />
+          <Title size={24} align="center" style={styles.pageTitle}>
+            ¿Encontraste una mascota?
+          </Title>
+          <AppText muted size={14} align="center" style={styles.pageSubtitle}>
+            Compara con los reportes de mascotas perdidas para ayudarla a volver a casa.
+          </AppText>
+        </View>
 
         <Card style={styles.section}>
           <Title size={16} style={styles.sectionTitle}>
@@ -101,18 +104,14 @@ export default function EncontreScreen({ navigation }: any) {
             ¿Qué especie es?
           </Title>
           <View style={styles.chipsRow}>
-            {especieOptions.map((o) => {
-              const active = especie === o.key;
-              return (
-                <Button
-                  key={o.key}
-                  title={o.label}
-                  variant={active ? 'primary' : 'secondary'}
-                  onPress={() => setEspecie(o.key)}
-                  style={styles.chipButton}
-                />
-              );
-            })}
+            {especieOptions.map((o) => (
+              <Chip
+                key={o.key}
+                label={o.label}
+                active={especie === o.key}
+                onPress={() => setEspecie(o.key)}
+              />
+            ))}
           </View>
         </Card>
 
@@ -124,9 +123,9 @@ export default function EncontreScreen({ navigation }: any) {
 
         {!loading && buscado && resultados.length > 0 ? (
           <View style={styles.section}>
-            <AppText weight="bold" size={15}>
-              Encontramos {resultados.length} perdida{resultados.length === 1 ? '' : 's'} de este
-              tipo. ¿Es alguna de estas?
+            <Title size={17}>¿Es alguna de estas?</Title>
+            <AppText muted size={13} style={styles.resultsSubtitle}>
+              Encontramos {resultados.length} perdida{resultados.length === 1 ? '' : 's'} de este tipo.
             </AppText>
             {resultados.map((pet) => (
               <PetCard
@@ -171,7 +170,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingBottom: spacing.xxxl,
   },
+  intro: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   pageTitle: {
+    marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   pageSubtitle: {
@@ -205,10 +209,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  chipButton: {
-    flex: 1,
-    minHeight: 44,
-    paddingHorizontal: spacing.sm,
+  resultsSubtitle: {
+    marginTop: -spacing.xs,
+    marginBottom: spacing.xs,
   },
   centerText: {
     textAlign: 'center',

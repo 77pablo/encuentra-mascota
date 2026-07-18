@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { denunciarPet } from '../services/moderation';
@@ -125,27 +126,18 @@ export default function PetDetailScreen({ route, navigation }: any) {
           </View>
         )}
 
-        <Badge estado={pet.estado} />
-
-        <Title size={22} style={styles.title}>
+        <View style={styles.headerRow}>
+          <Title size={22} numberOfLines={2} style={styles.title}>
+            {pet.nombre || especieLabel[pet.especie]}
+          </Title>
+          <Badge estado={pet.estado} />
+        </View>
+        <AppText muted size={13} style={styles.meta}>
           {especieLabel[pet.especie]}
-          {pet.nombre ? ` · ${pet.nombre}` : ''}
-        </Title>
-
-        <AppText muted size={13}>
-          🕓 {timeAgo(pet.creado_en)}
+          {pet.raza ? ` · ${pet.raza}` : ''}
+          {'  ·  '}
+          {timeAgo(pet.creado_en)}
         </AppText>
-
-        {pet.raza ? (
-          <AppText muted size={14}>
-            Raza: {pet.raza}
-          </AppText>
-        ) : null}
-        {pet.nombre ? (
-          <AppText muted size={14}>
-            Nombre: {pet.nombre}
-          </AppText>
-        ) : null}
 
         <Card style={styles.descriptionCard}>
           <AppText size={15} style={styles.descriptionText}>
@@ -155,8 +147,9 @@ export default function PetDetailScreen({ route, navigation }: any) {
 
         {pet.recompensa ? (
           <View style={styles.rewardPill}>
+            <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
             <AppText weight="bold" size={14} color={colors.ink}>
-              💰 Recompensa: {pet.recompensa}
+              Recompensa: {pet.recompensa}
             </AppText>
           </View>
         ) : null}
@@ -253,8 +246,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
     width: 16,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
   title: {
-    marginTop: spacing.xs,
+    flexShrink: 1,
+  },
+  meta: {
+    marginTop: 2,
   },
   descriptionCard: {
     marginTop: spacing.xs,
@@ -263,11 +266,16 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   rewardPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: colors.sun,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+  },
+  rewardIcon: {
+    marginRight: spacing.xs,
   },
   map: {
     width: '100%',

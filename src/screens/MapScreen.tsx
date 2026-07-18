@@ -42,7 +42,7 @@ export default function MapScreen({ navigation }: any) {
             <Marker
               key={p.id}
               coordinate={{ latitude: p.lat, longitude: p.lng }}
-              pinColor={p.estado === 'perdida' ? 'red' : 'green'}
+              pinColor={p.estado === 'perdida' ? colors.lost : colors.found}
               title={`${p.estado === 'perdida' ? 'Perdida' : 'Encontrada'} · ${p.especie}`}
               description={p.descripcion.slice(0, 40)}
               onCalloutPress={() => navigation.navigate('PetDetail', { id: p.id })}
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     top: spacing.lg,
     right: spacing.lg,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.xs,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
