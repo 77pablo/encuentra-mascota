@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { forgotPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
 import { colors, radius, spacing } from '../../theme';
 
@@ -23,7 +24,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
         redirectTo,
       });
       if (error) {
-        notify('No se pudo enviar el enlace', error.message);
+        notify('No se pudo enviar el enlace', mensajeDeErrorAuth(error));
         return;
       }
       notify(
@@ -32,7 +33,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       );
       navigation.goBack();
     } catch (e: any) {
-      notify('Error de red', e?.message ?? 'Intenta de nuevo.');
+      notify('No se pudo conectar', mensajeDeErrorAuth(e));
     } finally {
       setLoading(false);
     }

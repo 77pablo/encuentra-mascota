@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { loginSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { volverAtras } from '../../lib/authReturn';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
 import { colors, radius, spacing } from '../../theme';
@@ -22,7 +23,7 @@ export default function LoginScreen({ navigation, route }: any) {
     try {
       const { error } = await supabase.auth.signInWithPassword(parsed.data);
       if (error) {
-        notify('No se pudo entrar', error.message);
+        notify('No se pudo entrar', mensajeDeErrorAuth(error));
         return;
       }
       // Entró: sacamos la pantalla de auth de encima. Debajo quedó intacta la
@@ -30,7 +31,7 @@ export default function LoginScreen({ navigation, route }: any) {
       // vuelve exactamente ahí y no rebota al Inicio.
       volverAtras(navigation);
     } catch (e: any) {
-      notify('Error de red', e?.message ?? 'Intenta de nuevo.');
+      notify('No se pudo conectar', mensajeDeErrorAuth(e));
     } finally {
       setLoading(false);
     }

@@ -79,9 +79,18 @@ export async function listLostBySpecies(especie: Pet['especie']): Promise<Pet[]>
   return (data ?? []) as Pet[];
 }
 
+// Trae un reporte por id. Usamos `maybeSingle` en vez de `single` a propósito:
+// con `single`, un reporte inexistente o ya borrado devuelve el error crudo de
+// PostgREST ("Cannot coerce the result to a single JSON object") y esa jerga
+// terminaba en pantalla. Pasa de verdad: el afiche con QR sigue pegado en la
+// calle después de que la mascota volvió a casa y el reporte se borró.
+export const PET_NO_DISPONIBLE =
+  'Este reporte ya no está disponible. Puede que la mascota ya haya vuelto a casa.';
+
 export async function getPet(id: string): Promise<Pet> {
-  const { data, error } = await supabase.from('pets').select('*').eq('id', id).single();
+  const { data, error } = await supabase.from('pets').select('*').eq('id', id).maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error(PET_NO_DISPONIBLE);
   return data as Pet;
 }
 

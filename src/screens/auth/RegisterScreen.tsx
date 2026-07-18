@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { volverAtras } from '../../lib/authReturn';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
 import { colors, radius, spacing } from '../../theme';
@@ -27,7 +28,7 @@ export default function RegisterScreen({ navigation, route }: any) {
         options: { data: { nombre: parsed.data.nombre } },
       });
       if (error) {
-        notify('No se pudo registrar', error.message);
+        notify('No se pudo registrar', mensajeDeErrorAuth(error));
         return;
       }
       // Si el proyecto no exige confirmar el correo, el registro ya deja
@@ -41,7 +42,7 @@ export default function RegisterScreen({ navigation, route }: any) {
       notify('¡Cuenta creada!', 'Ahora inicia sesión con tu correo y contraseña.');
       navigation.replace('Login', route?.params);
     } catch (e: any) {
-      notify('Error de red', e?.message ?? 'Intenta de nuevo.');
+      notify('No se pudo conectar', mensajeDeErrorAuth(e));
     } finally {
       setLoading(false);
     }

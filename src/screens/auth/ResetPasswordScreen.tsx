@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { resetPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { useAuth } from '../../hooks/useAuth';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
 import { colors, radius, spacing } from '../../theme';
@@ -23,13 +24,13 @@ export default function ResetPasswordScreen() {
     try {
       const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
       if (error) {
-        notify('No se pudo actualizar', error.message);
+        notify('No se pudo actualizar', mensajeDeErrorAuth(error));
         return;
       }
       notify('Listo', 'Tu contraseña se actualizó.');
       clearRecovering();
     } catch (e: any) {
-      notify('Error de red', e?.message ?? 'Intenta de nuevo.');
+      notify('No se pudo conectar', mensajeDeErrorAuth(e));
     } finally {
       setLoading(false);
     }
