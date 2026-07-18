@@ -36,7 +36,7 @@ const MapStackNav = createNativeStackNavigator();
 function MapStack() {
   return (
     <MapStackNav.Navigator>
-      <MapStackNav.Screen name="Mapa" component={MapScreen} />
+      <MapStackNav.Screen name="Mapa" component={MapScreen} options={{ headerShown: false }} />
       <MapStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <MapStackNav.Screen name="Chat" component={ChatScreen} />
     </MapStackNav.Navigator>
@@ -47,7 +47,7 @@ const ListStackNav = createNativeStackNavigator();
 function ListStack() {
   return (
     <ListStackNav.Navigator>
-      <ListStackNav.Screen name="Lista" component={ListScreen} />
+      <ListStackNav.Screen name="Lista" component={ListScreen} options={{ headerShown: false }} />
       <ListStackNav.Screen
         name="Encontre"
         component={EncontreScreen}
@@ -63,7 +63,7 @@ const MsgStackNav = createNativeStackNavigator();
 function MsgStack() {
   return (
     <MsgStackNav.Navigator>
-      <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} />
+      <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} options={{ headerShown: false }} />
       <MsgStackNav.Screen name="Chat" component={ChatScreen} />
     </MsgStackNav.Navigator>
   );
@@ -75,7 +75,7 @@ const ProfileStackNav = createNativeStackNavigator();
 function ProfileStack() {
   return (
     <ProfileStackNav.Navigator>
-      <ProfileStackNav.Screen name="Perfil" component={ProfileScreen} />
+      <ProfileStackNav.Screen name="Perfil" component={ProfileScreen} options={{ headerShown: false }} />
       <ProfileStackNav.Screen name="EditPet" component={EditPetScreen} options={{ title: 'Editar reporte' }} />
       <ProfileStackNav.Screen
         name="Legal"

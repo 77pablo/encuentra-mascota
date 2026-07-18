@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   pageSubtitle: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   section: {
     gap: spacing.sm,
