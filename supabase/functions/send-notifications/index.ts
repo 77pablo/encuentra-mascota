@@ -283,6 +283,10 @@ Deno.serve(async () => {
             // próxima corrida; si no, queda marcado como error.
             estado: intentos >= MAX_INTENTOS ? 'error' : 'pendiente',
             intentos,
+            // Guardamos el motivo en la fila: sin esto, un aviso que no sale
+            // falla en absoluto silencio y hay que adivinar por qué. Los logs
+            // de la Edge Function no siempre están a mano.
+            error_detalle: String(e instanceof Error ? e.message : e).slice(0, 500),
           })
           .eq('id', ev.id);
         fallidos++;
