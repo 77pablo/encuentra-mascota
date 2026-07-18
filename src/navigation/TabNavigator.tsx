@@ -132,7 +132,7 @@ export default function TabNavigator() {
       if (session) return;
       e.preventDefault();
       notify(mensajeDe(accion));
-      navigation.navigate('Register', { volverA: { name: 'Inicio' } });
+      navigation.navigate('Register');
     },
   });
 
