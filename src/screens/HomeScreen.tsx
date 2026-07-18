@@ -1,11 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { countReunidas, listActivePets, Pet } from '../services/pets';
 import { useMyLocation } from '../hooks/useMyLocation';
+import { useAuth } from '../hooks/useAuth';
 import { distanceKm as getDistanceKm, distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
-import { AppText, Button, Card, ErrorState, Loading, Mascota, Screen, Squiggle, Title } from '../ui';
+import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -16,12 +18,15 @@ const especieLabel: Record<Pet['especie'], string> = {
 
 const RECIENTES_LIMIT = 4;
 
+const CHIPS = ['Cerca de ti', 'Perros', 'Gatos', 'Perdidos'];
+
 export default function HomeScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useMyLocation(true);
+  const { user } = useAuth();
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -49,6 +54,11 @@ export default function HomeScreen({ navigation }: any) {
     );
   }
 
+  const emailName = user?.email ? user.email.split('@')[0] : '';
+  const greetingName = emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : '';
+  const avatarLetter = user?.email ? user.email.charAt(0).toUpperCase() : '?';
+  const hasCoords = !!location.coords;
+
   // Ya vienen ordenadas de más nueva a más vieja; solo tomamos las primeras
   // y, si tenemos ubicación, les calculamos la distancia (sin reordenar).
   const topPets = pets.slice(0, RECIENTES_LIMIT);
@@ -62,66 +72,92 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.hero}>
-          <Mascota size={64} color={colors.brandDark} />
-          <Title size={26} align="center" style={styles.heroTitle}>
-            Encuentra tu Mascota
-          </Title>
-          <Squiggle width={110} style={styles.heroSquiggle} />
-          <AppText muted align="center" style={styles.heroSubtitle}>
-            Aquí el barrio se organiza para que ninguna mascota se quede sin volver a casa.
-          </AppText>
-        </Card>
-
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.actionWrap}
-            onPress={() => navigation.navigate('Publicar', { estado: 'perdida' })}
-          >
-            <Card style={[styles.actionCard, styles.actionCardLost]}>
-              <Title size={16} align="center">
-                Se me perdió
-              </Title>
-              <AppText muted align="center" size={12} style={styles.actionSubtitle}>
-                Pide ayuda para buscarla
+        {/* Encabezado de saludo */}
+        <View style={styles.header}>
+          <View>
+            <AppText muted size={13}>
+              Hola 👋
+            </AppText>
+            <Title size={20} style={styles.headerTitle}>
+              {greetingName ? `¿Buscamos juntos, ${greetingName}?` : '¿Buscamos juntos?'}
+            </Title>
+          </View>
+          <View style={styles.headerRight}>
+            <View style={styles.locationChip}>
+              <Ionicons name="location" size={13} color={colors.brand} />
+              <AppText size={12} weight="semi" color={colors.brand} style={styles.locationChipLabel}>
+                {hasCoords ? 'Tu zona' : 'Tu barrio'}
               </AppText>
-            </Card>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.actionWrap}
-            onPress={() => navigation.navigate('Publicar', { estado: 'encontrada' })}
-          >
-            <Card style={[styles.actionCard, styles.actionCardFound]}>
-              <Title size={16} align="center">
-                Me encontré una
-              </Title>
-              <AppText muted align="center" size={12} style={styles.actionSubtitle}>
-                Veamos de quién es
+            </View>
+            <View style={styles.avatar}>
+              <AppText weight="bold" color={colors.white} size={15}>
+                {avatarLetter}
               </AppText>
-            </Card>
-          </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
-        <Button
-          title="Ver quiénes andan perdidos cerca"
-          icon="search"
-          onPress={() => navigation.navigate('Lista')}
-          style={styles.searchButton}
-        />
-
-        <Card style={[styles.statCard, reunidas > 0 && styles.statCardCelebrate]}>
-          <AppText weight="bold" align="center" size={16}>
-            {reunidas > 0
-              ? `Ya van ${reunidas} vuelta${reunidas === 1 ? '' : 's'} a casa`
-              : 'Todavía no hay reencuentros. Puedes empezar tú.'}
-          </AppText>
+        {/* Tarjeta hero */}
+        <Card style={styles.hero}>
+          <View style={styles.heroMascotaWrap} pointerEvents="none">
+            <Mascota size={76} />
+          </View>
+          <View style={styles.heroText}>
+            <Title size={22} color={colors.white} style={styles.heroTitle}>
+              ¿Se perdió o te encontraste una?
+            </Title>
+            <AppText color={colors.white} size={13} style={styles.heroSubtitle}>
+              El barrio ayuda a que vuelva a casa.
+            </AppText>
+          </View>
+          <View style={styles.heroButtons}>
+            <Button
+              title="Se me perdió"
+              variant="danger"
+              onPress={() => navigation.navigate('Publicar', { estado: 'perdida' })}
+              style={styles.heroButton}
+            />
+            <Button
+              title="Me encontré"
+              variant="secondary"
+              onPress={() => navigation.navigate('Publicar', { estado: 'encontrada' })}
+              style={styles.heroButton}
+            />
+          </View>
         </Card>
 
-        <Title size={18} style={styles.sectionTitle}>
-          Perdidos y encontrados cerca
-        </Title>
+        {/* Chips de filtro */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          {CHIPS.map((label, i) => (
+            <Chip
+              key={label}
+              label={label}
+              active={i === 0}
+              onPress={() => navigation.navigate('Lista')}
+              style={i > 0 ? styles.chipSpacing : undefined}
+            />
+          ))}
+        </ScrollView>
+
+        {reunidas > 0 ? (
+          <AppText muted size={13} style={styles.reunidasLine}>
+            Ya van {reunidas} vuelta{reunidas === 1 ? '' : 's'} a casa 🎉
+          </AppText>
+        ) : null}
+
+        {/* Sección "cerca de ti" */}
+        <View style={styles.sectionHeader}>
+          <Title size={17}>Cerca de ti</Title>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Lista')}>
+            <AppText weight="semi" color={colors.brand} size={13}>
+              Ver todo
+            </AppText>
+          </TouchableOpacity>
+        </View>
 
         {recientes.length === 0 ? (
           <AppText muted style={styles.emptyRecientes}>
@@ -135,24 +171,44 @@ export default function HomeScreen({ navigation }: any) {
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('PetDetail', { id: pet.id })}
               >
-                <Card style={styles.recienteRow}>
+                <Card style={styles.petCard}>
                   {pet.fotos[0] ? (
-                    <Image source={{ uri: pet.fotos[0] }} style={styles.recientePhoto} />
+                    <Image source={{ uri: pet.fotos[0] }} style={styles.petPhoto} />
                   ) : (
-                    <View style={[styles.recientePhoto, styles.recientePhotoPlaceholder]}>
-                      <Mascota size={30} color={colors.muted} />
+                    <View style={[styles.petPhoto, styles.petPhotoPlaceholder]}>
+                      <Ionicons name="paw" size={22} color={colors.muted} />
                     </View>
                   )}
-                  <View style={styles.recienteInfo}>
-                    <AppText weight="bold" size={14} numberOfLines={1}>
-                      {especieLabel[pet.especie]}
-                      {pet.nombre ? ` · ${pet.nombre}` : ''}
-                    </AppText>
+                  <View style={styles.petInfo}>
+                    <View style={styles.petNameRow}>
+                      <AppText weight="bold" size={14} numberOfLines={1} style={styles.petName}>
+                        {pet.nombre || especieLabel[pet.especie]}
+                      </AppText>
+                      <Badge estado={pet.estado} />
+                    </View>
                     <AppText muted size={12} numberOfLines={1}>
-                      🕓 {timeAgo(pet.creado_en)}
-                      {dKm !== undefined ? `  ·  📍 ${distanceLabel(dKm)}` : ''}
+                      {especieLabel[pet.especie]}
+                      {dKm !== undefined ? (
+                        <>
+                          {'  ·  '}
+                          <AppText weight="bold" color={colors.found} size={12}>
+                            {distanceLabel(dKm)}
+                          </AppText>
+                        </>
+                      ) : null}
+                      {'  ·  '}
+                      {timeAgo(pet.creado_en)}
                     </AppText>
                   </View>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={styles.heartButton}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                    }}
+                  >
+                    <Ionicons name="heart-outline" size={20} color={colors.muted} />
+                  </TouchableOpacity>
                 </Card>
               </TouchableOpacity>
             ))}
@@ -169,51 +225,82 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.xxxl,
   },
-  hero: {
-    backgroundColor: colors.sky,
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  locationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.sky,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  locationChipLabel: {
+    marginLeft: 4,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hero: {
+    backgroundColor: colors.brand,
+    overflow: 'hidden',
+  },
+  heroMascotaWrap: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    opacity: 0.9,
+  },
+  heroText: {
+    maxWidth: '68%',
+    minHeight: 92,
+    justifyContent: 'center',
   },
   heroTitle: {
-    marginTop: spacing.sm,
-  },
-  heroSquiggle: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
+    lineHeight: 28,
   },
   heroSubtitle: {
     marginTop: spacing.xs,
+    opacity: 0.85,
   },
-  actionsRow: {
+  heroButtons: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
   },
-  actionWrap: {
+  heroButton: {
     flex: 1,
+    paddingHorizontal: spacing.sm,
   },
-  actionCard: {
+  chipsRow: {
+    paddingRight: spacing.xl,
+  },
+  chipSpacing: {
+    marginLeft: spacing.sm,
+  },
+  reunidasLine: {
+    marginTop: -spacing.xs,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 2,
-  },
-  actionCardLost: {
-    borderColor: colors.lost,
-  },
-  actionCardFound: {
-    borderColor: colors.found,
-  },
-  actionSubtitle: {
-    marginTop: 2,
-  },
-  searchButton: {
-    alignSelf: 'stretch',
-  },
-  statCard: {
-    alignItems: 'center',
-  },
-  statCardCelebrate: {
-    backgroundColor: colors.sun,
-  },
-  sectionTitle: {
+    justifyContent: 'space-between',
     marginTop: spacing.sm,
   },
   emptyRecientes: {
@@ -222,24 +309,35 @@ const styles = StyleSheet.create({
   recientesList: {
     gap: spacing.sm,
   },
-  recienteRow: {
+  petCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.sm,
   },
-  recientePhoto: {
-    width: 48,
-    height: 48,
+  petPhoto: {
+    width: 56,
+    height: 56,
     borderRadius: radius.md,
   },
-  recientePhotoPlaceholder: {
-    backgroundColor: colors.sky,
+  petPhotoPlaceholder: {
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recienteInfo: {
+  petInfo: {
     flex: 1,
-    gap: 2,
+    gap: 4,
+  },
+  petNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  petName: {
+    flexShrink: 1,
+  },
+  heartButton: {
+    padding: spacing.xs,
   },
 });

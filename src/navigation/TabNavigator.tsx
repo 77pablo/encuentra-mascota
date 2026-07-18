@@ -105,20 +105,21 @@ export default function TabNavigator() {
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.white,
+          backgroundColor: colors.card,
           borderTopColor: colors.line,
+          borderTopWidth: 1,
         },
         tabBarLabelStyle: {
           fontFamily: font.bodySemi,
           fontSize: 11,
         },
-        tabBarIcon: ({ color, focused }) => {
+        tabBarIcon: ({ color }) => {
           const isPublish = route.name === 'Publicar';
           return (
             <Ionicons
               name={TAB_ICONS[route.name]}
-              size={isPublish ? 30 : 24}
-              color={isPublish && focused ? colors.brand : color}
+              size={isPublish ? 32 : 24}
+              color={isPublish ? colors.lost : color}
             />
           );
         },

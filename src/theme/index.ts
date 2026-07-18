@@ -1,36 +1,36 @@
 export const colors = {
-  brand: '#7C5CFC', // grape purple — primary actions, active nav
-  brandDark: '#5B3FD1',
-  sun: '#FFC93C', // sunny yellow — highlights
-  lost: '#E4574E', // terracota — estado "perdida"
-  found: '#1FB08C', // mint profundo — estado "encontrada"
-  ink: '#2B2420', // primary text (warm near-black)
-  muted: '#8C8377', // secondary text (warm grey)
-  line: '#EBE3D8', // borders/dividers (warm hairline)
-  bg: '#FBF7F1', // app background (warm paper cream)
-  card: '#FFFDFA', // warm white
-  sky: '#F3ECFB', // soft warm brand tint surface
+  brand: '#17654B', // pino cálido — acciones primarias, nav activo
+  brandDark: '#0F4E39',
+  sun: '#EFB13C', // dorado cálido — destacados
+  lost: '#E0623D', // coral — estado "perdida"
+  found: '#1E8A63', // verde — estado "encontrada"
+  ink: '#23231D', // texto primario (casi negro cálido)
+  muted: '#7E7B6F', // texto secundario (gris cálido)
+  line: '#EFE8DA', // bordes/divisores (línea cálida)
+  bg: '#FBF6EC', // fondo de la app (arena cálida)
+  card: '#FFFFFF', // blanco de tarjetas
+  sky: '#EAF1EC', // superficie con tinte verde suave
   white: '#FFFFFF',
 };
 
-export const radius = { sm: 10, md: 16, lg: 22, pill: 999 };
+export const radius = { sm: 12, md: 16, lg: 20, pill: 999 };
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
 
 export const font = {
-  display: 'Fredoka_600SemiBold',
-  displayBold: 'Fredoka_700Bold',
-  body: 'NunitoSans_400Regular',
-  bodySemi: 'NunitoSans_600SemiBold',
-  bodyBold: 'NunitoSans_700Bold',
+  display: 'HankenGrotesk_800ExtraBold',
+  displayBold: 'HankenGrotesk_700Bold',
+  body: 'HankenGrotesk_400Regular',
+  bodySemi: 'HankenGrotesk_600SemiBold',
+  bodyBold: 'HankenGrotesk_700Bold',
 };
 
 export const shadow = {
   card: {
-    shadowColor: '#2B2420',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowColor: '#1E3A2E',
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
 };
