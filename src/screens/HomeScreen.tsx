@@ -35,7 +35,10 @@ export default function HomeScreen({ navigation }: any) {
   const cargar = useCallback(() => {
     setLoading(true);
     setError(null);
-    Promise.all([listActivePets(), countReunidas(), listFinalesFelices(6)])
+    // La tira de "finales felices" es decorativa: si su consulta falla (p. ej.
+    // la migración 0008 aún no está aplicada), degradamos a [] en vez de tumbar
+    // toda la pantalla de Inicio.
+    Promise.all([listActivePets(), countReunidas(), listFinalesFelices(6).catch(() => [] as Pet[])])
       .then(([activePets, count, finalesFelices]) => {
         setPets(activePets);
         setReunidas(count);
