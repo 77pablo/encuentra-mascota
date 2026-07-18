@@ -29,6 +29,8 @@ export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
     storage: Platform.OS === 'web' ? WebStorageAdapter : SecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // En web, el enlace de recuperación/confirmación vuelve con el token en la URL
+    // y hay que leerlo para disparar PASSWORD_RECOVERY. En móvil el deep link se maneja aparte.
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
