@@ -13,6 +13,7 @@ import { sortByRecency, sightingDistanceKm, summaryLabel } from '../lib/sighting
 import { distanceLabel } from '../lib/geo';
 import { isReunited, reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
+import { buildTimeline, TimelineTipo } from '../lib/timeline';
 import { notify } from '../lib/notify';
 import { pickFromLibrary } from '../lib/pickImage';
 import { uploadPetPhoto } from '../services/storage';
@@ -34,6 +35,18 @@ const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
   gato: 'Gato',
   otro: 'Mascota',
+};
+
+// Ícono y color del punto de cada hito de la "Historia" del reporte.
+const timelineIcono: Record<TimelineTipo, keyof typeof Ionicons.glyphMap> = {
+  publicado: 'paw',
+  avistamiento: 'location',
+  reunido: 'heart',
+};
+const timelineColor: Record<TimelineTipo, string> = {
+  publicado: colors.brand,
+  avistamiento: colors.sun,
+  reunido: colors.found,
 };
 
 export default function PetDetailScreen({ route, navigation }: any) {
@@ -140,6 +153,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const origen = { lat: pet.lat, lng: pet.lng };
   const rastro = sortByRecency(sightings);
   const resumenAvistamientos = summaryLabel(origen, sightings);
+  const historia = buildTimeline(pet, sightings);
 
   const reportarAvistamiento = () =>
     navigation.navigate('AddSighting', { petId: pet.id, petLat: pet.lat, petLng: pet.lng });
@@ -457,6 +471,42 @@ export default function PetDetailScreen({ route, navigation }: any) {
           ) : null}
         </View>
 
+        {/* Historia: la línea de tiempo del caso (publicado → avistamientos →
+            reencuentro), derivada de datos que ya tenemos. */}
+        <View style={styles.historiaSection}>
+          <View style={styles.matchesHeader}>
+            <Ionicons name="time-outline" size={18} color={colors.brand} />
+            <Title size={17} style={styles.matchesTitle}>
+              Historia
+            </Title>
+          </View>
+          <View style={styles.timeline}>
+            {historia.map((ev, i) => (
+              <View key={`${ev.tipo}-${ev.fecha}-${i}`} style={styles.timelineRow}>
+                <View style={styles.timelineGutter}>
+                  <View style={[styles.timelineDot, { backgroundColor: timelineColor[ev.tipo] }]}>
+                    <Ionicons name={timelineIcono[ev.tipo]} size={13} color={colors.white} />
+                  </View>
+                  {i < historia.length - 1 ? <View style={styles.timelineLine} /> : null}
+                </View>
+                <View style={styles.timelineBody}>
+                  <AppText weight="semi" size={14}>
+                    {ev.titulo}
+                  </AppText>
+                  <AppText muted size={12} style={styles.timelineMeta}>
+                    {timeAgo(ev.fecha)}
+                  </AppText>
+                  {ev.detalle ? (
+                    <AppText size={13} style={styles.timelineDetalle}>
+                      {ev.detalle}
+                    </AppText>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
         {matches.length > 0 && (
           <View style={styles.matchesSection}>
             <View style={styles.matchesHeader}>
@@ -731,5 +781,44 @@ const styles = StyleSheet.create({
   },
   reasonButton: {
     width: '100%',
+  },
+  historiaSection: {
+    marginTop: spacing.lg,
+  },
+  timeline: {
+    marginTop: spacing.md,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  timelineGutter: {
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  timelineDot: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    minHeight: spacing.md,
+    backgroundColor: colors.line,
+    marginTop: 2,
+  },
+  timelineBody: {
+    flex: 1,
+    paddingBottom: spacing.lg,
+  },
+  timelineMeta: {
+    marginTop: 2,
+  },
+  timelineDetalle: {
+    marginTop: spacing.xs,
+    lineHeight: 19,
   },
 });
