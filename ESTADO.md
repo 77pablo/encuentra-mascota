@@ -18,7 +18,7 @@
 ## PENDIENTE — pasos del usuario (necesarios)
 1. ~~Migración 0005~~ — ✅ **APLICADA (2026-07-17)**: columnas `telefono` y `red_social` en `public.profiles`. El teléfono/red social del perfil ya se guardan.
 2. **Config opcionales (cada una activa algo ya programado):**
-   - Correo/SMTP (Resend/Brevo) → confirmación + recuperar clave. Ver `SETUP-PUSH-CORREO.md`. Resend en modo prueba solo envía a tu propio Gmail hasta verificar dominio.
+   - ~~Correo/SMTP~~ — ✅ **CONFIGURADO (2026-07-17)**: Resend SMTP en Supabase, remitente `onboarding@resend.dev`. Registro + "olvidé mi clave" envían correo y el enlace abre la pantalla de nueva clave (se corrigió `detectSessionInUrl` en web). **En modo prueba solo entrega a `pdanielespinozavega@gmail.com`**; para enviar a cualquiera falta **verificar un dominio** en Resend y cambiar el sender. "Confirm email" sigue APAGADO.
    - Push real → `eas init` + `EAS_PROJECT_ID` en `.env` + build APK + deploy de la Edge Function `send-push`. Ver `SETUP-PUSH-CORREO.md`.
    - Google Maps API key (`GOOGLE_MAPS_API_KEY` en `.env`) → mapa en build Android.
    - Sentry DSN (`EXPO_PUBLIC_SENTRY_DSN`) → monitoreo de errores.
