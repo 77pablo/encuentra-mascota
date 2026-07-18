@@ -78,7 +78,14 @@ export async function crearTip(petId: string, texto: string): Promise<Tip> {
 }
 
 // Borra una pista (autor de la pista o dueño del reporte, según la RLS de 0012).
+//
+// Pedimos las filas borradas a propósito: cuando la RLS rechaza un delete,
+// PostgREST NO devuelve error, simplemente no borra nada. Sin este chequeo la
+// pantalla diría "listo" y la pista seguiría ahí.
 export async function borrarTip(id: string): Promise<void> {
-  const { error } = await supabase.from('pet_tips').delete().eq('id', id);
+  const { data, error } = await supabase.from('pet_tips').delete().eq('id', id).select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('No se pudo borrar la pista.');
+  }
 }
