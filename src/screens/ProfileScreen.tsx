@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { timeAgo } from '../lib/time';
-import { AppText, Badge, Button, Card, Confetti, EmptyState, Input, Screen, Title } from '../ui';
+import { AppText, Badge, Button, Card, Confetti, EmptyState, Input, Mascota, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -48,6 +48,45 @@ export default function ProfileScreen({ navigation }: any) {
   }, [user]);
 
   useFocusEffect(cargar);
+
+  // MODO INVITADO: sin sesión no hay perfil que mostrar. En vez de un perfil
+  // fantasma con secciones vacías, una bienvenida corta con las dos puertas de
+  // entrada. Va después de todos los hooks para no romper su orden.
+  if (!user) {
+    return (
+      <Screen padded>
+        <View style={styles.invitado}>
+          <Mascota size={96} color={colors.brandDark} />
+          <Title size={22} align="center" style={styles.invitadoTitulo}>
+            Estás mirando de visita
+          </Title>
+          <AppText muted align="center" size={14} style={styles.invitadoTexto}>
+            Entrá para publicar, guardar y hablar con el barrio.
+          </AppText>
+          <Button
+            title="Entrar"
+            icon="log-in-outline"
+            onPress={() => navigation.navigate('Login')}
+            style={styles.invitadoBoton}
+          />
+          <Button
+            title="Crear cuenta"
+            variant="secondary"
+            icon="person-add-outline"
+            onPress={() => navigation.navigate('Register')}
+            style={styles.invitadoBoton}
+          />
+          <Button
+            title="Privacidad y términos"
+            variant="ghost"
+            icon="document-text-outline"
+            onPress={() => navigation.navigate('Legal')}
+            style={styles.invitadoBoton}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   const marcar = async (id: string) => {
     await closePet(id);
@@ -487,6 +526,27 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   signOutButton: {
+    marginTop: spacing.sm,
+  },
+  invitado: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxxl,
+  },
+  invitadoTitulo: {
+    marginTop: spacing.lg,
+  },
+  invitadoTexto: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+    maxWidth: 280,
+    lineHeight: 20,
+  },
+  invitadoBoton: {
+    width: '100%',
+    maxWidth: 320,
     marginTop: spacing.sm,
   },
 });
