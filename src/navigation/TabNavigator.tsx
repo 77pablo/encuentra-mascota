@@ -8,6 +8,7 @@ import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
 import EncontreScreen from '../screens/EncontreScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
+import AddSightingScreen from '../screens/AddSightingScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditPetScreen from '../screens/EditPetScreen';
@@ -27,6 +28,7 @@ function InicioStack() {
     <InicioStackNav.Navigator>
       <InicioStackNav.Screen name="Inicio" component={HomeScreen} options={{ headerShown: false }} />
       <InicioStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <InicioStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <InicioStackNav.Screen name="Chat" component={ChatScreen} />
     </InicioStackNav.Navigator>
   );
@@ -38,6 +40,7 @@ function MapStack() {
     <MapStackNav.Navigator>
       <MapStackNav.Screen name="Mapa" component={MapScreen} options={{ headerShown: false }} />
       <MapStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <MapStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <MapStackNav.Screen name="Chat" component={ChatScreen} />
     </MapStackNav.Navigator>
   );
@@ -54,6 +57,7 @@ function ListStack() {
         options={{ title: 'Encontré una mascota' }}
       />
       <ListStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <ListStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <ListStackNav.Screen name="Chat" component={ChatScreen} />
     </ListStackNav.Navigator>
   );
