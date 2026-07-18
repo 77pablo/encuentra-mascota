@@ -13,6 +13,7 @@ import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
+import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
@@ -94,6 +95,11 @@ function ProfileStack() {
         name="AlertZone"
         component={AlertZoneScreen}
         options={{ title: 'Mi zona de alerta' }}
+      />
+      <ProfileStackNav.Screen
+        name="NotificationPrefs"
+        component={NotificationPrefsScreen}
+        options={{ title: 'Avisos' }}
       />
       <ProfileStackNav.Screen
         name="Legal"

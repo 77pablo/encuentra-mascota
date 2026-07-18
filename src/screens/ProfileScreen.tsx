@@ -393,6 +393,12 @@ export default function ProfileScreen({ navigation }: any) {
           onPress={() => navigation.navigate('AlertZone')}
         />
         <Button
+          title="Avisos"
+          variant="ghost"
+          icon="mail-outline"
+          onPress={() => navigation.navigate('NotificationPrefs')}
+        />
+        <Button
           title="Privacidad y términos"
           variant="ghost"
           icon="document-text"
