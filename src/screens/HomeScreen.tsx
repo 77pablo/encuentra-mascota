@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    maxWidth: 96,
+    maxWidth: 120,
   },
   locationChipLabel: {
     marginLeft: 4,

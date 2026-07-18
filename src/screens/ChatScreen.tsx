@@ -129,8 +129,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
     backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
   input: {
     flex: 1,

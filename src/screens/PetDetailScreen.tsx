@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   shareButton: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   reportSection: {
     marginTop: spacing.lg,
