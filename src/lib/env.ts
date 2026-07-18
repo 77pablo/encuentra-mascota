@@ -22,4 +22,14 @@ export function validateEnv(raw: RawEnv): AppEnv {
 }
 
 // Se ejecuta al importar: si falta algo, la app no arranca.
-export const env: AppEnv = validateEnv(process.env as RawEnv);
+//
+// OJO: hay que nombrar cada variable de forma LITERAL (`process.env.EXPO_PUBLIC_X`).
+// Metro reemplaza esas expresiones por su valor al compilar, pero no puede hacerlo
+// si le pasamos `process.env` entero: en ese caso el objeto llega vacío al navegador
+// y la app muere al arrancar con "Faltan variables de entorno". En desarrollo no se
+// nota, porque el servidor de Metro sí inyecta `process.env` — el error aparece
+// recién en el sitio compilado. (Nos pasó al desplegar en Cloudflare Pages, jul-2026.)
+export const env: AppEnv = validateEnv({
+  EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+});

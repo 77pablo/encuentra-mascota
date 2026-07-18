@@ -1,0 +1,16 @@
+# Cabeceras de seguridad para el hosting (Netlify las lee de este archivo).
+#
+# Nota sobre CSP: NO ponemos Content-Security-Policy todavía. La app carga el
+# bundle de Expo, habla con Supabase (REST + realtime por websocket) y muestra
+# fotos desde Supabase Storage; una CSP mal ajustada rompe todo eso en silencio.
+# Cuando la agreguemos hay que probarla en el sitio desplegado, no a ciegas.
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: geolocation=(self), camera=(self), microphone=(), payment=()
+
+# Los assets con hash en el nombre no cambian nunca: se cachean para siempre.
+/_expo/static/*
+  Cache-Control: public, max-age=31536000, immutable
