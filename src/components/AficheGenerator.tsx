@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import AfichePoster from './AfichePoster';
 import { armarAfiche, armarNombreArchivo } from '../lib/afiche';
@@ -16,8 +16,9 @@ export interface AficheGeneratorProps {
 export default function AficheGenerator({ pet, profile, onDone, onError }: AficheGeneratorProps) {
   const posterRef = useRef<View>(null);
   const disparado = useRef(false);
-  const content = armarAfiche(pet, profile);
+  const content = useMemo(() => armarAfiche(pet, profile), [pet, profile]);
   const [foto, setFoto] = useState<string | null | undefined>(undefined); // undefined = resolviendo
+  const [fotoLista, setFotoLista] = useState(false); // la imagen cargó o falló → lista para capturar
 
   useEffect(() => {
     let vivo = true;
@@ -42,21 +43,34 @@ export default function AficheGenerator({ pet, profile, onDone, onError }: Afich
     }
   }, [pet, onDone, onError]);
 
-  // Si no hay foto, capturamos poco después de montar; si hay, esperamos su onLoad.
+  // Dispara la captura cuando el afiche está listo. Sin foto: tras un margen para
+  // que asiente el layout. Con foto: cuando la imagen carga o falla (fotoLista),
+  // más una red de seguridad por si onLoad/onError nunca disparan.
   useEffect(() => {
-    if (foto === undefined) return; // aún resolviendo
+    if (foto === undefined) return; // aún resolviendo la foto
     if (!content.foto) {
       const t = setTimeout(capturar, 400);
       return () => clearTimeout(t);
     }
-  }, [foto, content.foto, capturar]);
+    if (fotoLista) {
+      capturar();
+      return;
+    }
+    const t = setTimeout(capturar, 2500); // red de seguridad ante imagen colgada
+    return () => clearTimeout(t);
+  }, [foto, content.foto, fotoLista, capturar]);
 
   if (foto === undefined) return null;
 
   return (
     <View style={styles.offscreen} pointerEvents="none">
       <View ref={posterRef} collapsable={false}>
-        <AfichePoster content={content} foto={foto} onFotoLoad={content.foto ? capturar : undefined} />
+        <AfichePoster
+          content={content}
+          foto={foto}
+          onFotoLoad={content.foto ? () => setFotoLista(true) : undefined}
+          onFotoError={content.foto ? () => setFotoLista(true) : undefined}
+        />
       </View>
     </View>
   );

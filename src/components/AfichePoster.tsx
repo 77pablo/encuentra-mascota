@@ -9,19 +9,20 @@ export interface AfichePosterProps {
   content: AficheContent;
   foto: string | null; // uri o data-uri ya resuelta
   onFotoLoad?: () => void; // se dispara cuando la imagen terminó de cargar (para capturar)
+  onFotoError?: () => void; // se dispara cuando la imagen falló al cargar (para no colgar la captura)
 }
 
 const WIDTH = 816; // 8.5in * 96dpi
 const HEIGHT = 1056; // 11in * 96dpi
 
-export default function AfichePoster({ content, foto, onFotoLoad }: AfichePosterProps) {
+export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }: AfichePosterProps) {
   return (
     <View style={styles.page}>
       <AppText style={styles.titular}>{content.titular}</AppText>
 
       <View style={styles.fotoWrap}>
         {foto ? (
-          <Image source={{ uri: foto }} style={styles.foto} onLoad={onFotoLoad} resizeMode="cover" />
+          <Image source={{ uri: foto }} style={styles.foto} onLoad={onFotoLoad} onError={onFotoError} resizeMode="cover" />
         ) : (
           <View style={[styles.foto, styles.fotoPlaceholder]}>
             <AppText size={96}>🐾</AppText>

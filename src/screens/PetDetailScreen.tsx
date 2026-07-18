@@ -77,6 +77,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
     };
   }, [pet]);
 
+  const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
+  const onAficheError = useCallback(
+    (m: string) => {
+      setGenerandoAfiche(false);
+      notify('Error', m);
+    },
+    [],
+  );
+
   const onCarouselLayout = (e: LayoutChangeEvent) => {
     setCarouselWidth(e.nativeEvent.layout.width);
   };
@@ -104,11 +113,8 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const crearAfiche = async () => {
     if (!user) return;
     try {
-      let p = perfil;
-      if (!p) {
-        p = await getMyProfile(user.id);
-        setPerfil(p);
-      }
+      const p = await getMyProfile(user.id);
+      setPerfil(p);
       if (faltaWhatsapp(p)) {
         notify('Agregá tu WhatsApp', 'Cargá tu WhatsApp en tu perfil para que puedan contactarte desde el afiche.');
         navigation.navigate('Perfil');
@@ -295,15 +301,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
         )}
 
         {generandoAfiche && perfil && (
-          <AficheGenerator
-            pet={pet}
-            profile={perfil}
-            onDone={() => setGenerandoAfiche(false)}
-            onError={(m) => {
-              setGenerandoAfiche(false);
-              notify('Error', m);
-            }}
-          />
+          <AficheGenerator pet={pet} profile={perfil} onDone={onAficheDone} onError={onAficheError} />
         )}
       </ScrollView>
     </Screen>
