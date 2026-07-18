@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
@@ -90,7 +91,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
     setError(null);
     getPet(id)
       .then(setPet)
-      .catch((e: any) => setError(e?.message ?? 'No se pudo cargar el reporte.'))
+      .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -161,7 +162,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       setNuevaNovedad('');
       cargarNovedades();
     } catch (e: any) {
-      notify('No se pudo publicar', e?.message ?? 'Intentá de nuevo en un momento.');
+      notify('No se pudo publicar', mensajeDeErrorDb(e));
     } finally {
       setPublicandoNovedad(false);
     }
@@ -190,7 +191,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       setNuevaPista('');
       cargarPistas();
     } catch (e: any) {
-      notify('No se pudo dejar la pista', e?.message ?? 'Intentá de nuevo en un momento.');
+      notify('No se pudo dejar la pista', mensajeDeErrorDb(e));
     } finally {
       setDejandoPista(false);
     }
@@ -204,7 +205,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       await borrarTip(tip.id);
       setPistas((actuales) => actuales.filter((t) => t.id !== tip.id));
     } catch (e: any) {
-      notify('No se pudo borrar', e?.message ?? 'Intentá de nuevo en un momento.');
+      notify('No se pudo borrar', mensajeDeErrorDb(e));
     } finally {
       setBorrandoPista(null);
     }
@@ -277,7 +278,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       const uris = await pickFromLibrary(1);
       if (uris[0]) setFotoFeliz(uris[0]);
     } catch (e: any) {
-      notify('No se pudo abrir la galería', e?.message ?? 'Intentá de nuevo.');
+      notify('No se pudo abrir la galería', mensajeDeErrorDb(e));
     }
   };
 
@@ -297,7 +298,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       setMostrarReunion(false);
       setMostrarConfetti(true);
     } catch (e: any) {
-      notify('No se pudo guardar', e?.message ?? 'Intentá de nuevo en un momento.');
+      notify('No se pudo guardar', mensajeDeErrorDb(e));
     } finally {
       setGuardandoReunion(false);
     }
@@ -315,7 +316,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       }
       setGenerandoAfiche(true);
     } catch (e: any) {
-      notify('Error', e?.message ?? 'No se pudo preparar el afiche.');
+      notify('Error', mensajeDeErrorDb(e));
     }
   };
 
@@ -332,7 +333,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
         setMostrarMotivos(false);
         notify('Ya habías denunciado este reporte.');
       } else {
-        notify('Error', e?.message ?? 'No se pudo enviar la denuncia.');
+        notify('Error', mensajeDeErrorDb(e));
       }
     } finally {
       setEnviandoDenuncia(false);

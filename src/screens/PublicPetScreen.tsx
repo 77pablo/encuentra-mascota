@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
@@ -37,7 +38,7 @@ export default function PublicPetScreen({ route, navigation }: any) {
     setError(null);
     getPet(id)
       .then(setPet)
-      .catch((e: any) => setError(e?.message ?? 'No se pudo cargar el reporte.'))
+      .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
   }, [id]);
 

@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { countReunidas, Pet } from '../services/pets';
 import { buscarReportes } from '../services/busqueda';
 import { listFinalesFelices } from '../services/reunions';
@@ -52,7 +53,7 @@ export default function HomeScreen({ navigation }: any) {
         setReunidas(count);
         setFinales(finalesFelices);
       })
-      .catch((e: any) => setError(e?.message ?? 'No pudimos cargar la información.'))
+      .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
   }, []);
 

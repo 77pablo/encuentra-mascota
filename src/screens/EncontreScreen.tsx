@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import PetCard from '../components/PetCard';
 import { listLostBySpecies, Pet } from '../services/pets';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { AppText, Button, Card, Chip, EmptyState, Mascota, Screen, Title } from '../ui';
@@ -35,7 +36,7 @@ export default function EncontreScreen({ navigation }: any) {
       })
       .catch((e: any) => {
         if (cancelled) return;
-        notify('Error al buscar', e.message ?? 'Intenta de nuevo.');
+        notify('No se pudo buscar', mensajeDeErrorDb(e));
         setResultados([]);
       })
       .finally(() => {

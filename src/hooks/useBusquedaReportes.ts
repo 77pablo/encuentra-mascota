@@ -1,3 +1,4 @@
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   buscarReportes,
@@ -64,7 +65,7 @@ export function useBusquedaReportes(
       })
       .catch((e: any) => {
         if (miPeticion !== peticionRef.current) return;
-        setError(e?.message ?? 'No se pudieron cargar las mascotas.');
+        setError(mensajeDeErrorDb(e));
       })
       .finally(() => {
         if (miPeticion !== peticionRef.current) return;

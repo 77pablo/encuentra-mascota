@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { listConversations, Conversation } from '../services/messages';
 import { useAuth } from '../hooks/useAuth';
 import { timeAgo } from '../lib/time';
@@ -25,7 +26,7 @@ export default function ConversationsScreen({ navigation }: any) {
     setError(null);
     listConversations(user.id)
       .then(setConvs)
-      .catch((e: any) => setError(e?.message ?? 'No se pudieron cargar las conversaciones.'))
+      .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
   }, [user]);
 

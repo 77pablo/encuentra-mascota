@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { listMyFavorites } from '../services/favorites';
 import { Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
@@ -24,7 +25,7 @@ export default function GuardadosScreen({ navigation }: any) {
     setError(null);
     listMyFavorites(user.id)
       .then(setPets)
-      .catch((e: any) => setError(e?.message ?? 'No pudimos cargar tus guardados.'))
+      .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => {
         setLoading(false);
         setRefreshing(false);

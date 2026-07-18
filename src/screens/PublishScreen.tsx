@@ -7,6 +7,7 @@ import { petSchema } from '../schemas/pet';
 import { uploadPetPhotos } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
@@ -91,7 +92,7 @@ export default function PublishScreen({ navigation, route }: any) {
       notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
       navigation.navigate('Mapa');
     } catch (e: any) {
-      notify('Error al publicar', e.message ?? 'Intenta de nuevo.');
+      notify('No se pudo publicar', mensajeDeErrorDb(e));
     } finally {
       setSaving(false);
     }

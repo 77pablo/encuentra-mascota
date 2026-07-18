@@ -1,3 +1,4 @@
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import AfichePoster from './AfichePoster';
@@ -39,7 +40,7 @@ export default function AficheGenerator({ pet, profile, onDone, onError }: Afich
       await entregarAfiche(png, armarNombreArchivo(pet));
       onDone();
     } catch (e: any) {
-      onError(e?.message ?? 'No se pudo crear el afiche.');
+      onError(mensajeDeErrorDb(e));
     }
   }, [pet, onDone, onError]);
 

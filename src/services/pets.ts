@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
 import { ttlCache } from '../lib/cache';
+import { ErrorAmigable } from '../lib/dbErrors';
 
 export interface Pet {
   id: string;
@@ -90,7 +91,7 @@ export const PET_NO_DISPONIBLE =
 export async function getPet(id: string): Promise<Pet> {
   const { data, error } = await supabase.from('pets').select('*').eq('id', id).maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error(PET_NO_DISPONIBLE);
+  if (!data) throw new ErrorAmigable(PET_NO_DISPONIBLE);
   return data as Pet;
 }
 

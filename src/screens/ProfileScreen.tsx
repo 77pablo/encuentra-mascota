@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { closePet, deletePet, listMyReports, Pet } from '../services/pets';
 import { getMyProfile, Profile, updateMyProfile } from '../services/profile';
 import { uploadPetPhoto } from '../services/storage';
@@ -107,7 +108,7 @@ export default function ProfileScreen({ navigation }: any) {
       notify('Borrado', 'El reporte se eliminó.');
       cargar();
     } catch (e: any) {
-      notify('Error', e?.message ?? 'No se pudo borrar.');
+      notify('Error', mensajeDeErrorDb(e));
     }
   };
 
@@ -121,7 +122,7 @@ export default function ProfileScreen({ navigation }: any) {
       notify('Listo', 'Tu foto de perfil se actualizó.');
       cargar();
     } catch (e: any) {
-      notify('Error', e?.message ?? 'No se pudo subir la foto.');
+      notify('Error', mensajeDeErrorDb(e));
     } finally {
       setUploadingPhoto(false);
     }
@@ -162,7 +163,7 @@ export default function ProfileScreen({ navigation }: any) {
       setEditingPerfil(false);
       cargar();
     } catch (e: any) {
-      notify('Error', e?.message ?? 'No se pudo guardar.');
+      notify('Error', mensajeDeErrorDb(e));
     } finally {
       setSavingPerfil(false);
     }

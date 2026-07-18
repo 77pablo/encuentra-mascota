@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ordenarTips, validarTip, Tip } from '../lib/tips';
+import { ErrorAmigable } from '../lib/dbErrors';
 
 // PISTAS DEL BARRIO — acceso a `pet_tips` (migración 0012).
 // Mismo patrón que `petUpdates.ts`, con una diferencia: `listarTips` degrada a
@@ -62,11 +63,11 @@ export async function listarTips(petId: string): Promise<Tip[]> {
 // `user_id` sea el propio). Propaga el error: la pantalla avisa si no se pudo.
 export async function crearTip(petId: string, texto: string): Promise<Tip> {
   const validacion = validarTip(texto);
-  if (!validacion.ok) throw new Error(validacion.error);
+  if (!validacion.ok) throw new ErrorAmigable(validacion.error);
 
   const { data: sesion } = await supabase.auth.getUser();
   const userId = sesion?.user?.id;
-  if (!userId) throw new Error('Necesitás tener la sesión abierta para dejar una pista.');
+  if (!userId) throw new ErrorAmigable('Necesitás tener la sesión abierta para dejar una pista.');
 
   const { data, error } = await supabase
     .from('pet_tips')
@@ -86,6 +87,6 @@ export async function borrarTip(id: string): Promise<void> {
   const { data, error } = await supabase.from('pet_tips').delete().eq('id', id).select('id');
   if (error) throw error;
   if (!data || data.length === 0) {
-    throw new Error('No se pudo borrar la pista.');
+    throw new ErrorAmigable('No se pudo borrar la pista.');
   }
 }

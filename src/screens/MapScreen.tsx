@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { useFocusEffect } from '@react-navigation/native';
 import { Pet } from '../services/pets';
@@ -23,7 +24,7 @@ export default function MapScreen({ navigation }: any) {
     // escala tampoco se distinguen. Los reportes mas recientes primero.
     buscarReportes({}, null, 100)
       .then((pagina) => setPets(pagina.reportes as Pet[]))
-      .catch((e: any) => setError(e?.message ?? 'No se pudieron cargar las mascotas.'))
+      .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
   }, []);
 

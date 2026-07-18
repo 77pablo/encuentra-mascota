@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { petSchema } from '../schemas/pet';
 import { Pet, updatePet } from '../services/pets';
 import { notify } from '../lib/notify';
@@ -51,7 +52,7 @@ export default function EditPetScreen({ route, navigation }: any) {
       notify('Guardado', 'Tu reporte se actualizó.');
       navigation.goBack();
     } catch (e: any) {
-      notify('Error', e?.message ?? 'No se pudo guardar.');
+      notify('Error', mensajeDeErrorDb(e));
     } finally {
       setSaving(false);
     }

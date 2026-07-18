@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { useAuth } from '../hooks/useAuth';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { AlertZone, getMyZone, upsertMyZone } from '../services/alertZones';
@@ -76,7 +77,7 @@ export default function AlertZoneScreen() {
       // es solo in-app (ver ZoneAlertBanner).
       notify('Listo', 'Tu zona de alerta quedó guardada.');
     } catch (e: any) {
-      notify('Error', e?.message ?? 'No se pudo guardar tu zona.');
+      notify('Error', mensajeDeErrorDb(e));
     } finally {
       setSaving(false);
     }

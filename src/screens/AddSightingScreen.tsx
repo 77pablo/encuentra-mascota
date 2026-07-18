@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { addSighting } from '../services/sightings';
 import { uploadPetPhoto } from '../services/storage';
@@ -65,7 +66,7 @@ export default function AddSightingScreen({ route, navigation }: any) {
       notify('¡Gracias!', 'Sumaste una pista al rastro de esta mascota.');
       navigation.goBack();
     } catch (e: any) {
-      notify('No se pudo enviar', e?.message ?? 'Intenta de nuevo.');
+      notify('No se pudo enviar', mensajeDeErrorDb(e));
     } finally {
       setSaving(false);
     }
