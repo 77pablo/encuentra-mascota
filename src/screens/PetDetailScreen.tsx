@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
-import { getPet, Pet } from '../services/pets';
+import { getPet, listActivePets, Pet } from '../services/pets';
 import { denunciarPet } from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
+import { findMatches, PetMatch } from '../lib/matches';
 import { timeAgo } from '../lib/time';
 import { notify } from '../lib/notify';
+import PetCard from '../components/PetCard';
 import { AppText, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -34,6 +36,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [mostrarMotivos, setMostrarMotivos] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
+  const [matches, setMatches] = useState<PetMatch[]>([]);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -47,6 +50,27 @@ export default function PetDetailScreen({ route, navigation }: any) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Cuando ya tenemos la mascota, buscamos posibles coincidencias entre los
+  // reportes activos (perdida ↔ encontrada, especie compatible y cercanas).
+  // Silencioso: si falla la carga, simplemente no mostramos sugerencias.
+  useEffect(() => {
+    if (!pet) {
+      setMatches([]);
+      return;
+    }
+    let vivo = true;
+    listActivePets()
+      .then((pets) => {
+        if (vivo) setMatches(findMatches(pet, pets));
+      })
+      .catch(() => {
+        if (vivo) setMatches([]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [pet]);
 
   const onCarouselLayout = (e: LayoutChangeEvent) => {
     setCarouselWidth(e.nativeEvent.layout.width);
@@ -178,6 +202,32 @@ export default function PetDetailScreen({ route, navigation }: any) {
           style={styles.shareButton}
         />
 
+        {matches.length > 0 && (
+          <View style={styles.matchesSection}>
+            <View style={styles.matchesHeader}>
+              <Ionicons name="sparkles" size={18} color={colors.brand} />
+              <Title size={17} style={styles.matchesTitle}>
+                Posibles coincidencias
+              </Title>
+            </View>
+            <AppText muted size={13} style={styles.matchesSubtitle}>
+              {pet.estado === 'perdida'
+                ? 'Mascotas encontradas cerca que podrían ser la tuya.'
+                : 'Personas que buscan una mascota parecida por la zona.'}
+            </AppText>
+            <View style={styles.matchesList}>
+              {matches.map((m) => (
+                <PetCard
+                  key={m.pet.id}
+                  pet={m.pet}
+                  distanceKm={m.distanceKm}
+                  onPress={() => navigation.push('PetDetail', { id: m.pet.id })}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
         {!esMio && (
           <View style={styles.reportSection}>
             <Button
@@ -288,6 +338,24 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     marginTop: spacing.md,
+  },
+  matchesSection: {
+    marginTop: spacing.lg,
+  },
+  matchesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  matchesTitle: {
+    flexShrink: 1,
+  },
+  matchesSubtitle: {
+    marginTop: 2,
+    marginBottom: spacing.sm,
+  },
+  matchesList: {
+    gap: spacing.md,
   },
   reportSection: {
     marginTop: spacing.lg,
