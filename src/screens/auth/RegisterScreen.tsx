@@ -3,10 +3,11 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { volverAtras } from '../../lib/authReturn';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
 import { colors, radius, spacing } from '../../theme';
 
-export default function RegisterScreen({ navigation }: any) {
+export default function RegisterScreen({ navigation, route }: any) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +21,7 @@ export default function RegisterScreen({ navigation }: any) {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
         options: { data: { nombre: parsed.data.nombre } },
@@ -29,7 +30,16 @@ export default function RegisterScreen({ navigation }: any) {
         notify('No se pudo registrar', error.message);
         return;
       }
+      // Si el proyecto no exige confirmar el correo, el registro ya deja
+      // sesión iniciada: volvemos derecho a donde estaba el usuario en vez de
+      // mandarlo a iniciar sesión de nuevo.
+      if (data.session) {
+        notify('¡Cuenta creada!', 'Ya estás dentro. Seguimos donde estabas.');
+        volverAtras(navigation);
+        return;
+      }
       notify('¡Cuenta creada!', 'Ahora inicia sesión con tu correo y contraseña.');
+      navigation.replace('Login', route?.params);
     } catch (e: any) {
       notify('Error de red', e?.message ?? 'Intenta de nuevo.');
     } finally {
@@ -92,7 +102,7 @@ export default function RegisterScreen({ navigation }: any) {
               <Button
                 title="¿Ya tienes cuenta? Inicia sesión"
                 variant="ghost"
-                onPress={() => navigation.goBack()}
+                onPress={() => navigation.replace('Login', route?.params)}
               />
               <AppText muted size={12} align="center" style={styles.legalNote}>
                 Al crear tu cuenta aceptas los Términos y la Política de Privacidad.

@@ -3,10 +3,11 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { loginSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
+import { volverAtras } from '../../lib/authReturn';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
 import { colors, radius, spacing } from '../../theme';
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen({ navigation, route }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,12 @@ export default function LoginScreen({ navigation }: any) {
       const { error } = await supabase.auth.signInWithPassword(parsed.data);
       if (error) {
         notify('No se pudo entrar', error.message);
+        return;
       }
+      // Entró: sacamos la pantalla de auth de encima. Debajo quedó intacta la
+      // pantalla desde donde vino (el detalle, el perfil, lo que sea), así que
+      // vuelve exactamente ahí y no rebota al Inicio.
+      volverAtras(navigation);
     } catch (e: any) {
       notify('Error de red', e?.message ?? 'Intenta de nuevo.');
     } finally {
@@ -83,7 +89,7 @@ export default function LoginScreen({ navigation }: any) {
               <Button
                 title="¿No tienes cuenta? Crea una"
                 variant="ghost"
-                onPress={() => navigation.navigate('Register')}
+                onPress={() => navigation.replace('Register', route?.params)}
               />
             </Card>
           </View>
