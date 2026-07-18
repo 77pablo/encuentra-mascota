@@ -157,6 +157,96 @@ El indicador de mensajes no leídos ya funciona (bandeja interna). Falta el
 
 ---
 
+## C) Avisos que salen de la app (correo + push automáticos)
+
+Esto es distinto de A y B. A es el correo **de auth** (confirmar cuenta) y B es el
+push **de mensajes del chat**. Acá hablamos de los avisos que dispara la app sola:
+un reporte nuevo en tu zona, alguien que vio a tu mascota, una pista en tu reporte.
+
+### Cómo funciona (arquitectura ya montada)
+
+1. Los **triggers** de `supabase/migrations/0011_avisos.sql` encolan un evento en
+   `notification_events` al publicarse un reporte, un avistamiento o una pista.
+   El cliente **nunca** escribe en esa cola (si pudiera, cualquiera podría forjar
+   avisos hacia otros usuarios).
+2. La Edge Function `send-notifications` lee la cola con la `service_role key`,
+   decide a quién le toca con `src/lib/notifyTargets.ts` y despacha.
+3. Cada persona elige qué recibir y por dónde en **Perfil → Avisos**
+   (`src/screens/NotificationPrefsScreen.tsx` → tabla `notification_prefs`).
+
+### Qué ya está cableado (✅)
+
+- ✅ Migración `0011_avisos.sql` (tablas, RLS y triggers encoladores).
+- ✅ Lógica de targeting con tests (`src/lib/notifyTargets.ts`,
+  `__tests__/lib/notifyTargets.test.ts`).
+- ✅ Servicio de preferencias (`src/services/notificationPrefs.ts`) y pantalla
+  **Avisos** en Perfil. Si la migración no está aplicada, la pantalla degrada a los
+  valores por defecto y no se rompe.
+- ✅ Edge Function `supabase/functions/send-notifications/`.
+
+### Lo que debes hacer (🔑)
+
+#### 1. Aplicar la migración
+🔑 Pega `supabase/migrations/0011_avisos.sql` en el **SQL Editor** de Supabase y
+ejecútalo. Hasta que hagas esto, la pantalla de Avisos muestra los valores por
+defecto y no guarda nada (es el comportamiento esperado).
+
+#### 2. Desplegar la función
+```bash
+supabase link --project-ref TU_PROJECT_REF   # una vez, si no lo hiciste ya
+supabase functions deploy send-notifications
+```
+
+#### 3. Setear los secretos
+```bash
+supabase secrets set RESEND_API_KEY=re_xxxxxxxxxxxx
+supabase secrets set RESEND_FROM="Encuentra tu Mascota <no-responder@tudominio.cl>"
+supabase secrets set EXPO_PUBLIC_WEB_URL=https://tu-app.netlify.app
+```
+`SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` suelen inyectarse solos; si no:
+```bash
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=TU_SERVICE_ROLE_KEY
+```
+
+> ⚠️ El mismo aviso de la sección A aplica acá: **sin dominio verificado en
+> Resend**, el correo solo llega a la dirección de tu cuenta de Resend. Para que
+> les llegue a los usuarios de verdad hay que verificar un dominio.
+
+#### 4. Agendarla cada minuto
+
+**Opción a — `pg_cron` (dentro de Supabase).** En el SQL Editor:
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'despachar-avisos',
+  '* * * * *',
+  $$
+  select net.http_post(
+    url := 'https://TU_PROJECT_REF.functions.supabase.co/send-notifications',
+    headers := '{"Content-Type": "application/json",
+                 "Authorization": "Bearer TU_SERVICE_ROLE_KEY"}'::jsonb
+  );
+  $$
+);
+```
+Para desagendarla: `select cron.unschedule('despachar-avisos');`
+
+**Opción b — cron externo** (cron-job.org, GitHub Actions, etc.): un `POST` cada
+minuto a `https://TU_PROJECT_REF.functions.supabase.co/send-notifications` con el
+header `Authorization: Bearer TU_SERVICE_ROLE_KEY`.
+
+### Cómo probar
+1. Con la migración aplicada y la función desplegada, publica un reporte desde otra
+   cuenta dentro de tu zona de alerta.
+2. Mira la cola: `select * from notification_events order by creado_en desc;`
+   — debe aparecer una fila `pendiente` y pasar a `enviado` en menos de un minuto.
+3. Revisa la bandeja (y **spam**), y los logs con
+   `supabase functions logs send-notifications`.
+
+---
+
 ## Resumen de variables de entorno
 
 | Variable | Archivo | La consume | Estado |
@@ -166,6 +256,9 @@ El indicador de mensajes no leídos ya funciona (bandeja interna). Falta el
 | `EAS_PROJECT_ID` | `.env` | `app.config.ts` → `src/services/pushTokens.ts` | 🔑 pegar tras `eas init` |
 | `SUPABASE_SERVICE_ROLE_KEY` | secreto de Edge Function (no `.env`) | `supabase/functions/send-push/index.ts` | 🔑 `supabase secrets set` |
 | (SMTP host/user/pass) | dashboard de Supabase (no `.env`) | Supabase Auth | 🔑 pegar en dashboard |
+| `RESEND_API_KEY` | secreto de Edge Function | `send-notifications` (correo de avisos) | 🔑 `supabase secrets set` |
+| `RESEND_FROM` | secreto de Edge Function | `send-notifications` (remitente) | 🔑 `supabase secrets set` |
+| `EXPO_PUBLIC_WEB_URL` | secreto de Edge Function | `send-notifications` (link del reporte) | 🔑 `supabase secrets set` |
 
 ## Checklist rápido
 - [ ] Resend/Brevo creado y SMTP pegado en Supabase (🔑 A)
@@ -174,3 +267,6 @@ El indicador de mensajes no leídos ya funciona (bandeja interna). Falta el
 - [ ] `eas init` + `EAS_PROJECT_ID` en `.env` (🔑 B1)
 - [ ] `eas build --profile preview -p android` e instalar APK (🔑 B3)
 - [ ] `supabase functions deploy send-push` + `service_role` secret (🔑 B4)
+- [ ] Migración `0011_avisos.sql` aplicada en el SQL Editor (🔑 C1)
+- [ ] `supabase functions deploy send-notifications` + secretos de Resend (🔑 C2, C3)
+- [ ] Despacho agendado cada minuto con `pg_cron` o cron externo (🔑 C4)
