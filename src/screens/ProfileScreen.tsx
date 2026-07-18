@@ -28,9 +28,11 @@ export default function ProfileScreen({ navigation }: any) {
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const [editingName, setEditingName] = useState(false);
+  const [editingPerfil, setEditingPerfil] = useState(false);
   const [nombreDraft, setNombreDraft] = useState('');
-  const [savingName, setSavingName] = useState(false);
+  const [telefonoDraft, setTelefonoDraft] = useState('');
+  const [redSocialDraft, setRedSocialDraft] = useState('');
+  const [savingPerfil, setSavingPerfil] = useState(false);
 
   const cargar = useCallback(() => {
     if (!user) return;
@@ -96,123 +98,167 @@ export default function ProfileScreen({ navigation }: any) {
     if (uris[0]) await aplicarFotoPerfil(uris[0]);
   };
 
-  const empezarEdicionNombre = () => {
+  const empezarEdicionPerfil = () => {
     setNombreDraft(profile?.nombre ?? '');
-    setEditingName(true);
+    setTelefonoDraft(profile?.telefono ?? '');
+    setRedSocialDraft(profile?.red_social ?? '');
+    setEditingPerfil(true);
   };
 
-  const guardarNombre = async () => {
+  const guardarPerfil = async () => {
     if (!user) return;
     const nombre = nombreDraft.trim();
     if (!nombre) {
       notify('Falta el nombre', 'Escribe tu nombre.');
       return;
     }
-    setSavingName(true);
+    setSavingPerfil(true);
     try {
-      await updateMyProfile(user.id, { nombre });
-      notify('Guardado', 'Tu nombre se actualizó.');
-      setEditingName(false);
+      await updateMyProfile(user.id, {
+        nombre,
+        telefono: telefonoDraft.trim(),
+        red_social: redSocialDraft.trim(),
+      });
+      notify('Guardado', 'Tu perfil se actualizó.');
+      setEditingPerfil(false);
       cargar();
     } catch (e: any) {
       notify('Error', e?.message ?? 'No se pudo guardar.');
     } finally {
-      setSavingName(false);
+      setSavingPerfil(false);
     }
   };
 
   const inicial = user?.email ? user.email.charAt(0).toUpperCase() : '🐾';
   const tieneNombre = !!profile?.nombre?.trim();
   const nombreMostrado = tieneNombre ? (profile!.nombre as string) : user?.email ?? '';
+  const telefonoMostrado = profile?.telefono?.trim();
+  const redSocialMostrada = profile?.red_social?.trim();
 
   return (
     <Screen padded>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={uploadingPhoto}
-            onPress={() => setPhotoMenuOpen((v) => !v)}
-            style={styles.avatarWrap}
-          >
-            <View style={styles.avatar}>
-              {profile?.foto_perfil ? (
-                <Image source={{ uri: profile.foto_perfil }} style={styles.avatarImage} />
-              ) : (
-                <AppText weight="bold" size={22} color={colors.brand}>
-                  {inicial}
-                </AppText>
-              )}
-            </View>
-            <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={13} color={colors.white} />
-            </View>
-          </TouchableOpacity>
-          <View style={styles.headerText}>
-            <AppText weight="bold" size={16}>
-              {nombreMostrado}
-            </AppText>
-            {tieneNombre ? (
-              <AppText muted size={13}>
-                {user?.email}
+        <Card style={styles.headerCard}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={uploadingPhoto}
+              onPress={() => setPhotoMenuOpen((v) => !v)}
+              style={styles.avatarWrap}
+            >
+              <View style={styles.avatar}>
+                {profile?.foto_perfil ? (
+                  <Image source={{ uri: profile.foto_perfil }} style={styles.avatarImage} />
+                ) : (
+                  <AppText weight="bold" size={22} color={colors.brand}>
+                    {inicial}
+                  </AppText>
+                )}
+              </View>
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={13} color={colors.white} />
+              </View>
+            </TouchableOpacity>
+            <View style={styles.headerText}>
+              <AppText weight="bold" size={16}>
+                {nombreMostrado}
               </AppText>
-            ) : null}
+              {tieneNombre ? (
+                <AppText muted size={13}>
+                  {user?.email}
+                </AppText>
+              ) : null}
+              {telefonoMostrado ? (
+                <View style={styles.contactRow}>
+                  <Ionicons name="call" size={13} color={colors.muted} />
+                  <AppText muted size={13} style={styles.contactRowText}>
+                    {telefonoMostrado}
+                  </AppText>
+                </View>
+              ) : null}
+              {redSocialMostrada ? (
+                <View style={styles.contactRow}>
+                  <Ionicons name="share-social" size={13} color={colors.muted} />
+                  <AppText muted size={13} style={styles.contactRowText}>
+                    {redSocialMostrada}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
 
-        {uploadingPhoto ? (
-          <AppText muted size={13} style={styles.helperLine}>
-            Subiendo foto…
-          </AppText>
-        ) : null}
+          {uploadingPhoto ? (
+            <AppText muted size={13} style={styles.helperLine}>
+              Subiendo foto…
+            </AppText>
+          ) : null}
 
-        {photoMenuOpen ? (
-          <View style={styles.photoButtonsRow}>
-            <Button
-              title="Tomar foto"
-              variant="secondary"
-              icon="camera"
-              onPress={onTakeAvatarPhoto}
-              style={styles.photoButton}
-            />
-            <Button
-              title="Galería"
-              variant="secondary"
-              icon="image"
-              onPress={onPickAvatarFromLibrary}
-              style={styles.photoButton}
-            />
-          </View>
-        ) : null}
+          {photoMenuOpen ? (
+            <View style={styles.photoButtonsRow}>
+              <Button
+                title="Tomar foto"
+                variant="secondary"
+                icon="camera"
+                onPress={onTakeAvatarPhoto}
+                style={styles.photoButton}
+              />
+              <Button
+                title="Galería"
+                variant="secondary"
+                icon="image"
+                onPress={onPickAvatarFromLibrary}
+                style={styles.photoButton}
+              />
+            </View>
+          ) : null}
 
-        <Card style={styles.editCard}>
-          {editingName ? (
-            <>
-              <Input label="Tu nombre" value={nombreDraft} onChangeText={setNombreDraft} placeholder="¿Cómo te llamas?" />
+          {editingPerfil ? (
+            <View style={styles.editForm}>
+              <Input
+                label="Tu nombre"
+                value={nombreDraft}
+                onChangeText={setNombreDraft}
+                placeholder="¿Cómo te llamas?"
+              />
+              <Input
+                label="Teléfono / WhatsApp"
+                value={telefonoDraft}
+                onChangeText={setTelefonoDraft}
+                placeholder="+56 9 1234 5678"
+                keyboardType="phone-pad"
+                icon="call"
+              />
+              <Input
+                label="Red social (Instagram, Facebook…)"
+                value={redSocialDraft}
+                onChangeText={setRedSocialDraft}
+                placeholder="@tu_usuario"
+                icon="share-social"
+              />
               <View style={styles.editActionsRow}>
                 <Button
                   title="Guardar"
                   icon="checkmark"
-                  onPress={guardarNombre}
-                  loading={savingName}
-                  disabled={savingName}
+                  onPress={guardarPerfil}
+                  loading={savingPerfil}
+                  disabled={savingPerfil}
                   style={styles.editActionButton}
                 />
                 <Button
                   title="Cancelar"
                   variant="ghost"
-                  onPress={() => setEditingName(false)}
-                  disabled={savingName}
+                  onPress={() => setEditingPerfil(false)}
+                  disabled={savingPerfil}
                   style={styles.editActionButton}
                 />
               </View>
-            </>
+            </View>
           ) : (
             <Button
               title="Editar perfil"
               variant="ghost"
               icon="create"
-              onPress={empezarEdicionNombre}
+              onPress={empezarEdicionPerfil}
               style={styles.editProfileButton}
             />
           )}
@@ -315,6 +361,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingBottom: spacing.xxxl,
   },
+  headerCard: {
+    gap: spacing.md,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -352,6 +401,14 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  contactRowText: {
+    marginLeft: spacing.xs,
+  },
   helperLine: {
     marginTop: -spacing.xs,
   },
@@ -362,7 +419,7 @@ const styles = StyleSheet.create({
   photoButton: {
     flex: 1,
   },
-  editCard: {
+  editForm: {
     gap: spacing.sm,
   },
   editProfileButton: {
