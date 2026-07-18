@@ -6,6 +6,7 @@ import { colors, radius, spacing } from '../theme';
 import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
+import { useFavorites } from '../hooks/useFavorites';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -22,6 +23,8 @@ export default function PetCard({
   onPress: () => void;
   distanceKm?: number;
 }) {
+  const { isFavorite, toggle } = useFavorites();
+  const guardada = isFavorite(pet.id);
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
       <Card style={styles.card}>
@@ -72,9 +75,14 @@ export default function PetCard({
             style={styles.heartButton}
             onPress={(e) => {
               e.stopPropagation?.();
+              toggle(pet.id);
             }}
           >
-            <Ionicons name="heart-outline" size={20} color={colors.muted} />
+            <Ionicons
+              name={guardada ? 'heart' : 'heart-outline'}
+              size={20}
+              color={guardada ? colors.lost : colors.muted}
+            />
           </TouchableOpacity>
         </View>
       </Card>

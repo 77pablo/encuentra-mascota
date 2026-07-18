@@ -6,6 +6,7 @@ import { countReunidas, listActivePets, Pet } from '../services/pets';
 import { listFinalesFelices } from '../services/reunions';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
+import { useFavorites } from '../hooks/useFavorites';
 import { distanceKm as getDistanceKm, distanceLabel } from '../lib/geo';
 import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
@@ -31,6 +32,7 @@ export default function HomeScreen({ navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   const location = useMyLocation(true);
   const { user } = useAuth();
+  const { isFavorite, toggle } = useFavorites();
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -264,9 +266,14 @@ export default function HomeScreen({ navigation }: any) {
                     style={styles.heartButton}
                     onPress={(e) => {
                       e.stopPropagation?.();
+                      toggle(pet.id);
                     }}
                   >
-                    <Ionicons name="heart-outline" size={20} color={colors.muted} />
+                    <Ionicons
+                      name={isFavorite(pet.id) ? 'heart' : 'heart-outline'}
+                      size={20}
+                      color={isFavorite(pet.id) ? colors.lost : colors.muted}
+                    />
                   </TouchableOpacity>
                 </Card>
               </TouchableOpacity>
