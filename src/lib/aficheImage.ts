@@ -9,6 +9,7 @@ export async function fotoParaCaptura(uri: string | null): Promise<string | null
   if (Platform.OS !== 'web') return uri;
   try {
     const res = await fetch(uri);
+    if (!res.ok) return uri; // 403/404: no ensuciar el afiche con el cuerpo del error, usar la uri remota
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
