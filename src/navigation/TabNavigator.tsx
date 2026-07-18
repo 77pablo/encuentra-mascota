@@ -11,6 +11,7 @@ import PetDetailScreen from '../screens/PetDetailScreen';
 import AddSightingScreen from '../screens/AddSightingScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
@@ -81,6 +82,10 @@ function ProfileStack() {
   return (
     <ProfileStackNav.Navigator>
       <ProfileStackNav.Screen name="Perfil" component={ProfileScreen} options={{ headerShown: false }} />
+      <ProfileStackNav.Screen name="Guardados" component={GuardadosScreen} options={{ title: 'Guardados' }} />
+      <ProfileStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <ProfileStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
+      <ProfileStackNav.Screen name="Chat" component={ChatScreen} />
       <ProfileStackNav.Screen name="EditPet" component={EditPetScreen} options={{ title: 'Editar reporte' }} />
       <ProfileStackNav.Screen
         name="AlertZone"

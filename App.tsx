@@ -9,6 +9,7 @@ import {
 } from '@expo-google-fonts/hanken-grotesk';
 import { AuthProvider } from './src/hooks/useAuth';
 import { UnreadProvider } from './src/hooks/useUnread';
+import { FavoritesProvider } from './src/hooks/useFavorites';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initMonitoring } from './src/lib/monitoring';
 import { setupPushNotifications } from './src/lib/pushSetup';
@@ -32,7 +33,9 @@ export default function App() {
   return (
     <AuthProvider>
       <UnreadProvider>
-        <RootNavigator />
+        <FavoritesProvider>
+          <RootNavigator />
+        </FavoritesProvider>
       </UnreadProvider>
     </AuthProvider>
   );
