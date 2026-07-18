@@ -17,6 +17,10 @@ export interface Pet {
   activo: boolean;
   oculto: boolean;
   creado_en: string;
+  // Final feliz (verificación de reencuentro) — ver reunions.ts / lib/reunion.ts.
+  reunida_en?: string | null;
+  final_feliz?: string | null;
+  final_foto?: string | null;
 }
 
 // Caché de la lista de reportes activos (30s). Evita pedir todo a la base
@@ -79,6 +83,12 @@ export async function getPet(id: string): Promise<Pet> {
   const { data, error } = await supabase.from('pets').select('*').eq('id', id).single();
   if (error) throw error;
   return data as Pet;
+}
+
+// Permite a otros servicios (p. ej. reunions.ts) invalidar la caché de
+// reportes activos tras una mutación, sin duplicar el objeto de caché.
+export function clearActivePetsCache(): void {
+  activePetsCache.clear();
 }
 
 export async function closePet(id: string): Promise<void> {

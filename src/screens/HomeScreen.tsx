@@ -3,9 +3,11 @@ import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-nat
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { countReunidas, listActivePets, Pet } from '../services/pets';
+import { listFinalesFelices } from '../services/reunions';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
 import { distanceKm as getDistanceKm, distanceLabel } from '../lib/geo';
+import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
@@ -23,6 +25,7 @@ const CHIPS = ['Cerca de ti', 'Perros', 'Gatos', 'Perdidos'];
 export default function HomeScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState(0);
+  const [finales, setFinales] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useMyLocation(true);
@@ -31,10 +34,11 @@ export default function HomeScreen({ navigation }: any) {
   const cargar = useCallback(() => {
     setLoading(true);
     setError(null);
-    Promise.all([listActivePets(), countReunidas()])
-      .then(([activePets, count]) => {
+    Promise.all([listActivePets(), countReunidas(), listFinalesFelices(6)])
+      .then(([activePets, count, finalesFelices]) => {
         setPets(activePets);
         setReunidas(count);
+        setFinales(finalesFelices);
       })
       .catch((e: any) => setError(e?.message ?? 'No pudimos cargar la información.'))
       .finally(() => setLoading(false));
@@ -153,6 +157,49 @@ export default function HomeScreen({ navigation }: any) {
           <AppText muted size={13} style={styles.reunidasLine}>
             Ya van {reunidas} vuelta{reunidas === 1 ? '' : 's'} a casa 🎉
           </AppText>
+        ) : null}
+
+        {/* Tira de finales felices */}
+        {finales.length > 0 ? (
+          <View style={styles.finalesSection}>
+            <View style={styles.finalesHeader}>
+              <Ionicons name="heart" size={16} color={colors.found} />
+              <Title size={17} style={styles.finalesTitle}>
+                Finales felices
+              </Title>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.finalesRow}
+            >
+              {finales.map((p) => {
+                const foto = p.final_foto || p.fotos[0];
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    activeOpacity={0.85}
+                    style={styles.finalCard}
+                    onPress={() => navigation.navigate('PetDetail', { id: p.id })}
+                  >
+                    {foto ? (
+                      <Image source={{ uri: foto }} style={styles.finalPhoto} />
+                    ) : (
+                      <View style={[styles.finalPhoto, styles.finalPhotoPlaceholder]}>
+                        <Ionicons name="heart" size={22} color={colors.found} />
+                      </View>
+                    )}
+                    <AppText weight="bold" size={13} numberOfLines={1} style={styles.finalName}>
+                      {p.nombre || especieLabel[p.especie]}
+                    </AppText>
+                    <AppText muted size={11} numberOfLines={1}>
+                      {reunionLabel(p) || 'Volvió a casa'}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
         ) : null}
 
         {/* Sección "cerca de ti" */}
@@ -310,6 +357,39 @@ const styles = StyleSheet.create({
   },
   reunidasLine: {
     marginTop: -spacing.xs,
+  },
+  finalesSection: {
+    marginTop: spacing.xs,
+  },
+  finalesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  finalesTitle: {
+    flexShrink: 1,
+  },
+  finalesRow: {
+    paddingRight: spacing.xl,
+    gap: spacing.md,
+  },
+  finalCard: {
+    width: 130,
+  },
+  finalPhoto: {
+    width: 130,
+    height: 100,
+    borderRadius: radius.md,
+    marginBottom: spacing.xs,
+  },
+  finalPhotoPlaceholder: {
+    backgroundColor: colors.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  finalName: {
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
