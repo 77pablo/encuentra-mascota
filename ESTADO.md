@@ -16,11 +16,7 @@
 - Fix importante: pantalla blanca al iniciar sesión (resuelto).
 
 ## PENDIENTE — pasos del usuario (necesarios)
-1. **Aplicar migración 0005 en Supabase (SQL Editor)** — sin esto el teléfono/red social del perfil no se guardan:
-   ```sql
-   alter table public.profiles add column if not exists telefono text;
-   alter table public.profiles add column if not exists red_social text;
-   ```
+1. ~~Migración 0005~~ — ✅ **APLICADA (2026-07-17)**: columnas `telefono` y `red_social` en `public.profiles`. El teléfono/red social del perfil ya se guardan.
 2. **Config opcionales (cada una activa algo ya programado):**
    - Correo/SMTP (Resend/Brevo) → confirmación + recuperar clave. Ver `SETUP-PUSH-CORREO.md`. Resend en modo prueba solo envía a tu propio Gmail hasta verificar dominio.
    - Push real → `eas init` + `EAS_PROJECT_ID` en `.env` + build APK + deploy de la Edge Function `send-push`. Ver `SETUP-PUSH-CORREO.md`.
