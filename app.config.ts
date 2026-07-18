@@ -37,6 +37,15 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-splash-screen',
   ],
+  // `projectId` de EAS: lo consume `src/services/pushTokens.ts` para pedir el
+  // Expo push token. Se llena solo al correr `eas init` (que escribe aquí el id)
+  // o pegando el id en la variable EAS_PROJECT_ID del .env. Sin él, el push real
+  // no se registra (la app sigue funcionando; el registro es silencioso).
+  extra: {
+    eas: {
+      projectId: process.env.EAS_PROJECT_ID,
+    },
+  },
 };
 
 export default config;
