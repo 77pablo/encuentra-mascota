@@ -65,6 +65,9 @@ describe('armarNombreArchivo', () => {
   it('cae a la especie si no hay nombre', () => {
     expect(armarNombreArchivo({ nombre: null, especie: 'gato' })).toBe('afiche-gato.png');
   });
+  it('cae a "mascota" si el nombre no deja caracteres válidos', () => {
+    expect(armarNombreArchivo({ nombre: '🐾', especie: 'perro' })).toBe('afiche-mascota.png');
+  });
 });
 
 describe('armarAfiche', () => {

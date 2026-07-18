@@ -43,7 +43,7 @@ export function armarNombreArchivo(pet: Pick<Pet, 'nombre' | 'especie'>): string
   const slug =
     raw
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036F]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'mascota';
   return `afiche-${slug}.png`;
