@@ -2,7 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { countReunidas, listActivePets, Pet } from '../services/pets';
+import { countReunidas, Pet } from '../services/pets';
+import { buscarReportes } from '../services/busqueda';
 import { listFinalesFelices } from '../services/reunions';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
@@ -40,7 +41,12 @@ export default function HomeScreen({ navigation }: any) {
     // La tira de "finales felices" es decorativa: si su consulta falla (p. ej.
     // la migración 0008 aún no está aplicada), degradamos a [] en vez de tumbar
     // toda la pantalla de Inicio.
-    Promise.all([listActivePets(), countReunidas(), listFinalesFelices(6).catch(() => [] as Pet[])])
+    // Inicio solo muestra una tira corta: pedimos 6, no la base entera.
+    Promise.all([
+      buscarReportes({}, null, 6).then((p) => p.reportes as Pet[]),
+      countReunidas(),
+      listFinalesFelices(6).catch(() => [] as Pet[]),
+    ])
       .then(([activePets, count, finalesFelices]) => {
         setPets(activePets);
         setReunidas(count);

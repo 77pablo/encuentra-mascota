@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
-import { getPet, listActivePets, Pet } from '../services/pets';
+import { getPet, Pet } from '../services/pets';
+import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { markReunited } from '../services/reunions';
 import { denunciarPet } from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { shareReport } from '../lib/share';
-import { findMatches, PetMatch } from '../lib/matches';
 import { listSightings, Sighting } from '../services/sightings';
 import { addUpdate, listUpdates, PetUpdate } from '../services/petUpdates';
 import { borrarTip, crearTip, listarTips } from '../services/tips';
@@ -65,7 +65,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [mostrarMotivos, setMostrarMotivos] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
-  const [matches, setMatches] = useState<PetMatch[]>([]);
+  const [matches, setMatches] = useState<Coincidencia[]>([]);
   const [sightings, setSightings] = useState<Sighting[]>([]);
   // Novedades del dueño (bitácora del reporte)
   const [novedades, setNovedades] = useState<PetUpdate[]>([]);
@@ -107,9 +107,12 @@ export default function PetDetailScreen({ route, navigation }: any) {
       return;
     }
     let vivo = true;
-    listActivePets()
-      .then((pets) => {
-        if (vivo) setMatches(findMatches(pet, pets));
+    // Las coincidencias las resuelve la base (migracion 0014): estado opuesto,
+    // especie compatible y dentro del radio, ordenadas por cercania. Antes esto
+    // se calculaba en el cliente recorriendo TODOS los reportes activos.
+    buscarCoincidencias(pet.id)
+      .then((encontradas) => {
+        if (vivo) setMatches(encontradas);
       })
       .catch(() => {
         if (vivo) setMatches([]);
@@ -779,10 +782,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
             <View style={styles.matchesList}>
               {matches.map((m) => (
                 <PetCard
-                  key={m.pet.id}
-                  pet={m.pet}
-                  distanceKm={m.distanceKm}
-                  onPress={() => navigation.push('PetDetail', { id: m.pet.id })}
+                  key={m.id}
+                  pet={m as unknown as Pet}
+                  distanceKm={m.distancia_km}
+                  onPress={() => navigation.push('PetDetail', { id: m.id })}
                 />
               ))}
             </View>

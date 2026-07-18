@@ -1,16 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { listActivePets, Pet } from '../services/pets';
+import { Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
 import { AppText, Card, Chip, EmptyState, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
-import { distanceKm as getDistanceKm } from '../lib/geo';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
-import { normalize } from '../lib/text';
-import { filterByExtras, RangoTiempo } from '../lib/petFilters';
+import { desdeDeRango, RangoTiempo } from '../lib/petFilters';
+import { useBusquedaReportes } from '../hooks/useBusquedaReportes';
+import { FiltrosBusqueda } from '../services/busqueda';
 
 type Filtro = 'todas' | 'perdida' | 'encontrada';
 type EspecieFiltro = 'todas' | Pet['especie'];
@@ -42,29 +41,25 @@ const rangos: { key: RangoTiempo; label: string }[] = [
   { key: 'semana', label: 'Última semana' },
 ];
 
+// Esperamos a que el usuario deje de escribir antes de consultar: sin esto,
+// "pelusa" dispararía seis búsquedas al servidor.
+const ESPERA_TIPEO_MS = 400;
+
 export default function ListScreen({ navigation }: any) {
-  const [pets, setPets] = useState<Pet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [estado, setEstado] = useState<Filtro>('todas');
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [cercaDeMi, setCercaDeMi] = useState(false);
   const [radioKm, setRadioKm] = useState<Radio>(20);
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaDiferida, setBusquedaDiferida] = useState('');
   const [conRecompensa, setConRecompensa] = useState(false);
   const [rango, setRango] = useState<RangoTiempo>('todo');
   const location = useMyLocation();
 
-  const cargar = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    listActivePets()
-      .then(setPets)
-      .catch((e: any) => setError(e?.message ?? 'No se pudieron cargar las mascotas.'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useFocusEffect(cargar);
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaDiferida(busqueda), ESPERA_TIPEO_MS);
+    return () => clearTimeout(t);
+  }, [busqueda]);
 
   // Si el usuario negó el permiso mientras "Cerca de mí" estaba activo,
   // avisamos y volvemos a mostrar todo (sin filtrar por distancia).
@@ -87,44 +82,43 @@ export default function ListScreen({ navigation }: any) {
     location.request();
   };
 
-  const itemsConDistancia = useMemo(() => {
-    const query = normalize(busqueda.trim());
-    const filtradas = pets.filter((p) => {
-      const coincideEstado = estado === 'todas' || p.estado === estado;
-      const coincideEspecie = especie === 'todas' || p.especie === especie;
-      const coincideBusqueda =
-        query === '' ||
-        [p.nombre, p.raza, p.descripcion].some((campo) => campo && normalize(campo).includes(query));
-      return coincideEstado && coincideEspecie && coincideBusqueda;
-    });
+  // Todo el filtrado viaja al servidor. Antes esto se hacía en memoria sobre
+  // TODOS los reportes; con la app en serio eso no escala.
+  const cerca = cercaDeMi && location.coords !== null;
+  const filtrosBusqueda: FiltrosBusqueda = useMemo(
+    () => ({
+      lat: cerca ? location.coords!.lat : null,
+      lng: cerca ? location.coords!.lng : null,
+      radioKm: cerca ? radioKm : null,
+      estado: estado === 'todas' ? null : estado,
+      especie: especie === 'todas' ? null : especie,
+      texto: busquedaDiferida,
+      conRecompensa,
+      desde: desdeDeRango(rango, Date.now()),
+      orden: cerca ? 'cerca' : 'recientes',
+    }),
+    [cerca, location.coords, radioKm, estado, especie, busquedaDiferida, conRecompensa, rango],
+  );
 
-    // Filtros avanzados (recompensa + rango de tiempo), antes del cálculo de distancia.
-    const base = filterByExtras(filtradas, { conRecompensa, rango }, Date.now());
+  const { reportes, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
+    useBusquedaReportes(filtrosBusqueda);
 
-    if (cercaDeMi && location.coords) {
-      const origen = location.coords;
-      return base
-        .map((p) => ({ pet: p, distanceKm: getDistanceKm(origen, { lat: p.lat, lng: p.lng }) }))
-        .filter((item) => radioKm === null || item.distanceKm <= radioKm)
-        .sort((a, b) => a.distanceKm - b.distanceKm);
-    }
+  const hayFiltrosPuestos =
+    busquedaDiferida.trim() !== '' ||
+    conRecompensa ||
+    rango !== 'todo' ||
+    estado !== 'todas' ||
+    especie !== 'todas' ||
+    cerca;
 
-    return base.map((p) => ({ pet: p, distanceKm: undefined as number | undefined }));
-  }, [pets, estado, especie, busqueda, conRecompensa, rango, cercaDeMi, location.coords, radioKm]);
-
-  const sinResultadosPorRadio = cercaDeMi && location.coords !== null && itemsConDistancia.length === 0 && pets.length > 0;
-  const sinResultadosPorBusqueda = busqueda.trim() !== '' && itemsConDistancia.length === 0 && pets.length > 0;
-  const sinResultadosPorExtras =
-    (conRecompensa || rango !== 'todo') && itemsConDistancia.length === 0 && pets.length > 0;
-
-  if (loading) {
+  if (cargando) {
     return <Loading />;
   }
 
   if (error) {
     return (
       <Screen padded>
-        <ErrorState message={error} onRetry={cargar} />
+        <ErrorState message={error} onRetry={recargar} />
       </Screen>
     );
   }
@@ -202,28 +196,25 @@ export default function ListScreen({ navigation }: any) {
       ) : null}
 
       <FlatList
-        data={itemsConDistancia}
-        keyExtractor={(item) => item.pet.id}
+        data={reportes}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        onEndReached={hayMas ? cargarMas : undefined}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          cargandoMas ? (
+            <View style={styles.footer}>
+              <ActivityIndicator color={colors.brand} />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          sinResultadosPorBusqueda ? (
+          hayFiltrosPuestos ? (
             <EmptyState
               illustration
               title="No encontramos nada así"
-              subtitle="Prueba con otra palabra o suelta algún filtro."
-            />
-          ) : sinResultadosPorRadio ? (
-            <EmptyState
-              illustration
-              title="No encontramos nada así"
-              subtitle="Prueba ampliar el radio de búsqueda para ver más reportes."
-            />
-          ) : sinResultadosPorExtras ? (
-            <EmptyState
-              illustration
-              title="No encontramos nada así"
-              subtitle="Prueba ampliar el rango de tiempo o soltar el filtro de recompensa."
+              subtitle="Prueba con otra palabra, amplía el rango o suelta algún filtro."
             />
           ) : (
             <EmptyState
@@ -235,9 +226,9 @@ export default function ListScreen({ navigation }: any) {
         }
         renderItem={({ item }) => (
           <PetCard
-            pet={item.pet}
-            distanceKm={item.distanceKm}
-            onPress={() => navigation.navigate('PetDetail', { id: item.pet.id })}
+            pet={item}
+            distanceKm={item.distancia_km ?? undefined}
+            onPress={() => navigation.navigate('PetDetail', { id: item.id })}
           />
         )}
       />
@@ -285,5 +276,8 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: spacing.md,
+  },
+  footer: {
+    paddingVertical: spacing.lg,
   },
 });
