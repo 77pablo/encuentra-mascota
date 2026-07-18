@@ -3,17 +3,24 @@ import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Scro
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, listActivePets, Pet } from '../services/pets';
+import { markReunited } from '../services/reunions';
 import { denunciarPet } from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { findMatches, PetMatch } from '../lib/matches';
+import { listSightings, Sighting } from '../services/sightings';
+import { sortByRecency, sightingDistanceKm, summaryLabel } from '../lib/sightings';
+import { distanceLabel } from '../lib/geo';
+import { isReunited, reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { notify } from '../lib/notify';
+import { pickFromLibrary } from '../lib/pickImage';
+import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
 import AficheGenerator from '../components/AficheGenerator';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, Profile } from '../services/profile';
-import { AppText, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
+import { AppText, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const MOTIVOS_DENUNCIA = [
@@ -40,8 +47,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [mostrarMotivos, setMostrarMotivos] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [matches, setMatches] = useState<PetMatch[]>([]);
+  const [sightings, setSightings] = useState<Sighting[]>([]);
   const [perfil, setPerfil] = useState<Profile | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
+  // Flujo "¡Volvió a casa!" (final feliz)
+  const [mostrarReunion, setMostrarReunion] = useState(false);
+  const [notaFeliz, setNotaFeliz] = useState('');
+  const [fotoFeliz, setFotoFeliz] = useState<string | null>(null);
+  const [guardandoReunion, setGuardandoReunion] = useState(false);
+  const [mostrarConfetti, setMostrarConfetti] = useState(false);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -77,6 +91,20 @@ export default function PetDetailScreen({ route, navigation }: any) {
     };
   }, [pet]);
 
+  // Carga el rastro de avistamientos del reporte. Se vuelve a llamar cada vez
+  // que la pantalla recupera el foco (p. ej. al volver de "Lo vi por acá").
+  const cargarAvistamientos = useCallback(() => {
+    listSightings(id)
+      .then(setSightings)
+      .catch(() => setSightings([]));
+  }, [id]);
+
+  useEffect(() => {
+    cargarAvistamientos();
+    const off = navigation.addListener('focus', cargarAvistamientos);
+    return off;
+  }, [navigation, cargarAvistamientos]);
+
   const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
   const onAficheError = useCallback(
     (m: string) => {
@@ -109,6 +137,45 @@ export default function PetDetailScreen({ route, navigation }: any) {
   }
 
   const esMio = pet.user_id === user?.id;
+  const origen = { lat: pet.lat, lng: pet.lng };
+  const rastro = sortByRecency(sightings);
+  const resumenAvistamientos = summaryLabel(origen, sightings);
+
+  const reportarAvistamiento = () =>
+    navigation.navigate('AddSighting', { petId: pet.id, petLat: pet.lat, petLng: pet.lng });
+
+  const reunida = isReunited(pet);
+  const nombreMostrar = pet.nombre || especieLabel[pet.especie];
+
+  const elegirFotoFeliz = async () => {
+    try {
+      const uris = await pickFromLibrary(1);
+      if (uris[0]) setFotoFeliz(uris[0]);
+    } catch (e: any) {
+      notify('No se pudo abrir la galería', e?.message ?? 'Intentá de nuevo.');
+    }
+  };
+
+  const confirmarReunion = async () => {
+    if (!pet) return;
+    setGuardandoReunion(true);
+    try {
+      let fotoUrl: string | null = null;
+      if (fotoFeliz && user) {
+        fotoUrl = await uploadPetPhoto(fotoFeliz, user.id);
+      }
+      const nota = notaFeliz.trim() || null;
+      await markReunited(pet.id, { nota, foto: fotoUrl });
+      // Reflejamos el cambio en pantalla sin volver a pedir a la base.
+      setPet({ ...pet, activo: false, reunida_en: new Date().toISOString(), final_feliz: nota, final_foto: fotoUrl });
+      setMostrarReunion(false);
+      setMostrarConfetti(true);
+    } catch (e: any) {
+      notify('No se pudo guardar', e?.message ?? 'Intentá de nuevo en un momento.');
+    } finally {
+      setGuardandoReunion(false);
+    }
+  };
 
   const crearAfiche = async () => {
     if (!user) return;
@@ -213,35 +280,172 @@ export default function PetDetailScreen({ route, navigation }: any) {
           region={{ latitude: pet.lat, longitude: pet.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
         >
           <Marker coordinate={{ latitude: pet.lat, longitude: pet.lng }} />
+          {sightings.map((s) => (
+            <Marker
+              key={s.id}
+              coordinate={{ latitude: s.lat, longitude: s.lng }}
+              pinColor={colors.sun}
+              title="Visto por acá"
+              description={s.nota ?? undefined}
+            />
+          ))}
         </MapView>
 
-        {!esMio && (
-          <Button
-            title="Contactar"
-            icon="chatbubble-ellipses"
-            onPress={() => navigation.navigate('Chat', { petId: pet.id, otherUserId: pet.user_id })}
-            style={styles.contactButton}
-          />
+        {reunida ? (
+          <Card style={styles.finalCard}>
+            <View style={styles.finalBadge}>
+              <Ionicons name="heart" size={13} color={colors.white} />
+              <AppText weight="bold" color={colors.white} size={11} style={styles.finalBadgeLabel}>
+                FINAL FELIZ
+              </AppText>
+            </View>
+            <Title size={18} style={styles.finalTitle}>
+              ¡Qué alegría! {nombreMostrar} volvió a casa
+            </Title>
+            {reunionLabel(pet) ? (
+              <AppText muted size={13} style={styles.finalSub}>
+                {reunionLabel(pet)}
+              </AppText>
+            ) : null}
+            {pet.final_feliz ? (
+              <AppText size={15} style={styles.finalNota}>
+                “{pet.final_feliz}”
+              </AppText>
+            ) : null}
+            {pet.final_foto ? (
+              <Image source={{ uri: pet.final_foto }} style={styles.finalFoto} />
+            ) : null}
+          </Card>
+        ) : (
+          <>
+            {!esMio && (
+              <Button
+                title="Contactar"
+                icon="chatbubble-ellipses"
+                onPress={() => navigation.navigate('Chat', { petId: pet.id, otherUserId: pet.user_id })}
+                style={styles.contactButton}
+              />
+            )}
+
+            {esMio && (
+              <Button
+                title="¡Volvió a casa!"
+                icon="heart"
+                onPress={() => setMostrarReunion((v) => !v)}
+                style={styles.contactButton}
+              />
+            )}
+
+            {esMio && mostrarReunion && (
+              <Card style={styles.reunionPanel}>
+                <View style={styles.reunionHeader}>
+                  <Ionicons name="home" size={18} color={colors.brand} />
+                  <Title size={16} style={styles.reunionHeaderTitle}>
+                    ¿{nombreMostrar} ya está en casa?
+                  </Title>
+                </View>
+                <AppText muted size={13} style={styles.reunionText}>
+                  Qué buena noticia. Si querés, dejá un mensajito y una foto del reencuentro para cerrar con un final feliz.
+                </AppText>
+                <Input
+                  label="Tu mensaje (opcional)"
+                  value={notaFeliz}
+                  onChangeText={setNotaFeliz}
+                  placeholder="Apareció sana y salva a tres cuadras…"
+                  multiline
+                />
+                {fotoFeliz ? (
+                  <Image source={{ uri: fotoFeliz }} style={styles.reunionPreview} />
+                ) : null}
+                <Button
+                  title={fotoFeliz ? 'Cambiar foto' : 'Agregar foto (opcional)'}
+                  variant="secondary"
+                  icon="camera"
+                  onPress={elegirFotoFeliz}
+                  style={styles.reunionAction}
+                />
+                <Button
+                  title="Confirmar reencuentro"
+                  icon="heart"
+                  loading={guardandoReunion}
+                  onPress={confirmarReunion}
+                  style={styles.reunionAction}
+                />
+                <Button
+                  title="Ahora no"
+                  variant="ghost"
+                  disabled={guardandoReunion}
+                  onPress={() => setMostrarReunion(false)}
+                />
+              </Card>
+            )}
+
+            <Button
+              title="Compartir"
+              variant="secondary"
+              icon="logo-whatsapp"
+              onPress={() => shareReport(pet)}
+              style={styles.shareButton}
+            />
+
+            {esMio && (
+              <Button
+                title="Crear afiche"
+                variant="secondary"
+                icon="print"
+                loading={generandoAfiche}
+                onPress={crearAfiche}
+                style={styles.shareButton}
+              />
+            )}
+          </>
         )}
 
-        <Button
-          title="Compartir"
-          variant="secondary"
-          icon="logo-whatsapp"
-          onPress={() => shareReport(pet)}
-          style={styles.shareButton}
-        />
+        <View style={styles.sightingsSection}>
+          <View style={styles.matchesHeader}>
+            <Ionicons name="paw" size={18} color={colors.brand} />
+            <Title size={17} style={styles.matchesTitle}>
+              Visto por acá
+            </Title>
+          </View>
+          <AppText muted size={13} style={styles.matchesSubtitle}>
+            {resumenAvistamientos ?? 'Todavía nadie reportó haberlo visto. Si lo viste, marca el punto en el mapa.'}
+          </AppText>
 
-        {esMio && (
           <Button
-            title="Crear afiche"
-            variant="secondary"
-            icon="print"
-            loading={generandoAfiche}
-            onPress={crearAfiche}
-            style={styles.shareButton}
+            title="Lo vi por acá"
+            icon="location"
+            onPress={reportarAvistamiento}
+            style={styles.sightingButton}
           />
-        )}
+
+          {rastro.length > 0 ? (
+            <View style={styles.sightingsList}>
+              {rastro.map((s) => (
+                <Card key={s.id} style={styles.sightingCard}>
+                  <View style={styles.sightingRow}>
+                    <Ionicons name="pin" size={16} color={colors.sun} style={styles.sightingIcon} />
+                    <View style={styles.sightingBody}>
+                      {s.nota ? (
+                        <AppText size={14} style={styles.sightingNote}>
+                          {s.nota}
+                        </AppText>
+                      ) : (
+                        <AppText size={14} muted style={styles.sightingNote}>
+                          Sin nota
+                        </AppText>
+                      )}
+                      <AppText muted size={12} style={styles.sightingMeta}>
+                        {distanceLabel(sightingDistanceKm(origen, s))} del reporte · {timeAgo(s.creado_en)}
+                      </AppText>
+                    </View>
+                  </View>
+                  {s.foto ? <Image source={{ uri: s.foto }} style={styles.sightingPhoto} /> : null}
+                </Card>
+              ))}
+            </View>
+          ) : null}
+        </View>
 
         {matches.length > 0 && (
           <View style={styles.matchesSection}>
@@ -304,6 +508,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
           <AficheGenerator pet={pet} profile={perfil} onDone={onAficheDone} onError={onAficheError} />
         )}
       </ScrollView>
+      <Confetti visible={mostrarConfetti} onDone={() => setMostrarConfetti(false)} />
     </Screen>
   );
 }
@@ -383,6 +588,101 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     marginTop: spacing.md,
+  },
+  sightingsSection: {
+    marginTop: spacing.lg,
+  },
+  sightingButton: {
+    marginTop: spacing.md,
+  },
+  sightingsList: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  sightingCard: {
+    gap: spacing.sm,
+  },
+  sightingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sightingIcon: {
+    marginTop: 2,
+    marginRight: spacing.sm,
+  },
+  sightingBody: {
+    flex: 1,
+  },
+  sightingNote: {
+    lineHeight: 20,
+  },
+  sightingMeta: {
+    marginTop: 2,
+  },
+  sightingPhoto: {
+    width: '100%',
+    height: 160,
+    borderRadius: radius.md,
+  },
+  finalCard: {
+    marginTop: spacing.md,
+    backgroundColor: colors.sky,
+    gap: spacing.xs,
+  },
+  finalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: colors.found,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  finalBadgeLabel: {
+    letterSpacing: 0.5,
+  },
+  finalTitle: {
+    marginTop: spacing.sm,
+    lineHeight: 24,
+  },
+  finalSub: {
+    marginTop: 2,
+  },
+  finalNota: {
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
+    lineHeight: 22,
+  },
+  finalFoto: {
+    width: '100%',
+    height: 220,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+  },
+  reunionPanel: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  reunionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  reunionHeaderTitle: {
+    flexShrink: 1,
+  },
+  reunionText: {
+    lineHeight: 20,
+    marginBottom: spacing.xs,
+  },
+  reunionPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+  },
+  reunionAction: {
+    marginTop: spacing.xs,
   },
   matchesSection: {
     marginTop: spacing.lg,

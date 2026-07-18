@@ -341,11 +341,17 @@ export default function ProfileScreen({ navigation }: any) {
         )}
 
         <Button
+          title="Mi zona de alerta"
+          variant="ghost"
+          icon="notifications-outline"
+          onPress={() => navigation.navigate('AlertZone')}
+          style={styles.legalButton}
+        />
+        <Button
           title="Privacidad y términos"
           variant="ghost"
           icon="document-text"
           onPress={() => navigation.navigate('Legal')}
-          style={styles.legalButton}
         />
         <Button title="Cerrar sesión" variant="danger" onPress={signOut} style={styles.signOutButton} />
       </ScrollView>
