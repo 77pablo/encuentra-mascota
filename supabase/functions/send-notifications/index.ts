@@ -50,14 +50,9 @@ function escaparHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-// Manda un correo por la API de Resend. Si falta la configuración, el canal se
-// salta en silencio y devuelve false: el otro canal igual se intenta.
-async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: string): Promise<boolean> {
-  const apiKey = Deno.env.get('RESEND_API_KEY');
-  const from = Deno.env.get('RESEND_FROM');
-  if (!apiKey || !from) return false;
-
-  const html = `
+// Cuerpo HTML del aviso, con el texto ya escapado.
+function armarHtml(titulo: string, cuerpo: string, url: string): string {
+  return `
     <div style="font-family: system-ui, sans-serif; color: #23231D; line-height: 1.5;">
       <h2 style="color: #17654B; margin-bottom: 8px;">${escaparHtml(titulo)}</h2>
       <p style="margin-top: 0;">${escaparHtml(cuerpo)}</p>
@@ -66,14 +61,61 @@ async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: s
       <p style="color: #7E7B6F; font-size: 12px;">Encuentra tu Mascota · Podés cambiar tus avisos
         desde Perfil → Avisos.</p>
     </div>`;
+}
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [para], subject: titulo, html }),
-  });
-  if (!res.ok) throw new Error(`Resend respondió ${res.status}`);
-  return true;
+// Manda un correo. Soportamos DOS proveedores y se elige por configuración:
+//
+//   · BREVO  (preferido hoy): verifica UNA dirección suelta, sin dominio propio,
+//     y regala 300 correos por día. Es lo que nos permite escribirle a cualquier
+//     vecino sin comprar un dominio.
+//   · RESEND (el original): necesita un dominio verificado; en modo prueba solo
+//     entrega al correo del dueño de la cuenta. Se deja como alternativa para
+//     cuando haya dominio propio, que es la opción más confiable a la larga.
+//
+// Si no hay ninguno configurado, el canal se salta en silencio y devuelve false:
+// el push igual se intenta. Un error del proveedor SÍ se propaga, para que el
+// evento quede marcado y se reintente.
+async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: string): Promise<boolean> {
+  const html = armarHtml(titulo, cuerpo, url);
+
+  const brevoKey = Deno.env.get('BREVO_API_KEY');
+  const brevoFrom = Deno.env.get('BREVO_FROM');
+  if (brevoKey && brevoFrom) {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': brevoKey, 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { email: brevoFrom, name: Deno.env.get('BREVO_FROM_NAME') ?? 'Encuentra tu Mascota' },
+        to: [{ email: para }],
+        subject: titulo,
+        htmlContent: html,
+      }),
+    });
+    if (!res.ok) {
+      // El detalle importa: Brevo devuelve 401 si la key está mal y 400 si el
+      // remitente no está verificado, y sin el cuerpo son indistinguibles.
+      const detalle = await res.text().catch(() => '');
+      throw new Error(`Brevo respondió ${res.status}: ${detalle.slice(0, 200)}`);
+    }
+    return true;
+  }
+
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  const resendFrom = Deno.env.get('RESEND_FROM');
+  if (resendKey && resendFrom) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: resendFrom, to: [para], subject: titulo, html }),
+    });
+    if (!res.ok) {
+      const detalle = await res.text().catch(() => '');
+      throw new Error(`Resend respondió ${res.status}: ${detalle.slice(0, 200)}`);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 // Manda el push por la API de Expo a todos los tokens del destinatario.
