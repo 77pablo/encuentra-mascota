@@ -207,8 +207,12 @@ export default function PetDetailScreen({ route, navigation }: any) {
     }
   };
 
-  // TODO(merge): reemplazar el cuerpo por `if (!requireAuth('dejar_pista')) return;` (Función C).
-  const pedirCuentaParaPista = () => notify('Creá tu cuenta para dejar una pista');
+  // Sin sesión, el portero avisa con el mensaje propio de esta acción y lleva al
+  // registro guardando la intención, para que al volver el vecino caiga de nuevo
+  // en este mismo reporte.
+  const pedirCuentaParaPista = () => {
+    requireAuth('dejar_pista');
+  };
 
   const onAficheDone = useCallback(() => setGenerandoAfiche(false), []);
   const onAficheError = useCallback(
