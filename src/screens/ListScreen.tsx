@@ -10,6 +10,7 @@ import { distanceKm as getDistanceKm } from '../lib/geo';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { normalize } from '../lib/text';
+import { filterByExtras, RangoTiempo } from '../lib/petFilters';
 
 type Filtro = 'todas' | 'perdida' | 'encontrada';
 type EspecieFiltro = 'todas' | Pet['especie'];
@@ -35,6 +36,12 @@ const radios: { key: Radio; label: string }[] = [
   { key: null, label: 'Todo Chile' },
 ];
 
+const rangos: { key: RangoTiempo; label: string }[] = [
+  { key: 'todo', label: 'Todo' },
+  { key: 'hoy', label: 'Hoy' },
+  { key: 'semana', label: 'Última semana' },
+];
+
 export default function ListScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +51,8 @@ export default function ListScreen({ navigation }: any) {
   const [cercaDeMi, setCercaDeMi] = useState(false);
   const [radioKm, setRadioKm] = useState<Radio>(20);
   const [busqueda, setBusqueda] = useState('');
+  const [conRecompensa, setConRecompensa] = useState(false);
+  const [rango, setRango] = useState<RangoTiempo>('todo');
   const location = useMyLocation();
 
   const cargar = useCallback(() => {
@@ -80,7 +89,7 @@ export default function ListScreen({ navigation }: any) {
 
   const itemsConDistancia = useMemo(() => {
     const query = normalize(busqueda.trim());
-    const base = pets.filter((p) => {
+    const filtradas = pets.filter((p) => {
       const coincideEstado = estado === 'todas' || p.estado === estado;
       const coincideEspecie = especie === 'todas' || p.especie === especie;
       const coincideBusqueda =
@@ -88,6 +97,9 @@ export default function ListScreen({ navigation }: any) {
         [p.nombre, p.raza, p.descripcion].some((campo) => campo && normalize(campo).includes(query));
       return coincideEstado && coincideEspecie && coincideBusqueda;
     });
+
+    // Filtros avanzados (recompensa + rango de tiempo), antes del cálculo de distancia.
+    const base = filterByExtras(filtradas, { conRecompensa, rango }, Date.now());
 
     if (cercaDeMi && location.coords) {
       const origen = location.coords;
@@ -98,10 +110,12 @@ export default function ListScreen({ navigation }: any) {
     }
 
     return base.map((p) => ({ pet: p, distanceKm: undefined as number | undefined }));
-  }, [pets, estado, especie, busqueda, cercaDeMi, location.coords, radioKm]);
+  }, [pets, estado, especie, busqueda, conRecompensa, rango, cercaDeMi, location.coords, radioKm]);
 
   const sinResultadosPorRadio = cercaDeMi && location.coords !== null && itemsConDistancia.length === 0 && pets.length > 0;
   const sinResultadosPorBusqueda = busqueda.trim() !== '' && itemsConDistancia.length === 0 && pets.length > 0;
+  const sinResultadosPorExtras =
+    (conRecompensa || rango !== 'todo') && itemsConDistancia.length === 0 && pets.length > 0;
 
   if (loading) {
     return <Loading />;
@@ -163,6 +177,16 @@ export default function ListScreen({ navigation }: any) {
         ))}
       </View>
       <View style={styles.chipsRow}>
+        {rangos.map((r) => (
+          <Chip key={r.key} label={r.label} active={rango === r.key} onPress={() => setRango(r.key)} />
+        ))}
+      </View>
+      <View style={styles.chipsRow}>
+        <Chip
+          label="Con recompensa"
+          active={conRecompensa}
+          onPress={() => setConRecompensa((v) => !v)}
+        />
         <Chip
           label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
           active={cercaDeMi}
@@ -194,6 +218,12 @@ export default function ListScreen({ navigation }: any) {
               illustration
               title="No encontramos nada así"
               subtitle="Prueba ampliar el radio de búsqueda para ver más reportes."
+            />
+          ) : sinResultadosPorExtras ? (
+            <EmptyState
+              illustration
+              title="No encontramos nada así"
+              subtitle="Prueba ampliar el rango de tiempo o soltar el filtro de recompensa."
             />
           ) : (
             <EmptyState
