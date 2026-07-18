@@ -3,8 +3,8 @@ import { mensajeDeErrorAuth, MENSAJE_GENERICO } from '../../src/lib/authErrors';
 describe('mensajeDeErrorAuth', () => {
   it('traduce el correo ya registrado y sugiere qué hacer', () => {
     const m = mensajeDeErrorAuth({ message: 'User already registered' });
-    expect(m).toContain('ya tiene una cuenta');
-    expect(m).toContain('iniciar sesión');
+    expect(m).toContain('ya está vinculado a una cuenta');
+    expect(m).toContain('Iniciá sesión');
   });
 
   it('traduce las credenciales inválidas', () => {
@@ -12,7 +12,7 @@ describe('mensajeDeErrorAuth', () => {
   });
 
   it('no distingue mayúsculas', () => {
-    expect(mensajeDeErrorAuth({ message: 'USER ALREADY REGISTERED' })).toContain('ya tiene una cuenta');
+    expect(mensajeDeErrorAuth({ message: 'USER ALREADY REGISTERED' })).toContain('ya está vinculado a una cuenta');
   });
 
   it('reconoce el mensaje aunque traiga datos en el medio', () => {

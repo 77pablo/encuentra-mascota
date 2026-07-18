@@ -13,7 +13,7 @@ type Regla = { contiene: string; mensaje: string };
 const REGLAS: Regla[] = [
   {
     contiene: 'user already registered',
-    mensaje: 'Ese correo ya tiene una cuenta. Probá iniciar sesión, o recuperá tu contraseña si no la recordás.',
+    mensaje: 'Ese correo ya está vinculado a una cuenta. Iniciá sesión, o recuperá tu contraseña si no la recordás.',
   },
   {
     contiene: 'invalid login credentials',
