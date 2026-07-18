@@ -7,6 +7,7 @@ import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
 import { useFavorites } from '../hooks/useFavorites';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -24,6 +25,7 @@ export default function PetCard({
   distanceKm?: number;
 }) {
   const { isFavorite, toggle } = useFavorites();
+  const requireAuth = useRequireAuth();
   const guardada = isFavorite(pet.id);
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
@@ -75,6 +77,8 @@ export default function PetCard({
             style={styles.heartButton}
             onPress={(e) => {
               e.stopPropagation?.();
+              // Sin sesión el corazón no guarda en el aire: invita a crear cuenta.
+              if (!requireAuth('guardar')) return;
               toggle(pet.id);
             }}
           >

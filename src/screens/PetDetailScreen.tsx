@@ -6,6 +6,7 @@ import { getPet, listActivePets, Pet } from '../services/pets';
 import { markReunited } from '../services/reunions';
 import { denunciarPet } from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 import { shareReport } from '../lib/share';
 import { findMatches, PetMatch } from '../lib/matches';
 import { listSightings, Sighting } from '../services/sightings';
@@ -53,6 +54,8 @@ const timelineColor: Record<TimelineTipo, string> = {
 export default function PetDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
   const { user } = useAuth();
+  // Portero del modo invitado: primera línea de cada acción protegida.
+  const requireAuth = useRequireAuth();
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +141,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   }, [navigation, cargarNovedades]);
 
   const publicarNovedad = async () => {
+    if (!requireAuth('novedad')) return;
     if (!user) return;
     const texto = nuevaNovedad.trim();
     if (!texto) return;
@@ -190,8 +194,20 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const resumenAvistamientos = summaryLabel(origen, sightings);
   const historia = buildTimeline(pet, sightings);
 
-  const reportarAvistamiento = () =>
+  const reportarAvistamiento = () => {
+    if (!requireAuth('avistamiento')) return;
     navigation.navigate('AddSighting', { petId: pet.id, petLat: pet.lat, petLng: pet.lng });
+  };
+
+  const contactar = () => {
+    if (!requireAuth('contactar')) return;
+    navigation.navigate('Chat', { petId: pet.id, otherUserId: pet.user_id });
+  };
+
+  const abrirMotivosDenuncia = () => {
+    if (!requireAuth('denunciar')) return;
+    setMostrarMotivos((v) => !v);
+  };
 
   const reunida = isReunited(pet);
   const nombreMostrar = pet.nombre || especieLabel[pet.especie];
@@ -206,6 +222,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   };
 
   const confirmarReunion = async () => {
+    if (!requireAuth('reencuentro')) return;
     if (!pet) return;
     setGuardandoReunion(true);
     try {
@@ -243,6 +260,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   };
 
   const denunciar = async (motivo: string) => {
+    if (!requireAuth('denunciar')) return;
     if (!user || !pet) return;
     setEnviandoDenuncia(true);
     try {
@@ -371,7 +389,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
               <Button
                 title="Contactar"
                 icon="chatbubble-ellipses"
-                onPress={() => navigation.navigate('Chat', { petId: pet.id, otherUserId: pet.user_id })}
+                onPress={contactar}
                 style={styles.contactButton}
               />
             )}
@@ -627,7 +645,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
               variant="ghost"
               icon="flag-outline"
               disabled={enviandoDenuncia}
-              onPress={() => setMostrarMotivos((v) => !v)}
+              onPress={abrirMotivosDenuncia}
               style={styles.reportButton}
             />
             {mostrarMotivos ? (

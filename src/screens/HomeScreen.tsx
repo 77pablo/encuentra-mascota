@@ -106,9 +106,14 @@ export default function HomeScreen({ navigation }: any) {
               </AppText>
             </View>
             <View style={styles.avatar}>
-              <AppText weight="bold" color={colors.white} size={15}>
-                {avatarLetter}
-              </AppText>
+              {user ? (
+                <AppText weight="bold" color={colors.white} size={15}>
+                  {avatarLetter}
+                </AppText>
+              ) : (
+                // Invitado: un ícono de línea en vez de una inicial inventada.
+                <Ionicons name="person-outline" size={17} color={colors.white} />
+              )}
             </View>
           </View>
         </View>

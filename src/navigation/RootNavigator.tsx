@@ -26,7 +26,7 @@ const linking: LinkingOptions<any> = {
 };
 
 export default function RootNavigator() {
-  const { session, loading, recovering } = useAuth();
+  const { loading, recovering } = useAuth();
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -34,22 +34,35 @@ export default function RootNavigator() {
       </View>
     );
   }
-  const initialRouteName = recovering ? 'ResetPassword' : session ? 'App' : 'Login';
+
+  // MODO INVITADO: el stack raíz ya NO bifurca por sesión. `App` (el
+  // TabNavigator) se monta siempre, haya sesión o no, y las pantallas de auth
+  // quedan siempre registradas para poder empujarlas desde cualquier lado
+  // cuando el portero (`useRequireAuth`) las pide. Consecuencias buscadas:
+  //   · sin sesión la app abre en Inicio, no en el login;
+  //   · al entrar o salir de la sesión el stack no se remonta, así que el
+  //     usuario se queda donde estaba en vez de rebotar al Inicio;
+  //   · la pantalla de auth se saca con un `goBack` (ver `lib/authReturn.ts`),
+  //     así no queda colgada en el historial después de entrar.
+  //
+  // La rama `recovering` (llegó por el correo de recuperar contraseña) SIGUE
+  // teniendo prioridad sobre todo lo demás: mientras esté activa, la app
+  // arranca en ResetPassword y no en la app. El `key` fuerza el remonte al
+  // entrar y al salir de esa rama, que es el único caso donde hace falta.
+  const initialRouteName = recovering ? 'ResetPassword' : 'App';
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator key={initialRouteName} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+      <Stack.Navigator
+        key={recovering ? 'recuperando' : 'normal'}
+        screenOptions={{ headerShown: false }}
+        initialRouteName={initialRouteName}
+      >
+        <Stack.Screen name="App" component={TabNavigator} />
         <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ title: 'Reporte' }} />
-        {recovering ? (
-          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-        ) : session ? (
-          <Stack.Screen name="App" component={TabNavigator} />
-        ) : (
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-          </>
-        )}
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

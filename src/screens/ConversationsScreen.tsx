@@ -14,7 +14,13 @@ export default function ConversationsScreen({ navigation }: any) {
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
-    if (!user) return;
+    // Sin sesión no hay a quién preguntarle: dejamos la lista vacía y cortamos
+    // la carga. Si no, el spinner se quedaba girando para siempre.
+    if (!user) {
+      setConvs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     listConversations(user.id)

@@ -17,6 +17,9 @@ import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
 import { useUnread } from '../hooks/useUnread';
+import { useAuth } from '../hooks/useAuth';
+import { AccionProtegida, mensajeDe } from '../lib/requireAuth';
+import { notify } from '../lib/notify';
 import { colors, font } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -112,6 +115,20 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export default function TabNavigator() {
   const { count } = useUnread();
+  const { session } = useAuth();
+
+  // MODO INVITADO: Publicar y Mensajes siguen VISIBLES sin sesión — esconderlos
+  // le ocultaría al invitado que la app hace más de lo que está viendo. Al
+  // tocarlos, en vez de navegar, se dispara el portero con el mensaje propio de
+  // esa acción y se ofrece crear cuenta.
+  const porteroDeTab = (accion: AccionProtegida) => ({ navigation }: any) => ({
+    tabPress: (e: any) => {
+      if (session) return;
+      e.preventDefault();
+      notify(mensajeDe(accion));
+      navigation.navigate('Register', { volverA: { name: 'Inicio' } });
+    },
+  });
 
   return (
     <Tab.Navigator
@@ -143,10 +160,11 @@ export default function TabNavigator() {
       <Tab.Screen name="Inicio" component={InicioStack} options={{ headerShown: false }} />
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
-      <Tab.Screen name="Publicar" component={PublishScreen} />
+      <Tab.Screen name="Publicar" component={PublishScreen} listeners={porteroDeTab('publicar')} />
       <Tab.Screen
         name="Mensajes"
         component={MsgStack}
+        listeners={porteroDeTab('contactar')}
         options={{
           headerShown: false,
           tabBarBadge: count > 0 ? count : undefined,
