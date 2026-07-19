@@ -63,6 +63,12 @@ describe('firmaAutor con cuentas eliminadas', () => {
     expect(firmaAutor('Cuenta eliminada', '2026-07-19T00:00:00Z')).toBe('Un vecino');
   });
 
+  it('firma "Un vecino" segun eliminadoEn, no segun el texto del nombre', () => {
+    // El caso que discrimina: si la implementacion decidiera comparando el
+    // nombre contra 'Cuenta eliminada', este test la agarraria.
+    expect(firmaAutor('Ana', '2026-07-19T00:00:00Z')).toBe('Un vecino');
+  });
+
   it('sigue firmando con el nombre cuando la cuenta vive', () => {
     expect(firmaAutor('Ana', null)).toBe('Ana');
   });
