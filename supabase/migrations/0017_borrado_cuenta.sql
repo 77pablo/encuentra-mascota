@@ -86,7 +86,7 @@ begin
       -- persona. El precio de entrada seria sacrificar la cuenta propia, que
       -- ademas se puede volver a crear.
       -- Un unico segmento despues del uid, que es exactamente la forma que
-      -- genera la app (`${userId}/${Date.now()}.jpg`, ver src/services/storage.ts).
+      -- genera la app (`${userId}/${idAleatorio()}.jpg`, ver src/services/storage.ts).
       -- Con `like '<uid>/%'` alcanzaba para el ataque directo, pero dejaba pasar
       -- `<miuid>/../<uid-de-otro>/foto.jpg`. Que eso haga dano depende de si
       -- Storage normaliza el `..`, y no queremos que un borrado irreversible
