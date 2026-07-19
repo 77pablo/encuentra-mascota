@@ -701,7 +701,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
                       style={styles.pistaFirmaIcono}
                     />
                     <AppText weight="semi" size={13} style={styles.pistaFirma}>
-                      {firmaAutor(t.autorNombre ?? null)}
+                      {firmaAutor(t.autorNombre ?? null, t.autorEliminadoEn ?? null)}
                     </AppText>
                     <AppText muted size={12}>
                       {' · '}

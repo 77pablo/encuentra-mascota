@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { nombreDeAutor } from '../lib/cuentaEliminada';
 
 export interface Message {
   id: string;
@@ -60,6 +61,8 @@ export type ConversationKey = {
 
 export type Conversation = ConversationKey & {
   otherNombre: string;
+  /** True si la otra parte borró su cuenta: no se le puede escribir. */
+  otherEliminado: boolean;
   petLabel: string;
 };
 
@@ -89,17 +92,27 @@ export async function listConversations(me: string): Promise<Conversation[]> {
   const userIds = [...new Set(base.map((t) => t.otherUser))];
   const petIds = [...new Set(base.map((t) => t.petId))];
   const [profsRes, petsRes] = await Promise.all([
-    supabase.from('profiles').select('id, nombre').in('id', userIds),
+    supabase.from('profiles').select('id, nombre, eliminado_en').in('id', userIds),
     supabase.from('pets').select('id, estado, especie').in('id', petIds),
   ]);
-  const nombreById = new Map<string, string>((profsRes.data ?? []).map((p: any) => [p.id, p.nombre]));
+  // No chequeamos profsRes.error a propósito: mientras la migracion 0017 (que
+  // agrega `eliminado_en`) no este aplicada en la base real, esta columna no
+  // existe y el select fallaria. Igual que antes de este cambio, preferimos
+  // degradar a nombres genericos y no tumbar la lista de conversaciones.
+  const perfilById = new Map<string, { nombre: string | null; eliminadoEn: string | null }>(
+    (profsRes.data ?? []).map((p: any) => [p.id, { nombre: p.nombre, eliminadoEn: p.eliminado_en ?? null }]),
+  );
   const petById = new Map<string, string>(
     (petsRes.data ?? []).map((p: any) => [p.id, `${p.estado} · ${p.especie}`]),
   );
 
-  return base.map((t) => ({
-    ...t,
-    otherNombre: nombreById.get(t.otherUser) ?? 'Usuario',
-    petLabel: petById.get(t.petId) ?? 'Mascota',
-  }));
+  return base.map((t) => {
+    const perfil = perfilById.get(t.otherUser) ?? { nombre: null, eliminadoEn: null };
+    return {
+      ...t,
+      otherNombre: nombreDeAutor(perfil.nombre, perfil.eliminadoEn),
+      otherEliminado: perfil.eliminadoEn !== null,
+      petLabel: petById.get(t.petId) ?? 'Mascota',
+    };
+  });
 }

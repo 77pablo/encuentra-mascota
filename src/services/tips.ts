@@ -15,10 +15,13 @@ type FilaTip = {
   user_id: string;
   texto: string;
   creado_en: string;
-  profiles?: { nombre: string | null } | Array<{ nombre: string | null }> | null;
+  profiles?:
+    | { nombre: string | null; eliminado_en?: string | null }
+    | Array<{ nombre: string | null; eliminado_en?: string | null }>
+    | null;
 };
 
-const SELECT_CON_AUTOR = 'id, pet_id, user_id, texto, creado_en, profiles(nombre)';
+const SELECT_CON_AUTOR = 'id, pet_id, user_id, texto, creado_en, profiles(nombre, eliminado_en)';
 const SELECT_SIN_AUTOR = 'id, pet_id, user_id, texto, creado_en';
 
 function aTip(fila: FilaTip): Tip {
@@ -30,6 +33,7 @@ function aTip(fila: FilaTip): Tip {
     texto: fila.texto,
     creadoEn: fila.creado_en,
     autorNombre: perfil?.nombre ?? null,
+    autorEliminadoEn: perfil?.eliminado_en ?? null,
   };
 }
 

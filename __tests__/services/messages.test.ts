@@ -73,6 +73,7 @@ describe('listConversations', () => {
       lastTexto: 'último mensaje',
       lastAt: '2026-07-16T10:00:00Z',
       otherNombre: 'Ana',
+      otherEliminado: false,
       petLabel: 'perdida · perro',
     });
     expect(profilesBuilder.in).toHaveBeenCalledWith('id', ['otherU']);
@@ -110,5 +111,34 @@ describe('listConversations', () => {
     });
 
     await expect(listConversations('me')).rejects.toEqual({ message: 'boom' });
+  });
+});
+
+describe('listConversations con cuentas eliminadas', () => {
+  it('marca el hilo como eliminado y lo nombra "Cuenta eliminada"', async () => {
+    const msgs = [
+      {
+        id: '1', pet_id: 'petA', from_user: 'yo', to_user: 'fantasma',
+        texto: 'hola', leido: false, creado_en: '2026-07-16T10:00:00Z',
+      },
+    ];
+    const messagesBuilder = makeQueryBuilder({ data: msgs, error: null });
+    const profilesBuilder = makeQueryBuilder({
+      data: [{ id: 'fantasma', nombre: 'Cuenta eliminada', eliminado_en: '2026-07-19T00:00:00Z' }],
+      error: null,
+    });
+    const petsBuilder = makeQueryBuilder({ data: [{ id: 'petA', estado: 'perdida', especie: 'perro' }], error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'messages') return messagesBuilder;
+      if (table === 'profiles') return profilesBuilder;
+      if (table === 'pets') return petsBuilder;
+      throw new Error(`tabla inesperada: ${table}`);
+    });
+
+    const convs = await listConversations('yo');
+    const hilo = convs.find((c) => c.otherUser === 'fantasma');
+    expect(hilo?.otherNombre).toBe('Cuenta eliminada');
+    expect(hilo?.otherEliminado).toBe(true);
   });
 });
