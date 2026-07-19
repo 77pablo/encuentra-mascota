@@ -115,16 +115,27 @@ describe('listConversations', () => {
 });
 
 describe('listConversations con cuentas eliminadas', () => {
-  it('marca el hilo como eliminado y lo nombra "Cuenta eliminada"', async () => {
+  it('marca el hilo como eliminado y lo nombra "Cuenta eliminada", sin tocar al usuario vivo', async () => {
     const msgs = [
       {
         id: '1', pet_id: 'petA', from_user: 'yo', to_user: 'fantasma',
         texto: 'hola', leido: false, creado_en: '2026-07-16T10:00:00Z',
       },
+      {
+        id: '2', pet_id: 'petA', from_user: 'yo', to_user: 'otherU',
+        texto: 'hola de nuevo', leido: false, creado_en: '2026-07-16T11:00:00Z',
+      },
     ];
     const messagesBuilder = makeQueryBuilder({ data: msgs, error: null });
+    // El fixture usa un nombre real y distinto de la etiqueta esperada, para
+    // que el test pruebe que el nombre se pisa POR ESTAR ELIMINADA la cuenta
+    // (via `eliminado_en`), no porque el mock ya trae el texto final. Con un
+    // nombre real tambien se controla que una cuenta viva conserva su nombre.
     const profilesBuilder = makeQueryBuilder({
-      data: [{ id: 'fantasma', nombre: 'Cuenta eliminada', eliminado_en: '2026-07-19T00:00:00Z' }],
+      data: [
+        { id: 'fantasma', nombre: 'Roberto', eliminado_en: '2026-07-19T00:00:00Z' },
+        { id: 'otherU', nombre: 'Ana', eliminado_en: null },
+      ],
       error: null,
     });
     const petsBuilder = makeQueryBuilder({ data: [{ id: 'petA', estado: 'perdida', especie: 'perro' }], error: null });
@@ -137,8 +148,14 @@ describe('listConversations con cuentas eliminadas', () => {
     });
 
     const convs = await listConversations('yo');
+
     const hilo = convs.find((c) => c.otherUser === 'fantasma');
     expect(hilo?.otherNombre).toBe('Cuenta eliminada');
     expect(hilo?.otherEliminado).toBe(true);
+
+    // Control: una cuenta viva con nombre real no debe pisarse.
+    const hiloVivo = convs.find((c) => c.otherUser === 'otherU');
+    expect(hiloVivo?.otherNombre).toBe('Ana');
+    expect(hiloVivo?.otherEliminado).toBe(false);
   });
 });

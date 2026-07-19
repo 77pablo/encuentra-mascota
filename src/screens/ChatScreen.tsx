@@ -41,6 +41,12 @@ export default function ChatScreen({ route }: any) {
   // promesa rechazada suelta).
   useEffect(() => {
     let vivo = true;
+    // React Navigation suele reusar la misma instancia de esta pantalla al
+    // pasar de un chat a otro (no la desmonta), asi que si no reseteamos aca
+    // el estado del chat anterior queda pegado por un instante: el compositor
+    // podria ocultarse o mostrarse con el dato de la conversacion previa hasta
+    // que la consulta de abajo resuelva.
+    setOtroEliminado(false);
     // El builder de supabase es un PromiseLike, no un Promise completo (no
     // tiene `.catch`); lo envolvemos en Promise.resolve para poder atrapar el
     // rechazo sin dejar una promesa suelta.

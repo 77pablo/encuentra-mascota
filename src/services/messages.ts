@@ -91,14 +91,24 @@ export async function listConversations(me: string): Promise<Conversation[]> {
 
   const userIds = [...new Set(base.map((t) => t.otherUser))];
   const petIds = [...new Set(base.map((t) => t.petId))];
-  const [profsRes, petsRes] = await Promise.all([
-    supabase.from('profiles').select('id, nombre, eliminado_en').in('id', userIds),
+  const consultaPerfiles = (select: string) =>
+    supabase.from('profiles').select(select).in('id', userIds);
+
+  const [profsIntento, petsRes] = await Promise.all([
+    consultaPerfiles('id, nombre, eliminado_en'),
     supabase.from('pets').select('id, estado, especie').in('id', petIds),
   ]);
-  // No chequeamos profsRes.error a propósito: mientras la migracion 0017 (que
-  // agrega `eliminado_en`) no este aplicada en la base real, esta columna no
-  // existe y el select fallaria. Igual que antes de este cambio, preferimos
-  // degradar a nombres genericos y no tumbar la lista de conversaciones.
+  let profsRes = profsIntento;
+  if (profsRes.error) {
+    // La consulta con `eliminado_en` fallo (probablemente porque la migracion
+    // 0017 todavia no esta aplicada). PostgREST no devuelve datos parciales:
+    // si no reintentamos sin esa columna, `data` llega null y TODOS los
+    // usuarios pierden su nombre real (no solo las cuentas borradas), aunque
+    // esten vivos. Reintentamos pidiendo solo `nombre` para mantener el
+    // comportamiento de siempre hasta que la migracion se aplique. Cuando
+    // lleve tiempo aplicada, este escalon queda muerto y se puede sacar.
+    profsRes = await consultaPerfiles('id, nombre');
+  }
   const perfilById = new Map<string, { nombre: string | null; eliminadoEn: string | null }>(
     (profsRes.data ?? []).map((p: any) => [p.id, { nombre: p.nombre, eliminadoEn: p.eliminado_en ?? null }]),
   );

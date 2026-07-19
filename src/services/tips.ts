@@ -22,6 +22,13 @@ type FilaTip = {
 };
 
 const SELECT_CON_AUTOR = 'id, pet_id, user_id, texto, creado_en, profiles(nombre, eliminado_en)';
+// Escalon intermedio: mismo embed a `profiles` pero sin `eliminado_en`. Existe
+// porque mientras la migracion 0017 no este aplicada esa columna no existe, y
+// PostgREST no devuelve datos parciales: si se la pedimos junto con `nombre`,
+// la consulta ENTERA falla y se pierde la firma real de quien dejo la pista.
+// Cuando la migracion lleve tiempo aplicada este escalon queda muerto y se
+// puede sacar.
+const SELECT_SOLO_NOMBRE = 'id, pet_id, user_id, texto, creado_en, profiles(nombre)';
 const SELECT_SIN_AUTOR = 'id, pet_id, user_id, texto, creado_en';
 
 function aTip(fila: FilaTip): Tip {
@@ -53,8 +60,17 @@ export async function listarTips(petId: string): Promise<Tip[]> {
     if (!conAutor.error) {
       return ordenarTips(((conAutor.data ?? []) as unknown as FilaTip[]).map(aTip));
     }
-    // Sin sesión el embed a `profiles` no se puede resolver: reintentamos sin
-    // él, porque el texto de la pista importa más que la firma.
+    // La consulta con `eliminado_en` fallo (probablemente porque la migracion
+    // 0017 todavia no esta aplicada). Reintentamos pidiendo solo `nombre`
+    // para no perder la firma real: sin este escalon, todas las pistas
+    // pasarian a firmar "Un vecino" en vez de solo las de cuentas borradas.
+    const soloNombre = await consulta(SELECT_SOLO_NOMBRE);
+    if (!soloNombre.error) {
+      return ordenarTips(((soloNombre.data ?? []) as unknown as FilaTip[]).map(aTip));
+    }
+    // Sin sesión el embed a `profiles` no se puede resolver de ninguna forma:
+    // reintentamos sin él, porque el texto de la pista importa más que la
+    // firma.
     const sinAutor = await consulta(SELECT_SIN_AUTOR);
     if (sinAutor.error) return [];
     return ordenarTips(((sinAutor.data ?? []) as unknown as FilaTip[]).map(aTip));
