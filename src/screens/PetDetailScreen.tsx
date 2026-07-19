@@ -307,6 +307,8 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const crearAfiche = async () => {
     if (!user) return;
     try {
+      // `user.id` es solo el respaldo de la ventana de despliegue (ver
+      // src/services/profile.ts): el servidor decide de quien es la fila.
       const p = await getMyProfile(user.id);
       setPerfil(p);
       if (faltaWhatsapp(p)) {

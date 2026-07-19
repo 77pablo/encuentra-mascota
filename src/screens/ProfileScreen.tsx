@@ -37,6 +37,9 @@ export default function ProfileScreen({ navigation }: any) {
 
   const cargar = useCallback(() => {
     if (!user) return;
+    // `user.id` ya no dice de quien pedir el perfil (eso lo decide el
+    // servidor con auth.uid() dentro de mi_perfil()): es solo el respaldo
+    // para la ventana de despliegue en que la RPC todavia no existe.
     getMyProfile(user.id)
       .then(setProfile)
       .catch(() => {});
