@@ -1,5 +1,6 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../lib/supabase';
+import { idAleatorio } from '../lib/idAleatorio';
 
 // Comprime a máx 1080px de ancho y sube; devuelve la URL pública.
 export async function uploadPetPhoto(uri: string, userId: string): Promise<string> {
@@ -11,7 +12,7 @@ export async function uploadPetPhoto(uri: string, userId: string): Promise<strin
 
   const response = await fetch(manipulated.uri);
   const arrayBuffer = await response.arrayBuffer();
-  const path = `${userId}/${Date.now()}.jpg`;
+  const path = `${userId}/${idAleatorio()}.jpg`;
 
   const { error } = await supabase.storage
     .from('pet-photos')
