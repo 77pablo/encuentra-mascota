@@ -64,6 +64,20 @@ describe('createPet', () => {
       expect.objectContaining({ message: expect.stringContaining('límite de publicaciones') }),
     );
   });
+
+  it('guarda la ubicacion difuminada, nunca la exacta', async () => {
+    const builder = makeQueryBuilder({ data: { id: 'p1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    const input = { lat: -33.45, lng: -70.66, especie: 'perro', estado: 'perdido' } as any;
+    await createPet(input, ['f.jpg'], 'u1');
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.lat).not.toBe(-33.45);
+    expect(guardado.lng).not.toBe(-70.66);
+    // Movido, pero no a otro barrio: el reporte tiene que seguir siendo util.
+    expect(Math.abs(guardado.lat - (-33.45))).toBeLessThan(0.01);
+  });
 });
 
 describe('updatePet', () => {

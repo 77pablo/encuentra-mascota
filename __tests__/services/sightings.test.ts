@@ -41,17 +41,29 @@ describe('addSighting', () => {
     });
 
     expect(mockFrom).toHaveBeenCalledWith('sightings');
+    // lat/lng se guardan difuminados (ver test dedicado más abajo), así que acá
+    // solo comprobamos los campos que no cambian.
     expect(builder.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         pet_id: 'pet-1',
         user_id: 'user-1',
-        lat: -33.4,
-        lng: -70.6,
         nota: 'Lo vi cruzando la plaza',
         foto: null,
       }),
     );
     expect(s).toEqual({ id: 's-1', pet_id: 'pet-1' });
+  });
+
+  it('guarda la ubicacion difuminada, nunca la exacta', async () => {
+    const builder = makeQueryBuilder({ data: { id: 's-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await addSighting({ pet_id: 'pet-1', user_id: 'u1', lat: -33.45, lng: -70.66 });
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.lat).not.toBe(-33.45);
+    expect(guardado.lng).not.toBe(-70.66);
+    expect(Math.abs(guardado.lat - (-33.45))).toBeLessThan(0.01);
   });
 
   it('convierte nota/foto ausentes en null', async () => {

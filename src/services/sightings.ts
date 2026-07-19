@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { difuminarUbicacion } from '../lib/difuminarUbicacion';
 
 export interface Sighting {
   id: string;
@@ -22,13 +23,17 @@ export interface NewSighting {
 
 // Registra un avistamiento ("lo vi acá") y devuelve la fila creada.
 export async function addSighting(input: NewSighting): Promise<Sighting> {
+  // Un avistamiento es la ubicacion de quien lo reporta y tiene el mismo
+  // problema de privacidad que el reporte inicial: se difumina aca, al
+  // escribir, y la coordenada exacta no se guarda en ninguna parte.
+  const { lat, lng } = difuminarUbicacion({ lat: input.lat, lng: input.lng });
   const { data, error } = await supabase
     .from('sightings')
     .insert({
       pet_id: input.pet_id,
       user_id: input.user_id,
-      lat: input.lat,
-      lng: input.lng,
+      lat,
+      lng,
       nota: input.nota ?? null,
       foto: input.foto ?? null,
     })

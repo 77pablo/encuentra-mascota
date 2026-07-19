@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
 import { ErrorAmigable } from '../lib/dbErrors';
+import { difuminarUbicacion } from '../lib/difuminarUbicacion';
 
 export interface Pet {
   id: string;
@@ -31,9 +32,13 @@ export interface Pet {
 // CONSULTA (clave = filtros + cursor), no una lista global.
 
 export async function createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet> {
+  // La ubicacion se difumina ACA, en el borde de escritura, para que ninguna
+  // pantalla pueda saltarse el paso por olvido. La coordenada exacta no se
+  // guarda en ninguna parte: lo que no se guarda no se puede filtrar.
+  const { lat, lng } = difuminarUbicacion({ lat: input.lat, lng: input.lng });
   const { data, error } = await supabase
     .from('pets')
-    .insert({ ...input, fotos, user_id: userId })
+    .insert({ ...input, lat, lng, fotos, user_id: userId })
     .select()
     .single();
   if (error) throw error;
