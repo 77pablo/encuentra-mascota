@@ -7,7 +7,7 @@ import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { timeAgo } from '../lib/time';
-import { AppText, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
+import { AppText, AvisoEstafa, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -139,12 +139,17 @@ export default function PublicPetScreen({ route, navigation }: any) {
         </Card>
 
         {pet.recompensa ? (
-          <View style={styles.rewardPill}>
-            <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
-            <AppText weight="bold" size={14} color={colors.ink}>
-              Recompensa: {pet.recompensa}
-            </AppText>
-          </View>
+          <>
+            <View style={styles.rewardPill}>
+              <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
+              <AppText weight="bold" size={14} color={colors.ink}>
+                Recompensa: {pet.recompensa}
+              </AppText>
+            </View>
+            <View style={styles.avisoEstafa}>
+              <AvisoEstafa variante="recompensa" />
+            </View>
+          </>
         ) : null}
 
         <MapView
@@ -238,6 +243,9 @@ const styles = StyleSheet.create({
   },
   rewardIcon: {
     marginRight: spacing.xs,
+  },
+  avisoEstafa: {
+    marginTop: spacing.sm,
   },
   map: {
     width: '100%',
