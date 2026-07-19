@@ -5,7 +5,7 @@ import { borrarMiCuenta } from '../services/account';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { useAuth } from '../hooks/useAuth';
-import { AppText, Button, Card, Screen, Title } from '../ui';
+import { AppText, Button, Card, Screen } from '../ui';
 import { colors, spacing } from '../theme';
 
 // Borrar la cuenta no tiene vuelta atrás, así que la pantalla dice con todas
@@ -67,7 +67,8 @@ export default function DeleteAccountScreen() {
   return (
     <Screen padded>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Title>Borrar mi cuenta</Title>
+        {/* Sin título propio: el header del stack ya dice "Borrar mi cuenta", y
+            repetirlo dos veces en la misma pantalla se veía descuidado. */}
         <AppText muted>
           Si te vas, te vas de verdad: no guardamos una copia por las dudas.
         </AppText>
