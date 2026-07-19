@@ -32,4 +32,11 @@ describe('rutaDeFotoPropia', () => {
     expect(rutaDeFotoPropia('', UID)).toBeNull();
     expect(rutaDeFotoPropia('no-es-una-url', UID)).toBeNull();
   });
+
+  // Con la implementación vieja (`new RegExp(userId)`), un userId con
+  // metacaracteres de regex rompía el filtro: `'.*'` matcheaba la ruta de
+  // CUALQUIER otro usuario, aunque esa ruta no empezara con `.*` de verdad.
+  it('rechaza la foto de otra persona aunque el userId tenga metacaracteres de regex', () => {
+    expect(rutaDeFotoPropia(`${BASE}/${OTRO}/abc123.jpg`, '.*')).toBeNull();
+  });
 });

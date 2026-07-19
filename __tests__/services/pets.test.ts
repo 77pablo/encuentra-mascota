@@ -207,6 +207,52 @@ describe('deletePet', () => {
     await deletePet('p1', UID);
     expect(mockRemove).not.toHaveBeenCalled();
   });
+
+  // Mismo criterio que `delete-account/index.ts:126-133`: si el filtro
+  // descartó TODAS las URLs que había, alguien tiene que enterarse, porque
+  // puede ser un cambio de formato de `getPublicUrl` o una URL ajena guardada
+  // a mano — no simplemente "no había fotos".
+  it('avisa si el filtro descarta todas las fotos en vez de fallar en silencio', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [`${BASE}/${OTRO}/x.jpg`], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('p1', UID);
+
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('p1'));
+    warn.mockRestore();
+  });
+
+  // El `select` que lee las rutas puede fallar (red, etc.) igual que
+  // cualquier otra consulta. Si eso pasa en silencio, la fila se borra sin
+  // haber tocado ninguna foto y la app le dice "Borrado" a la persona.
+  it('avisa si no se pudieron leer las fotos antes de borrar, y borra la fila igual', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: { message: 'network fail' } }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await expect(deletePet('p1', UID)).resolves.toBeUndefined();
+
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(warn.mock.calls.flat().join(' ')).toEqual(expect.stringContaining('network fail'));
+    warn.mockRestore();
+  });
+
+  // Hermano de la deduplicación que ya hace `delete-account/index.ts:136`
+  // (por si `final_foto` también está dentro de `fotos`).
+  it('deduplica rutas repetidas (ej. final_foto que también está en fotos)', async () => {
+    const url = `${BASE}/${UID}/a.jpg`;
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [url], final_foto: url }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('p1', UID);
+
+    expect(mockRemove).toHaveBeenCalledWith([`${UID}/a.jpg`]);
+  });
 });
 
 describe('listLostBySpecies', () => {

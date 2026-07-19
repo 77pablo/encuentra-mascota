@@ -110,21 +110,50 @@ export async function updatePet(
 // exactamente el estado de hoy, mientras que abortar dejaría a la persona sin
 // poder borrar su propio reporte —que puede ser justo una urgencia de
 // privacidad—. Se elige el estado malo visible por sobre el silencioso.
+//
+// "Visible" acá quiere decir: con registro. El mismo criterio que ya aplica
+// `delete-account/index.ts:126-133` para rutas ajenas descartadas se aplica
+// acá a dos huecos por los que este flujo podía fallar completamente en
+// silencio (ver los `console.warn` de abajo): que el `select` que lee las
+// rutas falle, y que el filtro `rutaDeFotoPropia` descarte TODAS las URLs que
+// había. Ninguno de los dos aborta el borrado de la fila, por la misma razón
+// de arriba.
 export async function deletePet(id: string, userId: string): Promise<void> {
-  const { data: fila } = await supabase
+  const { data: fila, error: errLectura } = await supabase
     .from('pets')
     .select('fotos, final_foto')
     .eq('id', id)
     .maybeSingle();
+  // Sin este aviso, un fallo de red acá borraría la fila sin haber tocado
+  // ninguna foto y la app le diría "Borrado" a la persona igual.
+  if (errLectura) {
+    console.warn(
+      `deletePet: no se pudieron leer las fotos del reporte ${id} antes de borrarlo (se borra el reporte de todas formas):`,
+      errLectura.message,
+    );
+  }
 
   const urls: string[] = [...((fila?.fotos as string[]) ?? [])];
   // `final_foto` (el "final feliz", migración 0008) vive en su propia columna y
   // es fácil de olvidar: sin esto, cada reencuentro deja una huérfana.
   if (fila?.final_foto) urls.push(fila.final_foto as string);
 
-  const rutas = urls
+  const rutasFiltradas = urls
     .map((u) => rutaDeFotoPropia(u, userId))
     .filter((r): r is string => r !== null);
+  // Deduplicar: si `final_foto` también está dentro de `fotos`, la misma ruta
+  // llegaría dos veces. Hermano del mismo paso en `delete-account/index.ts:140`.
+  const rutas = [...new Set(rutasFiltradas)];
+
+  // Había URLs pero el filtro las descartó TODAS: puede ser que `getPublicUrl`
+  // haya cambiado de formato (self-hosted, CDN, otra convención) o que alguien
+  // haya guardado a mano la URL de otra persona en su propio reporte. Sin este
+  // aviso ninguno de los dos escenarios se distingue de "no había fotos".
+  if (urls.length > 0 && rutas.length === 0) {
+    console.warn(
+      `deletePet: se descartaron las ${urls.length} foto(s) del reporte ${id}: ninguna es reconocible como propia de ${userId}`,
+    );
+  }
 
   if (rutas.length > 0) {
     const { error: errStorage } = await supabase.storage.from('pet-photos').remove(rutas);
