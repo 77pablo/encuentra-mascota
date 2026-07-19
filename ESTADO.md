@@ -26,6 +26,13 @@
   - `src/lib/dbErrors.ts` (+10 tests) traduce los errores de Postgres, que si no mostraban `new row for relation "pets" violates check constraint...` en pantalla. Cableado en las 10 pantallas que mostraban el mensaje crudo + Publicar. La clase `ErrorAmigable` marca los errores ya redactados por nosotros para que el traductor no los pise.
 - **Lo que NO aplica a esta arquitectura** (revisado, no hace falta hacerlo): *inyección SQL* (no armamos SQL; PostgREST parametriza), *connection pooling* (la app no abre conexiones: habla HTTP con PostgREST y Supabase administra el pool), *CORS como defensa* (es una regla del navegador; `curl` la ignora y la anon key es pública por diseño — lo que protege es la RLS), y *"que cada usuario vea solo lo suyo"* (los reportes son públicos **a propósito**: es lo que permite el modo invitado; lo privado —mensajes, favoritos, preferencias, denuncias, zonas— ya lo es).
 
+## ⏭️ PARA RETOMAR (lo próximo, en orden)
+1. **Subir la web actualizada a Cloudflare** — todo lo de la tanda 4 (búsqueda paginada, validación, mensajes traducidos) está commiteado pero **NO** está en producción. `npx expo export --platform web` → Cloudflare → proyecto `encuentras-mascota` → Deployments → Create new deployment → rama `main` → arrastrar `dist`.
+2. **Brevo:** la cuenta sigue sin activar (`403 SMTP account is not yet activated`). Hasta que Brevo la habilite, ningún aviso por correo sale. Alternativa si se cansa: comprar dominio y volver a Resend — el código ya soporta los dos y cambia solo según qué variables estén cargadas.
+3. **CORS en las Edge Functions** (higiene, no es defensa) y **caché por consulta** (ahora vale menos: la paginación ya redujo mucho la descarga; el `ttlCache` global quedó sin uso en las pantallas principales).
+4. **Bloqueo de cuenta por intentos fallidos:** recomendación es **no hacerlo tal cual**. Bloquear tras N intentos deja que cualquiera eche al dueño de un reporte tirando claves malas a propósito, justo cuando más necesita entrar. Supabase ya limita por IP. Si se hace, mejor con demora creciente que con bloqueo.
+5. **Nombre de la app:** sin decidir. Candidatos trabajados: **Volví**, **Trufa**, **Bengala**, **Manada**, **Lumi**. Verificar en INAPI + tiendas + dominio antes de elegir.
+
 ## Cómo retomar / probar
 - App web (dev): `cd C:\Users\pdani\encuentra-mascota` → `npx expo start --web` → abrir `http://localhost:8091`.
 - Login de prueba: `probando779@gmail.com` / `probar123456` (la confirmación de correo está apagada).
