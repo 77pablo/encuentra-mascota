@@ -2,6 +2,54 @@
 
 Última sesión: 2026-07-19 (**borrar mi cuenta** en producción y verificado end-to-end; las 3 Edge Functions desplegadas; migración `0017` aplicada) · Rama de trabajo: `feat/mvp-encuentra-mascota`. El repo no tiene remoto en GitHub todavía. ✅ **`master` ya tiene TODO fusionado** (merge local `--no-ff`; ambas ramas idénticas en `a657fe7`), incluidas las 3 funciones nuevas de esta sesión (alertas por zona, visto por acá, reencuentro).
 
+## 🔒 TANDA A — PRIVACIDAD (19-jul) — ✅ CÓDIGO LISTO · ⚠️ FALTA DESPLEGAR
+
+Seis piezas con un tema común: dejar de exponer datos que no hace falta exponer. Plan en
+`docs/superpowers/plans/2026-07-19-tanda-a-privacidad.md`. **260 tests, 35 suites, tsc limpio.**
+
+1. **Contacto privado** (mig `0018`): se le quita a `authenticated` el permiso de leer las
+   **columnas** `telefono` y `red_social` de `profiles` — para todos, incluido su dueño. La
+   política de filas no cambia (nombre y foto siguen públicos: firman las pistas, aparecen
+   en los chats y sostienen el modo invitado). El dueño las recupera con `mi_perfil()`,
+   **sin parámetros**: no existe firma para pedir la fila de otro.
+2. **Ubicación difuminada** (`src/lib/difuminarUbicacion.ts`): se publica un punto movido al
+   azar ~250 m, aplicado en `createPet` y `addSighting`. **La coordenada precisa no se
+   guarda en ninguna parte** — lo que no se guarda no se puede filtrar. Aleatorio y no
+   redondeo, porque el redondeo se revierte cruzando varios reportes de la misma persona.
+3. **Fotos no enumerables** (`src/lib/idAleatorio.ts`): las rutas pasaron de
+   `${userId}/${Date.now()}.jpg` (adivinable) a `${userId}/${idAleatorio()}.jpg`. El prefijo
+   `userId/` se conserva porque es lo que protege el borrado de cuenta.
+4. **EXIF verificado**: las fotos subidas **no** llevan metadatos GPS. Comprobado con una
+   foto con GPS real, subida por la app y descargada del bucket; el input traía `APP1/Exif`
+   y la salida solo `APP0/JFIF` + ICC. `manipulateAsync` los limpia al recomprimir.
+   ⚠️ Solo cubre el camino **web**; el nativo usa otra implementación y no se probó.
+5. **Aviso antiestafa** en el chat, en el detalle, al publicar y en la vista pública.
+6. **Aviso de contacto privado** en el formulario de perfil.
+
+**Lo que encontró la revisión final de rama** (otra vez lo que se cae ENTRE las tareas):
+- 🔴 **Pérdida silenciosa de datos.** La pieza 1 introdujo un perfil "degradado"
+  (`telefono`/`red_social` en `null` cuando `mi_perfil()` no responde) que el editor
+  preexistente no distinguía de uno vacío: al guardar escribía `''` **encima del dato
+  real**, sin ningún error, porque supabase-js manda `Prefer: return=minimal`.
+- 🟠 El primer arreglo dejó **un segundo camino al mismo bug** (`profile === null` por el
+  `.catch(() => {})` de `ProfileScreen`), y había un test que lo bendecía. Se cazó con
+  *mutation testing*: revertir el arreglo y confirmar que el test se pone rojo.
+- 🟠 El aviso antiestafa faltaba justo en `PublicPetScreen`, la **única vista sin sesión**
+  y por lo tanto el blanco del timo de la recompensa.
+
+### ⚠️ PENDIENTE — el orden importa
+1. `npx expo export --platform web` y revisar el build **antes** de subirlo.
+2. **Subir la web** a Cloudflare Pages.
+3. **Después** aplicar la migración `0018`.
+
+Invertir 2 y 3 deja a **todos** los usuarios sin su perfil: con la migración aplicada y la
+app vieja arriba, el `select('*')` falla entero (PostgREST no devuelve datos parciales).
+
+Luego verificar atacando la API con un token real: pedir `telefono` de otro → `42501`;
+`select=*` → falla; `id, nombre, eliminado_en` → **200 con datos** (control de que no se
+rompieron el chat ni las pistas); `mi_perfil()` sin sesión → `42501`; con `user_id` →
+`PGRST202`.
+
 ## 🌐 EN PRODUCCIÓN (desde 2026-07-18)
 - **Web:** https://encuentras-mascota.pages.dev — **Cloudflare Pages**, proyecto `encuentras-mascota`, por subida directa (drag-and-drop de la carpeta `dist`). Netlify quedó descartado por límite de la cuenta.
   - **Para actualizarla:** `npx expo export --platform web` → en Cloudflare, proyecto → **Deployments → Create new deployment** → rama de producción (`main`) → arrastrar `dist`. Misma URL. Si algo sale mal, hay **Rollback** por implementación.
