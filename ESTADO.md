@@ -2,7 +2,30 @@
 
 Última sesión: 2026-07-19 (**borrar mi cuenta** en producción y verificado end-to-end; las 3 Edge Functions desplegadas; migración `0017` aplicada) · Rama de trabajo: `feat/mvp-encuentra-mascota`. El repo no tiene remoto en GitHub todavía. ✅ **`master` ya tiene TODO fusionado** (merge local `--no-ff`; ambas ramas idénticas en `a657fe7`), incluidas las 3 funciones nuevas de esta sesión (alertas por zona, visto por acá, reencuentro).
 
-## 🔒 TANDA A — PRIVACIDAD (19-jul) — ✅ CÓDIGO LISTO · ⚠️ FALTA DESPLEGAR
+## 🔒 TANDA A — PRIVACIDAD (19-jul) — ✅ EN PRODUCCIÓN Y VERIFICADA
+
+**Web subida** (producción sirve el bundle `index-92a9093d…js`, comprobado por `curl`) y
+**migración `0018` aplicada**, en ese orden. Verificación contra la base real, 9/9:
+
+| Prueba | Resultado |
+|---|---|
+| Permisos antes de aplicar | `anon` y `authenticated` leían `telefono` y `red_social` — la fuga era real |
+| ¿`PUBLIC` tenía el permiso? | **No** (los grantees eran `anon`, `authenticated`, `postgres`, `service_role`), así que el `revoke` a `public` era defensivo |
+| Permisos después | Solo `creado_en, eliminado_en, foto_perfil, id, nombre` — **el contacto ya no figura** |
+| `mi_perfil()` en la base | Sin argumentos, `security definer`, `search_path=public, pg_temp`, sin `execute` para `anon` |
+| Pedir `telefono,red_social` de todos | `42501` ✅ (el ataque original, cerrado) |
+| `select=*` | `42501` ✅ |
+| **Control:** `id, nombre, eliminado_en` | **200 con datos** ✅ — el chat y las pistas siguen vivos |
+| `mi_perfil()` sin sesión | `42501` ✅ |
+| `mi_perfil()` con `user_id` de otro | `PGRST202`, **la firma no existe** ✅ — la propiedad central del diseño |
+| `mi_perfil()` con sesión propia | Devuelve **solo** la fila propia ✅ |
+| Camino feliz completo | Escribir contacto → `204`; leerlo por `mi_perfil()` → **sí**; leerlo desde otra cuenta → `42501` |
+
+**Los datos de los usuarios siguen intactos** (comprobado con `service_role`): dejaron de ser
+legibles por terceros, no se borraron. Datos de prueba limpiados; queda 1 mensaje de la
+prueba E2E del borrado de cuenta, entre dos lápidas (ver más abajo).
+
+### Cómo era antes de arreglarse
 
 Seis piezas con un tema común: dejar de exponer datos que no hace falta exponer. Plan en
 `docs/superpowers/plans/2026-07-19-tanda-a-privacidad.md`. **260 tests, 35 suites, tsc limpio.**
@@ -37,18 +60,16 @@ Seis piezas con un tema común: dejar de exponer datos que no hace falta exponer
 - 🟠 El aviso antiestafa faltaba justo en `PublicPetScreen`, la **única vista sin sesión**
   y por lo tanto el blanco del timo de la recompensa.
 
-### ⚠️ PENDIENTE — el orden importa
-1. `npx expo export --platform web` y revisar el build **antes** de subirlo.
-2. **Subir la web** a Cloudflare Pages.
-3. **Después** aplicar la migración `0018`.
+### Por qué el orden importaba (para la próxima migración de permisos)
+Se desplegó **web primero, migración después**. Al revés, con la migración aplicada y la app
+vieja arriba, el `select('*')` habría fallado entero (PostgREST no devuelve datos parciales)
+y **todos** los usuarios habrían perdido su perfil.
 
-Invertir 2 y 3 deja a **todos** los usuarios sin su perfil: con la migración aplicada y la
-app vieja arriba, el `select('*')` falla entero (PostgREST no devuelve datos parciales).
-
-Luego verificar atacando la API con un token real: pedir `telefono` de otro → `42501`;
-`select=*` → falla; `id, nombre, eliminado_en` → **200 con datos** (control de que no se
-rompieron el chat ni las pistas); `mi_perfil()` sin sesión → `42501`; con `user_id` →
-`PGRST202`.
+Antes de subir se probó el `dist` compilado contra la Supabase real, **en la ventana exacta
+de despliegue** (`mi_perfil()` todavía inexistente, devolviendo `PGRST202`): el escalón de
+respaldo mostró el aviso en español y **no renderizó** los campos de contacto, así que el
+borrado silencioso no era alcanzable. También se comprobó ahí que el pin quedó a **235 m**
+del punto enviado, coherente con el radio de 250.
 
 ## 🌐 EN PRODUCCIÓN (desde 2026-07-18)
 - **Web:** https://encuentras-mascota.pages.dev — **Cloudflare Pages**, proyecto `encuentras-mascota`, por subida directa (drag-and-drop de la carpeta `dist`). Netlify quedó descartado por límite de la cuenta.
