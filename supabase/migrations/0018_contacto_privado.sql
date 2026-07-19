@@ -12,12 +12,30 @@
 -- invitado). Lo que se cierra son dos COLUMNAS.
 -- ============================================================
 
-revoke select on public.profiles from anon, authenticated;
+-- El `revoke` incluye a `public` a proposito, ademas de `anon` y
+-- `authenticated`. En Postgres el chequeo de privilegios de columna pasa si
+-- CUALQUIERA de los roles del chequeo -- incluido el pseudo-rol `public`,
+-- del que todos los roles heredan -- tiene el permiso. Si en algun momento
+-- existio un `grant select ... to public` (por ejemplo un remanente de
+-- 0001_init.sql o un cambio manual), dejarlo afuera de este `revoke` haria
+-- que TODA la migracion fuera un no-op silencioso: se aplicaria sin error,
+-- pero cualquier cuenta seguiria leyendo telefono y red_social de todos,
+-- porque el grant a `public` seguiria ahi anulando el revoke especifico.
+revoke select on public.profiles from public, anon, authenticated;
 grant  select (id, nombre, foto_perfil, creado_en, eliminado_en)
        on public.profiles to anon, authenticated;
 
 -- `update` no se toca: editar el perfil propio sigue funcionando. `id` queda
 -- legible porque lo necesitan el `where` de los updates y la propia RLS.
+--
+-- ADVERTENCIA para la proxima migracion que le agregue una columna a
+-- `profiles`: este esquema de permisos es fail-closed. El `grant select`
+-- de arriba es una lista explicita de columnas, asi que una columna nueva
+-- NO queda legible por herencia ni por defecto -- hay que agregarla a mano
+-- a ese `grant` (o a `mi_perfil()` si es un dato privado). Si se olvida, la
+-- app no vera esa columna y va a fallar EN SILENCIO para quien la use: un
+-- `select('*')` o un `select('nueva_columna')` no tira error de permisos
+-- vistoso, el dato simplemente no llega.
 
 -- El dueño recupera sus datos por aca. SIN PARAMETROS a proposito: no existe
 -- una firma que permita pedir la fila de otra persona. Es la misma tecnica de
@@ -42,7 +60,7 @@ returns table (
 )
 language sql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 stable
 as $$
   select p.id, p.nombre, p.foto_perfil, p.telefono, p.red_social, p.creado_en

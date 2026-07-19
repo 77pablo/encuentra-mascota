@@ -55,7 +55,18 @@ describe('getMyProfile', () => {
     const perfil = await getMyProfile('u1');
 
     expect(mockFrom).toHaveBeenCalledWith('profiles');
+    expect(builder.eq).toHaveBeenCalledWith('id', 'u1');
     expect(perfil?.nombre).toBe('Pablo');
+  });
+
+  // Sin userIdRespaldo no hay a quien pedirle la fila en el escalon de
+  // respaldo: tiene que propagar el error de la RPC, no devolver null en
+  // silencio (eso dejaria al usuario pensando que no tiene perfil).
+  it('si la RPC no existe todavia y no hay userIdRespaldo, propaga el error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'no existe' } });
+
+    await expect(getMyProfile()).rejects.toMatchObject({ code: 'PGRST202' });
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('propaga los errores que no son "la RPC no existe"', async () => {

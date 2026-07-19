@@ -24,9 +24,22 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
   if (error) {
     // PGRST202 = la funcion no existe todavia.
     if (error.code !== 'PGRST202' || !userIdRespaldo) throw error;
-    const res = await supabase.from('profiles').select('*').eq('id', userIdRespaldo).maybeSingle();
+    // No se pide `select('*')`: la migracion 0018 le quito a `authenticated`
+    // el permiso sobre `telefono` y `red_social`, asi que un `*` revienta con
+    // 42501 (permiso denegado) en cuanto la migracion este aplicada. Se pide
+    // solo lo que sigue concedido; el contacto se pierde en este escalon de
+    // respaldo, pero al menos se ve el nombre y la foto en vez de una
+    // pantalla en blanco.
+    const res = await supabase
+      .from('profiles')
+      .select('id, nombre, foto_perfil, creado_en')
+      .eq('id', userIdRespaldo)
+      .maybeSingle();
     if (res.error) throw res.error;
-    return (res.data ?? null) as Profile | null;
+    if (!res.data) return null;
+    // Se completan a mano las columnas que este escalon no puede leer, para
+    // no romper el tipo `Profile` con un `as any`.
+    return { ...res.data, telefono: null, red_social: null } as Profile;
   }
 
   const filas = (data ?? []) as Profile[];
