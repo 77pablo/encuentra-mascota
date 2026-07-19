@@ -14,8 +14,7 @@ import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { useUnread } from '../hooks/useUnread';
 import { markThreadRead, sendMessage } from '../services/messages';
 import { supabase } from '../lib/supabase';
-import { AppText, Screen } from '../ui';
-import { AvisoEstafa } from '../ui/AvisoEstafa';
+import { AppText, AvisoEstafa, Screen } from '../ui';
 import { colors, font, radius, spacing } from '../theme';
 
 export default function ChatScreen({ route }: any) {

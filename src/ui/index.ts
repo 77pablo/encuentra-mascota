@@ -24,3 +24,4 @@ export { Mascota } from './Mascota';
 export type { MascotaProps } from './Mascota';
 export { Squiggle } from './Squiggle';
 export type { SquiggleProps } from './Squiggle';
+export { AvisoEstafa } from './AvisoEstafa';

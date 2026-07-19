@@ -10,8 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
-import { AppText, Button, Card, Input, Screen, Title } from '../ui';
-import { AvisoEstafa } from '../ui/AvisoEstafa';
+import { AppText, AvisoEstafa, Button, Card, Input, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const estadoOptions: { key: 'perdida' | 'encontrada'; label: string; color: string }[] = [

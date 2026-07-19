@@ -26,8 +26,7 @@ import PetCard from '../components/PetCard';
 import AficheGenerator from '../components/AficheGenerator';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, Profile } from '../services/profile';
-import { AppText, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
-import { AvisoEstafa } from '../ui/AvisoEstafa';
+import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const MOTIVOS_DENUNCIA = [
