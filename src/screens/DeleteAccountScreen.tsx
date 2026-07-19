@@ -15,6 +15,7 @@ import { colors, spacing } from '../theme';
 
 const SE_BORRA = [
   'Tus reportes de mascotas, con sus fotos.',
+  'Las pistas y avistamientos que otros vecinos dejaron en esos reportes: se van junto con el reporte.',
   'Tu nombre, tu foto, tu teléfono y tu red social.',
   'Tu zona de alerta y tus reportes guardados.',
   'Tu correo: nadie va a poder relacionar lo que quede con vos.',
@@ -46,15 +47,21 @@ export default function DeleteAccountScreen() {
     try {
       await borrarMiCuenta();
       notify('Cuenta borrada', 'Listo. Gracias por haber ayudado a encontrar mascotas.');
-      await signOut();
     } catch (e: any) {
-      // Título a propósito en modo "reintentá", no "no se pudo": si el fallo
-      // ocurrió después de borrar las fotos, la cuenta sigue viva y conviene
-      // que la persona vuelva a intentar en vez de quedarse a mitad de camino.
-      notify('Necesitás reintentar', mensajeDeErrorDb(e));
+      // Título a propósito: no suena a "no se pudo" (que invita a rendirse) ni
+      // a una orden tipo "necesitás reintentar". Si el fallo ocurrió después de
+      // borrar las fotos, la cuenta sigue viva y conviene que la persona vuelva
+      // a intentar; este título empuja a eso sin sonar a instrucción de sistema.
+      notify('No terminamos de borrarla', mensajeDeErrorDb(e));
+      return;
     } finally {
       setBorrando(false);
     }
+    // Fuera del try: para este punto la cuenta YA se borró (borrarMiCuenta no
+    // lanzó). Si signOut fallara acá, no es un fallo del borrado, y meterlo en
+    // el mismo catch tapaba el mensaje de éxito con un error de reintento que
+    // encima chocaría contra un 401 (la cuenta ya no existe).
+    signOut().catch((e) => console.warn('No se pudo cerrar la sesión tras borrar la cuenta:', e));
   };
 
   return (
