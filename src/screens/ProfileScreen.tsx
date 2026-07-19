@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { closePet, deletePet, listMyReports, Pet } from '../services/pets';
-import { getMyProfile, Profile, updateMyProfile } from '../services/profile';
+import { camposDeContactoParaGuardar, getMyProfile, Profile, updateMyProfile } from '../services/profile';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
 import { confirmAction, notify } from '../lib/notify';
@@ -159,8 +159,9 @@ export default function ProfileScreen({ navigation }: any) {
     try {
       await updateMyProfile(user.id, {
         nombre,
-        telefono: telefonoDraft.trim(),
-        red_social: redSocialDraft.trim(),
+        // Si el perfil vino degradado (mi_perfil() no disponible), esto no
+        // manda telefono ni red_social: ver camposDeContactoParaGuardar.
+        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialDraft.trim()),
       });
       notify('Guardado', 'Tu perfil se actualizó.');
       setEditingPerfil(false);
@@ -263,25 +264,39 @@ export default function ProfileScreen({ navigation }: any) {
                 onChangeText={setNombreDraft}
                 placeholder="¿Cómo te llamas?"
               />
-              <Input
-                label="Teléfono / WhatsApp"
-                value={telefonoDraft}
-                onChangeText={setTelefonoDraft}
-                placeholder="+56 9 1234 5678"
-                keyboardType="phone-pad"
-                icon="call"
-              />
-              <Input
-                label="Red social (Instagram, Facebook…)"
-                value={redSocialDraft}
-                onChangeText={setRedSocialDraft}
-                placeholder="@tu_usuario"
-                icon="share-social"
-              />
-              <AppText muted size={12} style={styles.avisoContacto}>
-                Solo tú ves estos datos. Los usamos para armar el afiche de tu mascota, que tú decides
-                compartir.
-              </AppText>
+              {profile?.contactoNoDisponible ? (
+                // El perfil vino del escalon de respaldo (mi_perfil() no
+                // disponible): no sabemos si el usuario tiene telefono/red
+                // social guardados o no, asi que no se muestran campos
+                // vacios que inviten a "completarlos" (eso borraria el dato
+                // real al guardar). Se avisa y no se deja tocar el contacto.
+                <AppText muted size={12} style={styles.avisoContacto}>
+                  No pudimos cargar tu teléfono ni tu red social en este momento. Por ahora se
+                  mantienen como estaban guardados; volvé a intentarlo más tarde para editarlos.
+                </AppText>
+              ) : (
+                <>
+                  <Input
+                    label="Teléfono / WhatsApp"
+                    value={telefonoDraft}
+                    onChangeText={setTelefonoDraft}
+                    placeholder="+56 9 1234 5678"
+                    keyboardType="phone-pad"
+                    icon="call"
+                  />
+                  <Input
+                    label="Red social (Instagram, Facebook…)"
+                    value={redSocialDraft}
+                    onChangeText={setRedSocialDraft}
+                    placeholder="@tu_usuario"
+                    icon="share-social"
+                  />
+                  <AppText muted size={12} style={styles.avisoContacto}>
+                    Solo tú ves estos datos. Los usamos para armar el afiche de tu mascota, que tú
+                    decides compartir.
+                  </AppText>
+                </>
+              )}
               <View style={styles.editActionsRow}>
                 <Button
                   title="Guardar"

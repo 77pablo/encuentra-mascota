@@ -7,6 +7,13 @@ export interface Profile {
   telefono: string | null;
   red_social: string | null;
   creado_en: string;
+  // true solo cuando este perfil vino del escalon de respaldo de
+  // getMyProfile (mi_perfil() todavia no existe). En ese caso telefono y
+  // red_social son null porque no se pudieron leer, NO porque el usuario los
+  // haya borrado. Quien edite este perfil tiene que revisar esta bandera
+  // antes de mandar esas dos columnas en un update, o el guardado escribe un
+  // borrado silencioso encima del dato real (ver camposDeContactoParaGuardar).
+  contactoNoDisponible?: true;
 }
 
 // El telefono y la red social ya no se pueden leer con un select: la migracion
@@ -38,8 +45,11 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
     if (res.error) throw res.error;
     if (!res.data) return null;
     // Se completan a mano las columnas que este escalon no puede leer, para
-    // no romper el tipo `Profile` con un `as any`.
-    return { ...res.data, telefono: null, red_social: null } as Profile;
+    // no romper el tipo `Profile` con un `as any`. `contactoNoDisponible:
+    // true` marca que ese null es "no se pudo leer", no "el usuario lo
+    // borro" — sin esto, editar y guardar el perfil en este escalon borraria
+    // el contacto real (ver camposDeContactoParaGuardar).
+    return { ...res.data, telefono: null, red_social: null, contactoNoDisponible: true } as Profile;
   }
 
   const filas = (data ?? []) as Profile[];
@@ -52,4 +62,20 @@ export async function updateMyProfile(
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(fields).eq('id', userId);
   if (error) throw error;
+}
+
+// Decide que campos de contacto mandar en el update del perfil. Si el
+// perfil viene del escalon de respaldo de getMyProfile (contactoNoDisponible),
+// telefono/red_social en el perfil son null porque no se pudieron leer, no
+// porque esten vacios: los drafts del formulario tambien van a estar vacios
+// (se siembran desde ese mismo perfil), y mandarlos igual escribiria un
+// borrado silencioso encima del dato real. En ese caso no se manda ninguno
+// de los dos, para que el update no los toque.
+export function camposDeContactoParaGuardar(
+  profile: Profile | null,
+  telefono: string,
+  redSocial: string,
+): { telefono?: string; red_social?: string } {
+  if (profile?.contactoNoDisponible) return {};
+  return { telefono, red_social: redSocial };
 }
