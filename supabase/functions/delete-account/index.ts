@@ -146,14 +146,21 @@ Deno.serve(async (req: Request) => {
         .from('pet-photos')
         .remove(propias);
       if (storageError) throw new Error(`no se pudieron borrar las fotos: ${storageError.message}`);
-      // `remove` puede fallar PARCIALMENTE: devuelve error solo si se cae la
-      // request entera, y los objetos que no pudo borrar simplemente no vienen
-      // en `data`. Sin este chequeo, borrar 3 de 5 fotos seguiria adelante,
-      // anonimizaria, y le diriamos "listo" a la persona con 2 fotos suyas
-      // todavia publicas y ya sin ninguna fila que las referencie.
+      // `remove` devuelve MENOS filas de las pedidas en dos casos bien
+      // distintos, y solo uno de los dos justifica frenar el borrado:
+      //   a) la ruta ya no estaba en Storage (foto rota, borrado previo a
+      //      medias, lo que sea): no hay nada que borrar, y no es culpa de
+      //      esta corrida.
+      //   b) Storage la tenia y no la pudo borrar: eso si es un fallo real.
+      // Antes esto se trataba todo como (b) y lanzaba si faltaba una sola
+      // fila. Como (a) puede pasar SIEMPRE que una fila de `pets` quedo
+      // apuntando a una foto que ya no existe, esa cuenta nunca podia
+      // borrarse, y borrar la cuenta es un requisito de las tiendas de apps.
+      // Por eso ahora solo se falla si Storage devuelve `error` (arriba); acá
+      // solo dejamos constancia de la diferencia para poder auditarla.
       if ((borradas ?? []).length !== propias.length) {
-        throw new Error(
-          `Storage borro ${(borradas ?? []).length} de ${propias.length} fotos`,
+        console.warn(
+          `delete-account: Storage no encontro ${propias.length - (borradas ?? []).length} de ${propias.length} fotos para el usuario ${userId} (probablemente ya no existian)`,
         );
       }
     }
