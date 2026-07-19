@@ -20,6 +20,13 @@ export default function AddSightingScreen({ route, navigation }: any) {
   const { petId, petLat, petLng } = route.params;
   const location = useMyLocation();
   const [coords, setCoords] = useState({ lat: petLat, lng: petLng });
+  // petLat/petLng ya vienen difuminadas (createPet las difumina al crear el
+  // reporte). Si el usuario no toca el mapa, hay que mandarlas tal cual: si
+  // addSighting las difuminara otra vez, el avistamiento se alejaria hasta
+  // otros ~250m del pin sin que la persona lo haya pedido. En cambio, apenas
+  // el usuario usa su ubicacion real o mueve el pin a mano, esa coordenada es
+  // "cruda" y siempre se tiene que difuminar. pinMovido distingue los dos casos.
+  const [pinMovido, setPinMovido] = useState(false);
   const [nota, setNota] = useState('');
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -29,7 +36,10 @@ export default function AddSightingScreen({ route, navigation }: any) {
     location.request();
   };
   useEffect(() => {
-    if (location.coords) setCoords(location.coords);
+    if (location.coords) {
+      setCoords(location.coords);
+      setPinMovido(true);
+    }
   }, [location.coords]);
   useEffect(() => {
     if (location.status === 'denied') {
@@ -62,6 +72,9 @@ export default function AddSightingScreen({ route, navigation }: any) {
         lng: coords.lng,
         nota: nota.trim() || null,
         foto,
+        // Si el pin no se movio, coords sigue siendo petLat/petLng: ya vienen
+        // difuminadas y no hay que difuminarlas de nuevo.
+        yaDifuminado: !pinMovido,
       });
       notify('¡Gracias!', 'Sumaste una pista al rastro de esta mascota.');
       navigation.goBack();
@@ -98,22 +111,24 @@ export default function AddSightingScreen({ route, navigation }: any) {
               latitudeDelta: 0.02,
               longitudeDelta: 0.02,
             }}
-            onPress={(e: any) =>
+            onPress={(e: any) => {
               setCoords({
                 lat: e.nativeEvent.coordinate.latitude,
                 lng: e.nativeEvent.coordinate.longitude,
-              })
-            }
+              });
+              setPinMovido(true);
+            }}
           >
             <Marker
               draggable
               coordinate={{ latitude: coords.lat, longitude: coords.lng }}
-              onDragEnd={(e: any) =>
+              onDragEnd={(e: any) => {
                 setCoords({
                   lat: e.nativeEvent.coordinate.latitude,
                   lng: e.nativeEvent.coordinate.longitude,
-                })
-              }
+                });
+                setPinMovido(true);
+              }}
             />
           </MapView>
         </Card>

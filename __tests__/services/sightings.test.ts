@@ -85,6 +85,30 @@ describe('addSighting', () => {
       addSighting({ pet_id: 'pet-1', user_id: 'user-1', lat: 0, lng: 0 }),
     ).rejects.toEqual({ message: 'boom' });
   });
+
+  // yaDifuminado: true evita el doble difuminado cuando AddSightingScreen manda
+  // una coordenada que ya vino difuminada de createPet (el pin sin mover).
+  it('con yaDifuminado en true, guarda lat/lng tal cual, sin difuminar de nuevo', async () => {
+    const builder = makeQueryBuilder({ data: { id: 's-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await addSighting({ pet_id: 'pet-1', user_id: 'u1', lat: -33.45, lng: -70.66, yaDifuminado: true });
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.lat).toBe(-33.45);
+    expect(guardado.lng).toBe(-70.66);
+  });
+
+  it('sin yaDifuminado (o en false), difumina la coordenada como siempre', async () => {
+    const builder = makeQueryBuilder({ data: { id: 's-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await addSighting({ pet_id: 'pet-1', user_id: 'u1', lat: -33.45, lng: -70.66, yaDifuminado: false });
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.lat).not.toBe(-33.45);
+    expect(guardado.lng).not.toBe(-70.66);
+  });
 });
 
 describe('listSightings', () => {
