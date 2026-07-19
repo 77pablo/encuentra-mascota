@@ -118,28 +118,13 @@ La app compilada todavía no tiene ni el borrado de cuenta ni la tanda 4. `npx e
 **Riesgos aceptados, anotados a propósito:** (a) las fotos se borran antes de anonimizar, así que si falla ese paso la persona queda con la cuenta viva y los reportes con imágenes rotas — feo pero visible, y la pantalla empuja a reintentar; el estado que evitamos era peor y silencioso. (b) Borrar los reportes propios **también borra las pistas y avistamientos que otros dejaron ahí** (la pantalla ahora lo dice). (c) A partir de `0017`, borrar una cuenta desde el panel de Supabase deja un perfil sin `eliminado_en`, que se ve vivo: **las cuentas se borran solo por la app**.
 
 ## ⏭️ PARA RETOMAR (lo próximo, en orden)
-1. **Subir la web actualizada a Cloudflare** — todo lo de la tanda 4 (búsqueda paginada, validación, mensajes traducidos) está commiteado pero **NO** está en producción. `npx expo export --platform web` → Cloudflare → proyecto `encuentras-mascota` → Deployments → Create new deployment → rama `main` → arrastrar `dist`.
-2. **Brevo:** la cuenta sigue sin activar (`403 SMTP account is not yet activated`). Hasta que Brevo la habilite, ningún aviso por correo sale. Alternativa si se cansa: comprar dominio y volver a Resend — el código ya soporta los dos y cambia solo según qué variables estén cargadas.
-3. ~~**CORS en las Edge Functions** y **caché por consulta**~~ — ✅ **HECHO EN CÓDIGO (19-jul)**, ⚠️ **falta desplegar** (ver 3.b). No era higiene: había un agujero real.
-   - 🔓 **`send-notifications` se podía disparar SIN NINGUNA CREDENCIAL.** El gateway de Supabase deja pasar el preflight `OPTIONS` sin verificar el JWT (para que las funciones puedan contestarlo), y la función ignoraba el método HTTP: un `curl -X OPTIONS` desde cualquier parte devolvía `200 {"ok":true,...}` y **despachaba la cola entera**. Comprobado contra el proyecto real (`POST` y `GET` sin token sí daban 401, o sea que el único hueco era OPTIONS). No permitía *forjar* avisos (la cola la escriben los triggers), pero sí que un extraño gastara la cuota de correo. Arreglado: OPTIONS contesta 204 y corta antes de tocar la base; lo que no sea POST da 405.
-   - 🌐 **Una función desplegada NO recibe cabeceras CORS del gateway.** El gateway solo se las pone a *sus* respuestas — por eso el 404 de una función inexistente sí trae `Access-Control-Allow-Origin: *` y confunde. Verificado: el preflight a `send-notifications` vuelve 200 sin una sola cabecera `access-control-*`. Como `send-push` **sí** se llama desde el navegador (`ChatScreen`), sin esto el navegador la bloquea. Nuevo `supabase/functions/_shared/cors.ts` con allowlist por **origen exacto** (nunca `*`, porque va la cabecera `Authorization`), contemplando las vistas previas de Cloudflare Pages. 9 tests, incluido el caso que mata a un allowlist mal escrito: `encuentras-mascota.pages.dev.atacante.com`.
-   - 💀 **`send-push` nunca estuvo desplegada** (responde `404 NOT_FOUND`): el aviso push del chat **jamás funcionó**, y el `.catch(() => {})` de `ChatScreen` lo tapaba en silencio absoluto. Ahora ese catch deja un `console.warn`.
-   - 🗑️ **Caché:** la respuesta no era "agregar caché por consulta" sino **borrar la que había**. `activePetsCache` + `listActivePets()` no los llamaba nadie desde que la búsqueda pasó al servidor (migs `0014`/`0015`); las invalidaciones en `createPet`/`closePet`/`updatePet`/`deletePet`/`markReunited` limpiaban algo que ya nadie leía. Se quitó todo, junto con `src/lib/cache.ts`. Si algún día hace falta, va **por consulta** (clave = filtros + cursor), no una lista global; el `ttlCache` queda en el historial de git.
-   - **224 tests, 30 suites, tsc limpio.**
-3.b ⚠️ **PENDIENTE TUYO — desplegar las funciones.** Hasta que lo hagas, en producción sigue corriendo la versión vieja y el agujero de OPTIONS sigue abierto. `supabase login` es interactivo, por eso no lo pude correr yo:
-   ```
-   cd C:\Users\pdani\encuentra-mascota
-   npx supabase login
-   npx supabase link --project-ref ywlrcfaybnikaurxsgtj
-   npx supabase functions deploy send-notifications
-   npx supabase functions deploy send-push
-   ```
-   Para que `send-push` acepte al navegador, cargale `EXPO_PUBLIC_WEB_URL=https://encuentras-mascota.pages.dev` en Dashboard → Edge Functions → Secrets.
-   **Comprobación** (tiene que dar `204`, no `200` con JSON):
-   ```
-   curl -s -o /dev/null -w "%{http_code}\n" -X OPTIONS \
-     https://ywlrcfaybnikaurxsgtj.supabase.co/functions/v1/send-notifications
-   ```
+
+> Lo de hoy (19-jul) quedó **todo cerrado**: borrado de cuenta en producción y verificado 12/12, las 3 Edge Functions desplegadas, migración `0017` aplicada, y la web subida. El detalle está en las secciones de arriba.
+
+1. 🔴 **Cerrar la fuga de datos de contacto en `profiles`** — LO MÁS IMPORTANTE. La política es `for select to authenticated using (true)`: **cualquiera que se registre puede leer el teléfono y la red social de todos los usuarios**. Comprobado el 19-jul leyendo los datos reales de Pablo desde una cuenta descartable recién creada. Idea: una vista (o column-level security) que exponga solo `id`, `nombre` y `eliminado_en`, y dejar el teléfono accesible solo para quien tenga una conversación abierta. Ojo al tocarlo: `services/messages.ts` y `services/tips.ts` leen `profiles`, y el afiche usa el teléfono **propio**.
+2. **Limpiar el residuo de la prueba end-to-end** (3 filas lápida + su hilo de mensajes). SQL listo en la sección "PRUEBA END-TO-END".
+3. **Brevo:** la cuenta sigue sin activar (`403 SMTP account is not yet activated`). Hasta que la habiliten, ningún aviso por correo sale. Alternativa: comprar dominio y volver a Resend — el código ya soporta los dos y elige según qué variables estén cargadas.
+
 4. **Bloqueo de cuenta por intentos fallidos:** recomendación es **no hacerlo tal cual**. Bloquear tras N intentos deja que cualquiera eche al dueño de un reporte tirando claves malas a propósito, justo cuando más necesita entrar. Supabase ya limita por IP. Si se hace, mejor con demora creciente que con bloqueo.
 5. **Nombre de la app:** sin decidir, pero ya **investigado (19-jul)**. Dominios `.cl` verificados uno por uno en el WHOIS de NIC Chile; colisiones buscadas en Google Play / App Store. **INAPI NO se pudo verificar** (su buscador es un formulario ASP.NET que no acepta consultas por URL) — eso hay que hacerlo a mano en `buscadormarcas.inapi.cl`, búsqueda **literal y fonética**, clases **9** (software), **42** (SaaS) y **45** (servicios comunitarios).
 
