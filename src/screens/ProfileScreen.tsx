@@ -264,15 +264,18 @@ export default function ProfileScreen({ navigation }: any) {
                 onChangeText={setNombreDraft}
                 placeholder="¿Cómo te llamas?"
               />
-              {profile?.contactoNoDisponible ? (
+              {!profile || profile.contactoNoDisponible ? (
                 // El perfil vino del escalon de respaldo (mi_perfil() no
-                // disponible): no sabemos si el usuario tiene telefono/red
-                // social guardados o no, asi que no se muestran campos
-                // vacios que inviten a "completarlos" (eso borraria el dato
-                // real al guardar). Se avisa y no se deja tocar el contacto.
+                // disponible) o directamente no cargo (cargar() se comio un
+                // error que no fue PGRST202: corte de red, un 500, un
+                // 42501, un JWT vencido). En los dos casos no sabemos si el
+                // usuario tiene telefono/red social guardados o no, asi que
+                // no se muestran campos vacios que inviten a "completarlos"
+                // (eso borraria el dato real al guardar). Se avisa y no se
+                // deja tocar el contacto.
                 <AppText muted size={12} style={styles.avisoContacto}>
                   No pudimos cargar tu teléfono ni tu red social en este momento. Por ahora se
-                  mantienen como estaban guardados; volvé a intentarlo más tarde para editarlos.
+                  mantienen como estaban guardados; vuelve a intentarlo más tarde para editarlos.
                 </AppText>
               ) : (
                 <>

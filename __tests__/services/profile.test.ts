@@ -136,7 +136,18 @@ describe('camposDeContactoParaGuardar', () => {
     expect(campos).toEqual({});
   });
 
-  it('perfil null (nunca cargo): manda los drafts igual, no hay nada degradado que proteger', () => {
-    expect(camposDeContactoParaGuardar(null, '+569', '@x')).toEqual({ telefono: '+569', red_social: '@x' });
+  it('perfil null (nunca cargo): no manda ni telefono ni red_social, porque no sabemos que habia guardado', () => {
+    // Si el perfil nunca cargo (cargar() en ProfileScreen se comio un error
+    // que no fue PGRST202: corte de red, un 500, un 42501, un JWT vencido),
+    // no hay forma de saber si el usuario tenia telefono/red social
+    // guardados. Los drafts del formulario tambien estan vacios (se
+    // siembran desde este mismo perfil null), asi que mandarlos igual
+    // pisaria el dato real en silencio: el mismo borrado que motiva esta
+    // suite, por otra puerta.
+    const campos = camposDeContactoParaGuardar(null, '+569', '@x');
+
+    expect(campos).not.toHaveProperty('telefono');
+    expect(campos).not.toHaveProperty('red_social');
+    expect(campos).toEqual({});
   });
 });

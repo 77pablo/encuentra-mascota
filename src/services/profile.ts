@@ -71,11 +71,20 @@ export async function updateMyProfile(
 // (se siembran desde ese mismo perfil), y mandarlos igual escribiria un
 // borrado silencioso encima del dato real. En ese caso no se manda ninguno
 // de los dos, para que el update no los toque.
+//
+// Lo mismo aplica, y con mas razon, cuando el perfil es null: eso pasa
+// cuando cargar() (en ProfileScreen) se comio un error que no fue PGRST202
+// -corte de red, un 500, un 42501, un JWT vencido- y se quedo sin perfil.
+// Los drafts del formulario tambien se siembran vacios en ese caso (ver
+// empezarEdicionPerfil), y no sabemos si el usuario tiene telefono/red
+// social guardados: mandar '' pisaria el dato real en silencio, el mismo
+// borrado que este bug ya causo por el camino de contactoNoDisponible. Por
+// eso falla cerrado tambien aca: sin perfil, no se toca el contacto.
 export function camposDeContactoParaGuardar(
   profile: Profile | null,
   telefono: string,
   redSocial: string,
 ): { telefono?: string; red_social?: string } {
-  if (profile?.contactoNoDisponible) return {};
+  if (!profile || profile.contactoNoDisponible) return {};
   return { telefono, red_social: redSocial };
 }
