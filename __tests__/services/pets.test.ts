@@ -17,21 +17,32 @@ function makeQueryBuilder(result: { data: any; error: any }) {
     eq: jest.fn(() => builder),
     order: jest.fn(() => builder),
     single: jest.fn(() => Promise.resolve(result)),
+    maybeSingle: jest.fn(() => Promise.resolve(result)),
     then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
   };
   return builder;
 }
 
+const UID = '11111111-1111-1111-1111-111111111111';
+const OTRO = '22222222-2222-2222-2222-222222222222';
+const BASE = 'https://ywlrcfaybnikaurxsgtj.supabase.co/storage/v1/object/public/pet-photos';
+
 const mockFrom = jest.fn();
+const mockRemove = jest.fn();
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
     from: (...args: any[]) => mockFrom(...args),
+    storage: {
+      from: (...args: any[]) => ({ remove: (...rargs: any[]) => mockRemove(...rargs) }),
+    },
   },
 }));
 
 beforeEach(() => {
   mockFrom.mockReset();
+  mockRemove.mockReset();
+  mockRemove.mockResolvedValue({ data: [], error: null });
 });
 
 describe('createPet', () => {
@@ -102,10 +113,12 @@ describe('updatePet', () => {
 
 describe('deletePet', () => {
   it('llama a delete().eq(id) sobre la tabla pets', async () => {
-    const builder = makeQueryBuilder({ data: null, error: null });
+    // Misma fila para el select (lectura de fotos) y para el delete: sin fotos,
+    // así que Storage ni se llama.
+    const builder = makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null });
     mockFrom.mockReturnValue(builder);
 
-    await deletePet('pet-1');
+    await deletePet('pet-1', UID);
 
     expect(mockFrom).toHaveBeenCalledWith('pets');
     expect(builder.delete).toHaveBeenCalled();
@@ -113,10 +126,86 @@ describe('deletePet', () => {
   });
 
   it('lanza el error cuando supabase falla', async () => {
-    const builder = makeQueryBuilder({ data: null, error: { message: 'boom' } });
-    mockFrom.mockReturnValue(builder);
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: { message: 'boom' } }));
 
-    await expect(deletePet('pet-1')).rejects.toEqual({ message: 'boom' });
+    await expect(deletePet('pet-1', UID)).rejects.toEqual({ message: 'boom' });
+  });
+
+  it('borra las fotos ANTES de borrar la fila, incluida final_foto', async () => {
+    const fotos = [`${BASE}/${UID}/a.jpg`, `${BASE}/${UID}/b.jpg`];
+    // 1a llamada: el select que lee las rutas. 2a: el delete de la fila.
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos, final_foto: `${BASE}/${UID}/c.jpg` }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('p1', UID);
+
+    expect(mockRemove).toHaveBeenCalledWith([`${UID}/a.jpg`, `${UID}/b.jpg`, `${UID}/c.jpg`]);
+  });
+
+  // La lección literal del Critical #2 del borrado de cuenta: si la fila se
+  // borra primero, las rutas se pierden y no hay reintento posible. Este test
+  // no confía en el orden de las promesas: registra en `orden` el momento
+  // EXACTO en que el código invoca cada operación (el `delete()` síncrono que
+  // arma la query, y el `remove()` de Storage), así que si alguien invierte el
+  // orden real de las llamadas en `deletePet`, el array queda
+  // ['delete', 'storage'] y el `toEqual` de abajo falla.
+  it('lee las rutas antes de destruir la fila', async () => {
+    const orden: string[] = [];
+    const builder: any = {
+      select: jest.fn(() => builder),
+      delete: jest.fn(() => {
+        orden.push('delete');
+        return builder;
+      }),
+      eq: jest.fn(() => builder),
+      maybeSingle: jest.fn(() =>
+        Promise.resolve({ data: { fotos: [`${BASE}/${UID}/a.jpg`], final_foto: null }, error: null }),
+      ),
+      then: (resolve: any, reject: any) =>
+        Promise.resolve({ data: null, error: null }).then(resolve, reject),
+    };
+    mockFrom.mockImplementation(() => builder);
+    mockRemove.mockImplementation(() => {
+      orden.push('storage');
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    await deletePet('p1', UID);
+
+    expect(orden).toEqual(['storage', 'delete']);
+  });
+
+  // Se elige el estado malo VISIBLE por sobre el silencioso: si abortáramos, un
+  // hipo de Storage dejaría a la persona sin poder borrar su propio reporte,
+  // que puede ser justo una urgencia de privacidad.
+  it('borra la fila igual si Storage falla', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [`${BASE}/${UID}/a.jpg`], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+    mockRemove.mockResolvedValue({ data: null, error: { message: 'boom' } });
+
+    await expect(deletePet('p1', UID)).resolves.toBeUndefined();
+  });
+
+  it('no llama a Storage si el reporte no tiene fotos', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('p1', UID);
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
+
+  it('ignora las fotos que no son del propio usuario', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [`${BASE}/${OTRO}/x.jpg`], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('p1', UID);
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 });
 

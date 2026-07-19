@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
 import { ErrorAmigable } from '../lib/dbErrors';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
+import { rutaDeFotoPropia } from '../lib/rutaStorage';
 
 export interface Pet {
   id: string;
@@ -97,7 +98,40 @@ export async function updatePet(
   if (error) throw error;
 }
 
-export async function deletePet(id: string): Promise<void> {
+// Borra el reporte y, con él, sus fotos del bucket público.
+//
+// El ORDEN importa: primero se leen las rutas, después se borra de Storage y al
+// final la fila. Si se borrara la fila primero, las rutas se pierden y no hay
+// reintento posible (es la lección literal del Critical #2 del borrado de
+// cuenta, donde las fotos quedaban para siempre en un bucket público mientras
+// respondíamos "listo").
+//
+// Si Storage falla, la fila se borra IGUAL: quedaría una foto huérfana, que es
+// exactamente el estado de hoy, mientras que abortar dejaría a la persona sin
+// poder borrar su propio reporte —que puede ser justo una urgencia de
+// privacidad—. Se elige el estado malo visible por sobre el silencioso.
+export async function deletePet(id: string, userId: string): Promise<void> {
+  const { data: fila } = await supabase
+    .from('pets')
+    .select('fotos, final_foto')
+    .eq('id', id)
+    .maybeSingle();
+
+  const urls: string[] = [...((fila?.fotos as string[]) ?? [])];
+  // `final_foto` (el "final feliz", migración 0008) vive en su propia columna y
+  // es fácil de olvidar: sin esto, cada reencuentro deja una huérfana.
+  if (fila?.final_foto) urls.push(fila.final_foto as string);
+
+  const rutas = urls
+    .map((u) => rutaDeFotoPropia(u, userId))
+    .filter((r): r is string => r !== null);
+
+  if (rutas.length > 0) {
+    const { error: errStorage } = await supabase.storage.from('pet-photos').remove(rutas);
+    // A propósito no se corta el flujo: ver el comentario de arriba.
+    if (errStorage) console.warn('No se pudieron borrar algunas fotos:', errStorage.message);
+  }
+
   const { error } = await supabase.from('pets').delete().eq('id', id);
   if (error) throw error;
 }

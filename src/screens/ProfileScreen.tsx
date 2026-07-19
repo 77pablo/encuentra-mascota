@@ -107,7 +107,7 @@ export default function ProfileScreen({ navigation }: any) {
     const ok = await confirmAction('¿Borrar reporte?', 'Esta acción no se puede deshacer.');
     if (!ok) return;
     try {
-      await deletePet(id);
+      await deletePet(id, user.id);
       notify('Borrado', 'El reporte se eliminó.');
       cargar();
     } catch (e: any) {
