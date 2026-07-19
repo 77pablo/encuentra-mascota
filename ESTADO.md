@@ -41,11 +41,22 @@ Construido con subagentes (5 tareas + revisión final). **239 tests, 32 suites, 
 - 🟠 `create or replace` **no puede cambiar el tipo de retorno** de una función: la migración no se podía reaplicar.
 - 🟠 Pedir `eliminado_en` en la misma consulta que `nombre` hacía que, con la migración sin aplicar, **todos** perdieran su nombre real (no solo las cuentas borradas). Resuelto con reintento escalonado.
 
-### ⚠️ PENDIENTE TUYO — el orden importa
+### ✅ MIGRACIÓN `0017` APLICADA Y VERIFICADA (19-jul)
 
-**1. Aplicar `0017_borrado_cuenta.sql`** (SQL Editor). **Antes que nada**: si la web sale primero, el botón de borrar aparece y falla siempre.
-**2.** ~~Desplegar la Edge Function~~ — ✅ **HECHA (19-jul)**, ver abajo.
-**3. Recién después de la migración, subir la web.**
+Aplicada por la API de administración de Supabase (`POST /v1/projects/<ref>/database/query`), que permite correr SQL con un Personal Access Token, sin necesidad de la contraseña de la base ni del SQL Editor. **Diagnóstico previo, todo en verde:**
+- **`storage.objects` NO tiene FK hacia `auth.users`** → era el riesgo grande: si la tuviera, borrar el usuario habría fallado para cualquiera con fotos (y las de avistamientos se conservan a propósito). No existe, así que el paso final del borrado no se traba.
+- `profiles_id_fkey` y `messages_pet_id_fkey` se llamaban como asumía la migración, y no había restos de intentos previos.
+
+**Verificado después de aplicar:** la FK de `profiles`→`auth.users` ya no está; `eliminado_en` existe; las dos RPC son `security definer` y **con `args` vacío** (no aceptan destinatario); `messages.pet_id` quedó nullable con `on delete set null` (`confdeltype = n`); y `ruta_storage()` devuelve bien la ruta.
+
+**Los tres ataques, probados contra la base real y todos rechazados:**
+- Sin sesión, llamar a `anonimizar_mi_cuenta()` → `42501 permission denied` (el `grant` es solo a `authenticated`).
+- Pasarle un `user_id` para borrar la cuenta de otro → `PGRST202`, esa firma **no existe**. Es la propiedad de seguridad central del diseño.
+- Sin sesión, `mis_fotos_a_borrar()` → `42501`.
+
+### ⚠️ LO ÚNICO QUE FALTA: subir la web
+
+La app compilada todavía no tiene ni el borrado de cuenta ni la tanda 4. `npx expo export --platform web` → Cloudflare → Deployments → Create new deployment → arrastrar `dist`. Recordar que en producción ya aparecieron bugs que en dev no se veían: **verificar el sitio compilado, no solo el dev server**.
 
 ### ✅ LAS 3 EDGE FUNCTIONS DESPLEGADAS Y VERIFICADAS (19-jul)
 
