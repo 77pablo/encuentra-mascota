@@ -54,7 +54,43 @@ Aplicada por la API de administración de Supabase (`POST /v1/projects/<ref>/dat
 - Pasarle un `user_id` para borrar la cuenta de otro → `PGRST202`, esa firma **no existe**. Es la propiedad de seguridad central del diseño.
 - Sin sesión, `mis_fotos_a_borrar()` → `42501`.
 
-### ⚠️ LO ÚNICO QUE FALTA: subir la web
+### ✅ PRUEBA END-TO-END EN PRODUCCIÓN (19-jul) — 12/12
+
+Hecha con Playwright contra `https://encuentras-mascota.pages.dev` con dos cuentas descartables (A y B). Escenario: B publica un reporte, A publica otro, A deja una pista en el reporte de B, B le escribe a A **sobre el reporte de A**, y A borra su cuenta.
+
+| Qué | Resultado |
+|---|---|
+| El reporte de A desaparece | ✅ (confirmado en la base, no solo en pantalla) |
+| El reporte de B sobrevive | ✅ |
+| La pista de A en el reporte de B sobrevive | ✅ |
+| …firmada **"Un vecino"** | ✅ |
+| …sin filtrar el nombre "Alberto" | ✅ |
+| La conversación sobrevive | ✅ **valida el arreglo de la FK**: antes se borraba entera |
+| Muestra **"Cuenta eliminada"** | ✅ |
+| Muestra **"Reporte eliminado"** | ✅ |
+| El chat no deja escribir | ✅ *"Esta persona borró su cuenta. La conversación queda como recuerdo."* |
+| La clave vieja ya no entra | ✅ `Invalid login credentials` |
+| El mismo correo se puede volver a registrar | ✅ (prueba de que `auth.users` se borró de verdad) |
+| La cuenta nueva arranca vacía | ✅ no arrastra nada de la anterior |
+
+**Lápida verificada en la base:** `nombre='Cuenta eliminada'`, y `telefono`, `red_social` y `foto_perfil` en `null`.
+
+**Limpieza:** las dos cuentas de prueba se borraron con la propia función. La base quedó con **0 reportes y 0 pistas**, y ninguna de las dos puede entrar.
+
+⚠️ **Residuo a propósito:** quedaron **3 filas lápida** en `profiles` y el hilo de mensajes entre ellas. Es el comportamiento correcto (por eso sobreviven), pero son datos de prueba. Para borrarlos del todo hace falta `service_role`, desde el SQL Editor:
+```sql
+-- Borra las lapidas de prueba y sus mensajes huerfanos.
+delete from public.messages
+ where from_user in (select id from public.profiles where eliminado_en is not null)
+    or to_user   in (select id from public.profiles where eliminado_en is not null);
+delete from public.profiles where eliminado_en is not null;
+```
+
+### 🔴 HALLAZGO DE PRIVACIDAD (anterior a este trabajo, sin resolver)
+
+Durante la prueba quedó a la vista: la política de `profiles` es `for select to authenticated using (true)`, así que **cualquier persona con una cuenta puede leer el teléfono y la red social de todos los demás**. Se comprobó leyendo `+56959987786` y `@77.pvblo` (los de Pablo) desde una cuenta descartable recién creada. Merece su propia tanda: una vista o column-level security que exponga solo `id`, `nombre` y `eliminado_en`.
+
+### ✅ WEB SUBIDA (19-jul) — build verificado en el navegador antes de desplegar
 
 La app compilada todavía no tiene ni el borrado de cuenta ni la tanda 4. `npx expo export --platform web` → Cloudflare → Deployments → Create new deployment → arrastrar `dist`. Recordar que en producción ya aparecieron bugs que en dev no se veían: **verificar el sitio compilado, no solo el dev server**.
 
