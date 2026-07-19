@@ -83,7 +83,13 @@ begin
       -- que se saltea la RLS de Storage, y le borraria la foto a esa otra
       -- persona. El precio de entrada seria sacrificar la cuenta propia, que
       -- ademas se puede volver a crear.
-      and r.ruta like uid::text || '/%';
+      -- Un unico segmento despues del uid, que es exactamente la forma que
+      -- genera la app (`${userId}/${Date.now()}.jpg`, ver src/services/storage.ts).
+      -- Con `like '<uid>/%'` alcanzaba para el ataque directo, pero dejaba pasar
+      -- `<miuid>/../<uid-de-otro>/foto.jpg`. Que eso haga dano depende de si
+      -- Storage normaliza el `..`, y no queremos que un borrado irreversible
+      -- que se saltea la RLS dependa de esa suposicion.
+      and r.ruta ~ ('^' || uid::text || '/[^/]+$');
 end;
 $$;
 
@@ -95,7 +101,15 @@ grant execute on function public.mis_fotos_a_borrar() to authenticated;
 -- SIN PARAMETROS A PROPOSITO. La identidad sale de auth.uid(), nunca de un
 -- argumento: una firma `anonimizar_cuenta(user_id uuid)` con security definer
 -- le permitiria a cualquiera borrarle la cuenta a cualquier otro.
-create or replace function public.anonimizar_mi_cuenta()
+-- El `drop` no es decorativo: esta funcion existio antes devolviendo
+-- `table (ruta text)`, y `create or replace` NO puede cambiar el tipo de
+-- retorno (Postgres corta con "cannot change return type of existing
+-- function"). Sin esto, la migracion falla a la mitad en cualquier base donde
+-- ya se haya corrido la version anterior, dejando la funcion vieja con las
+-- policies nuevas a medio aplicar.
+drop function if exists public.anonimizar_mi_cuenta();
+
+create function public.anonimizar_mi_cuenta()
 returns void
 language plpgsql
 security definer

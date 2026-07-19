@@ -83,8 +83,9 @@ eliminado_en = now()
    - Fijar `search_path` explícito (`set search_path = public, pg_temp`), práctica estándar para `SECURITY DEFINER`.
    - Ser **idempotente**: si el perfil ya tiene `eliminado_en`, retorna sin hacer nada.
    - Fallar si `auth.uid()` es null (llamada sin sesión).
-   - Devolver las rutas de Storage a borrar, para que la Edge Function no tenga que consultarlas por separado.
    - Correr todo en una transacción (lo es por defecto dentro de una función).
+
+   Y una segunda RPC `public.mis_fotos_a_borrar()`, también `SECURITY DEFINER` y sin parámetros, **de solo lectura**, que devuelve las rutas de Storage del usuario (filtradas a `^<uid>/[^/]+$`). Va aparte por el motivo explicado más abajo.
 
 4. **RLS en `messages`: prohibir insertar mensajes hacia una cuenta eliminada.**
    Que la UI esconda el campo de texto no alcanza: con el token en la mano se puede insertar igual por la API. La política de INSERT debe exigir que el `to_user` no tenga `eliminado_en`.
@@ -94,11 +95,18 @@ eliminado_en = now()
 ### Orden de ejecución (el orden es el diseño)
 
 1. Verificar el JWT del llamador y obtener su `id`. Sin sesión → 401.
-2. Invocar la RPC **con el token del usuario** (cliente "anon + JWT"), no con `service_role`, para que `auth.uid()` adentro resuelva a la persona correcta. Mismo patrón que ya usa `send-push`. **La RPC devuelve las rutas de Storage a borrar**: las junta dentro de la misma transacción en la que borra las filas, así que no hay ventana para que se pierda una foto entre la consulta y el borrado.
-3. Borrar los objetos de Storage que devolvió la RPC.
-4. **Último de todo:** `auth.admin.deleteUser(id)` con `service_role`.
+2. Invocar `mis_fotos_a_borrar()` (**solo lectura**) con el token del usuario (cliente "anon + JWT"), no con `service_role`, para que `auth.uid()` adentro resuelva a la persona correcta. Mismo patrón que ya usa `send-push`.
+3. Borrar esos objetos de Storage.
+4. Invocar `anonimizar_mi_cuenta()`, también con el token del usuario.
+5. **Último de todo:** `auth.admin.deleteUser(id)` con `service_role`.
 
-El paso 4 va al final porque borrar el usuario invalida su token: si fuera primero, no se podría completar nada de lo anterior.
+El paso 5 va al final porque borrar el usuario invalida su token: si fuera primero, no se podría completar nada de lo anterior.
+
+**Por qué la consulta de fotos va separada y antes de la anonimización** (esto se descubrió en revisión, corrigiendo un diseño anterior en el que la RPC de anonimización devolvía las rutas): la anonimización es idempotente, así que si las rutas vinieran de ella y fallara el borrado de Storage, el reintento la encontraría en su camino corto, recibiría una lista vacía, y **las fotos quedarían para siempre en un bucket público mientras la función responde "listo"**. Separadas, un fallo antes del paso 4 no deja rastro y el reintento arranca limpio.
+
+**Lo que se paga a cambio (riesgo aceptado):** como las fotos se borran antes de anonimizar, si falla el paso 4 la persona queda con la cuenta viva y sus reportes con las imágenes rotas. Es feo pero visible y se corrige reintentando; el estado que evitamos era peor y silencioso.
+
+**Las rutas de Storage se filtran por `<user_id>/` en dos capas** (en la RPC y en la Edge Function), exigiendo además un único segmento. No es paranoia: `pets.fotos` y `profiles.foto_perfil` son texto que escribe el usuario y la base solo les valida el largo, así que sin ese filtro alguien podría guardar en su propio reporte la ruta de la foto de otra persona y, al borrarse la cuenta, hacer que la función —que corre con `service_role` y se saltea la RLS de Storage— se la borre.
 
 ### Errores y fallas parciales
 

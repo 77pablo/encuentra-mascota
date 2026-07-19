@@ -19,6 +19,13 @@ import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
 // un bucket publico mientras le decimos a la persona que ya se borraron.
 // Asi, un fallo antes del paso 3 no deja rastro y el reintento arranca limpio.
 //
+// LO QUE SE PAGA A CAMBIO (riesgo aceptado, no un descuido): como las fotos se
+// borran antes de anonimizar, si falla el paso 3 la persona queda con la cuenta
+// entera viva y sus reportes con las imagenes rotas. Es feo, pero es visible y
+// se arregla reintentando; el estado que evitamos era peor y silencioso (fotos
+// publicas para siempre con la cuenta ya borrada y nadie a quien avisarle).
+// Por eso la pantalla que llama a esto tiene que empujar al reintento.
+//
 // Y es el paso 3 el que hace que esto sea irreversible de verdad: lo que queda
 // en la base es un uuid al azar, y el correo que lo ataba a una persona
 // desaparece. Ademas libera el correo para que pueda registrarse de nuevo.
@@ -103,14 +110,38 @@ Deno.serve(async (req: Request) => {
     // rutas nacen de columnas que escribe el usuario. Si alguna vez la RPC
     // cambia y pierde su filtro, esto evita que le borremos las fotos a otra
     // persona. Las dos capas tienen que fallar para que haya dano.
+    // Un unico segmento despues del uid: es la forma exacta que genera la app
+    // (`${userId}/${Date.now()}.jpg`). Chequear solo el prefijo dejaria pasar
+    // `<miuid>/../<uid-de-otro>/foto.jpg`.
     const prefijo = `${userId}/`;
-    const propias = (paths as string[]).filter((p) => p.startsWith(prefijo));
+    const propias = (paths as string[]).filter(
+      (p) => p.startsWith(prefijo) && !p.slice(prefijo.length).includes('/'),
+    );
+    if (propias.length < paths.length) {
+      // Hoy esto solo puede pasar si alguien guardo a mano una ruta ajena en su
+      // reporte. Sin este registro, un intento de abuso es completamente invisible.
+      console.warn(
+        `delete-account: se descartaron ${paths.length - propias.length} rutas ajenas al usuario ${userId}`,
+      );
+    }
 
     // 2. Borrar las fotos. Todavia no se anonimizo: si esto falla, el reintento
     //    empieza de cero y vuelve a pedir la lista completa.
     if (propias.length > 0) {
-      const { error: storageError } = await admin.storage.from('pet-photos').remove(propias);
+      const { data: borradas, error: storageError } = await admin.storage
+        .from('pet-photos')
+        .remove(propias);
       if (storageError) throw new Error(`no se pudieron borrar las fotos: ${storageError.message}`);
+      // `remove` puede fallar PARCIALMENTE: devuelve error solo si se cae la
+      // request entera, y los objetos que no pudo borrar simplemente no vienen
+      // en `data`. Sin este chequeo, borrar 3 de 5 fotos seguiria adelante,
+      // anonimizaria, y le diriamos "listo" a la persona con 2 fotos suyas
+      // todavia publicas y ya sin ninguna fila que las referencie.
+      if ((borradas ?? []).length !== propias.length) {
+        throw new Error(
+          `Storage borro ${(borradas ?? []).length} de ${propias.length} fotos`,
+        );
+      }
     }
 
     // 3. Anonimizar los datos (transaccional e idempotente).
