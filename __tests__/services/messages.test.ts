@@ -1,13 +1,16 @@
-import { listConversations } from '../../src/services/messages';
+import { listConversations, listMessages, markThreadRead } from '../../src/services/messages';
 
-// Builder falso encadenable (select/or/order/in son chainable, el resultado
-// final se resuelve al hacer `await`).
+// Builder falso encadenable (select/or/order/in/eq/is/update son chainable, el
+// resultado final se resuelve al hacer `await`).
 function makeQueryBuilder(result: { data: any; error: any }) {
   const builder: any = {
     select: jest.fn(() => builder),
     or: jest.fn(() => builder),
     order: jest.fn(() => builder),
     in: jest.fn(() => builder),
+    eq: jest.fn(() => builder),
+    is: jest.fn(() => builder),
+    update: jest.fn(() => builder),
     then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
   };
   return builder;
@@ -157,5 +160,61 @@ describe('listConversations con cuentas eliminadas', () => {
     const hiloVivo = convs.find((c) => c.otherUser === 'otherU');
     expect(hiloVivo?.otherNombre).toBe('Ana');
     expect(hiloVivo?.otherEliminado).toBe(false);
+  });
+});
+
+// Cubre la 0017: `messages.pet_id` pasa a nullable con `on delete set null`
+// para que el hilo sobreviva al reporte (borrado de cuenta o borrado suelto
+// del reporte). Estos tests verifican que el resto del código lo maneje bien.
+describe('hilos sin reporte (pet_id null)', () => {
+  it('listConversations muestra "Reporte eliminado" y no consulta pets si todos los hilos son asi', async () => {
+    const msgs = [
+      {
+        id: '1', pet_id: null, from_user: 'yo', to_user: 'otherU',
+        texto: 'hola', leido: false, creado_en: '2026-07-16T10:00:00Z',
+      },
+    ];
+    const messagesBuilder = makeQueryBuilder({ data: msgs, error: null });
+    const profilesBuilder = makeQueryBuilder({ data: [{ id: 'otherU', nombre: 'Ana', eliminado_en: null }], error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'messages') return messagesBuilder;
+      if (table === 'profiles') return profilesBuilder;
+      throw new Error(`tabla inesperada: ${table}`);
+    });
+
+    const convs = await listConversations('yo');
+
+    expect(convs).toHaveLength(1);
+    expect(convs[0].petId).toBeNull();
+    expect(convs[0].petLabel).toBe('Reporte eliminado');
+    // Sin reportes vivos que preguntarle a `pets`, no hay que consultarla.
+    expect(mockFrom).not.toHaveBeenCalledWith('pets');
+  });
+
+  it('listMessages usa .is en vez de .eq para pet_id null, para que matchee NULL', async () => {
+    const messagesBuilder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'messages') return messagesBuilder;
+      throw new Error(`tabla inesperada: ${table}`);
+    });
+
+    await listMessages(null, 'yo', 'otherU');
+
+    expect(messagesBuilder.is).toHaveBeenCalledWith('pet_id', null);
+    expect(messagesBuilder.eq).not.toHaveBeenCalledWith('pet_id', null);
+  });
+
+  it('markThreadRead usa .is en vez de .eq para pet_id null', async () => {
+    const messagesBuilder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'messages') return messagesBuilder;
+      throw new Error(`tabla inesperada: ${table}`);
+    });
+
+    await markThreadRead(null, 'yo', 'otherU');
+
+    expect(messagesBuilder.is).toHaveBeenCalledWith('pet_id', null);
+    expect(messagesBuilder.eq).not.toHaveBeenCalledWith('pet_id', null);
   });
 });

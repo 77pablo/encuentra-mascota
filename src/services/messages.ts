@@ -3,7 +3,10 @@ import { nombreDeAutor } from '../lib/cuentaEliminada';
 
 export interface Message {
   id: string;
-  pet_id: string;
+  // Nullable desde la 0017: si el reporte se borro (borrando la cuenta o el
+  // reporte suelto), el mensaje sobrevive con `pet_id = null` en vez de
+  // desaparecer con el.
+  pet_id: string | null;
   from_user: string;
   to_user: string;
   texto: string;
@@ -21,18 +24,22 @@ export async function countUnread(me: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function markThreadRead(petId: string, me: string, other: string): Promise<void> {
-  const { error } = await supabase
+export async function markThreadRead(petId: string | null, me: string, other: string): Promise<void> {
+  // `.eq('pet_id', null)` genera `pet_id=eq.null`, que en PostgREST no matchea
+  // filas con NULL (hay que pedirlo con `.is`). Sin esta rama, un hilo cuyo
+  // reporte se borro (0017) nunca se marcaria como leido.
+  let query = supabase
     .from('messages')
     .update({ leido: true })
-    .eq('pet_id', petId)
     .eq('to_user', me)
     .eq('from_user', other)
     .eq('leido', false);
+  query = petId === null ? query.is('pet_id', null) : query.eq('pet_id', petId);
+  const { error } = await query;
   if (error) throw error;
 }
 
-export async function sendMessage(petId: string, fromUser: string, toUser: string, texto: string) {
+export async function sendMessage(petId: string | null, fromUser: string, toUser: string, texto: string) {
   const clean = texto.trim();
   if (!clean) throw new Error('Mensaje vacío');
   const { error } = await supabase.from('messages').insert({
@@ -41,19 +48,24 @@ export async function sendMessage(petId: string, fromUser: string, toUser: strin
   if (error) throw error;
 }
 
-export async function listMessages(petId: string, me: string, other: string): Promise<Message[]> {
-  const { data, error } = await supabase
+export async function listMessages(petId: string | null, me: string, other: string): Promise<Message[]> {
+  // Mismo motivo que en markThreadRead: con el reporte borrado, `pet_id` es
+  // NULL y hay que pedirlo con `.is`, no con `.eq`.
+  let query = supabase
     .from('messages')
     .select('*')
-    .eq('pet_id', petId)
     .or(`and(from_user.eq.${me},to_user.eq.${other}),and(from_user.eq.${other},to_user.eq.${me})`)
     .order('creado_en', { ascending: true });
+  query = petId === null ? query.is('pet_id', null) : query.eq('pet_id', petId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as Message[];
 }
 
 export type ConversationKey = {
-  petId: string;
+  // Nullable: el reporte que originó la conversación puede haberse borrado
+  // (borrado de cuenta o borrado suelto del reporte) sin que el hilo muera.
+  petId: string | null;
   otherUser: string;
   lastTexto: string;
   lastAt: string;
@@ -90,13 +102,22 @@ export async function listConversations(me: string): Promise<Conversation[]> {
   if (base.length === 0) return [];
 
   const userIds = [...new Set(base.map((t) => t.otherUser))];
-  const petIds = [...new Set(base.map((t) => t.petId))];
+  // Sin el filtro, un hilo con reporte borrado (petId null) mete `null` en el
+  // `.in(...)` de la consulta a `pets`, que no tiene filas con id nulo: solo
+  // ensucia la query sin aportar nada.
+  const petIds = [...new Set(base.map((t) => t.petId).filter((id): id is string => id !== null))];
   const consultaPerfiles = (select: string) =>
     supabase.from('profiles').select(select).in('id', userIds);
 
+  // Si TODOS los hilos son de reportes borrados no hay nada que pedirle a
+  // `pets`: `.in('id', [])` no aporta nada y evitarlo ahorra un viaje de red.
+  const consultaPets = petIds.length > 0
+    ? supabase.from('pets').select('id, estado, especie').in('id', petIds)
+    : Promise.resolve({ data: [] as any[], error: null });
+
   const [profsIntento, petsRes] = await Promise.all([
     consultaPerfiles('id, nombre, eliminado_en'),
-    supabase.from('pets').select('id, estado, especie').in('id', petIds),
+    consultaPets,
   ]);
   let profsRes = profsIntento;
   if (profsRes.error) {
@@ -122,7 +143,10 @@ export async function listConversations(me: string): Promise<Conversation[]> {
       ...t,
       otherNombre: nombreDeAutor(perfil.nombre, perfil.eliminadoEn),
       otherEliminado: perfil.eliminadoEn !== null,
-      petLabel: petById.get(t.petId) ?? 'Mascota',
+      // `petId === null` es el caso de la 0017 (reporte borrado de verdad, ver
+      // messages_pet_id_fkey): decirlo tal cual es mas honesto que 'Mascota',
+      // que sugeriria que el reporte todavia existe en algun lado.
+      petLabel: t.petId === null ? 'Reporte eliminado' : (petById.get(t.petId) ?? 'Mascota'),
     };
   });
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { listMessages, Message } from '../services/messages';
 
-export function useRealtimeMessages(petId: string, me: string, other: string): Message[] {
+export function useRealtimeMessages(petId: string | null, me: string, other: string): Message[] {
   const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(() => {
@@ -13,11 +13,16 @@ export function useRealtimeMessages(petId: string, me: string, other: string): M
       })
       .catch((e) => console.error('No se pudieron cargar los mensajes:', e));
 
+    // Con el reporte borrado, `pet_id` es NULL: un filtro `pet_id=eq.${petId}`
+    // se convertiria en `pet_id=eq.null`, que Postgres no matchea nunca contra
+    // NULL. Ahi filtramos por `is.null` para seguir recibiendo en vivo los
+    // mensajes de un hilo sin reporte.
+    const filtroPetId = petId === null ? 'pet_id=is.null' : `pet_id=eq.${petId}`;
     const channel = supabase
-      .channel(`chat-${petId}-${me}`)
+      .channel(`chat-${petId ?? 'sin-reporte'}-${me}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `pet_id=eq.${petId}` },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: filtroPetId },
         (payload) => {
           const msg = payload.new as Message;
           const entreNosotros =
