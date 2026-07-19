@@ -12,13 +12,15 @@
 -- exista, borrar el usuario de Auth arrastra el perfil y, en cascada, cada
 -- mensaje, pista y avistamiento de esa persona. Justo lo que NO queremos: la
 -- fila de `profiles` tiene que sobrevivir como lapida anonima.
-alter table public.profiles drop constraint profiles_id_fkey;
+-- `if exists` para que correr esta migracion dos veces no falle: sin eso, un
+-- reintento (o un ambiente donde ya se aplico) corta la migracion a la mitad.
+alter table public.profiles drop constraint if exists profiles_id_fkey;
 
 -- 2. LA MARCA DE LA LAPIDA
 --
 -- La UI decide que mostrar mirando esta columna, no el texto del nombre:
 -- en las pistas se firma "Un vecino" y en el chat "Cuenta eliminada".
-alter table public.profiles add column eliminado_en timestamptz;
+alter table public.profiles add column if not exists eliminado_en timestamptz;
 
 -- 3. HELPER: URL publica de Storage -> ruta dentro del bucket
 --
@@ -164,7 +166,7 @@ grant execute on function public.anonimizar_mi_cuenta() to authenticated;
 --
 -- Que la UI esconda el campo de texto no alcanza: con el token en la mano se
 -- puede insertar igual por la API. Esto lo corta en la base.
-drop policy "enviar mensajes como yo" on public.messages;
+drop policy if exists "enviar mensajes como yo" on public.messages;
 create policy "enviar mensajes como yo"
   on public.messages for insert to authenticated
   with check (
@@ -174,3 +176,21 @@ create policy "enviar mensajes como yo"
        where p.id = messages.to_user and p.eliminado_en is not null
     )
   );
+
+-- 6. LOS MENSAJES SOBREVIVEN AL REPORTE, NO SOLO A LA CUENTA
+--
+-- `messages.pet_id` tenia `on delete cascade` hacia `pets` (ver 0001_init.sql).
+-- El paso 4b de esta misma migracion borra de verdad los reportes propios al
+-- borrar la cuenta, y ese cascade se llevaba puesta la conversacion ENTERA:
+-- todos los mensajes de ambos lados, incluidos los que escribio la OTRA
+-- persona, que no borro nada. Eso contradice el diseno (los mensajes tienen
+-- que sobrevivir) y el texto que la pantalla le muestra a quien se borra.
+-- La columna se hace nullable y la FK pasa a `on delete set null`: el reporte
+-- puede irse, pero el hilo queda como recuerdo con "Reporte eliminado" en vez
+-- de desaparecer.
+alter table public.messages alter column pet_id drop not null;
+
+alter table public.messages drop constraint if exists messages_pet_id_fkey;
+alter table public.messages
+  add constraint messages_pet_id_fkey
+  foreign key (pet_id) references public.pets(id) on delete set null;
