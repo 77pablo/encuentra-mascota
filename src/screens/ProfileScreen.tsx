@@ -275,6 +275,10 @@ export default function ProfileScreen({ navigation }: any) {
                 placeholder="@tu_usuario"
                 icon="share-social"
               />
+              <AppText muted size={12} style={styles.avisoContacto}>
+                Solo tú ves estos datos. Los usamos para armar el afiche de tu mascota, que tú decides
+                compartir.
+              </AppText>
               <View style={styles.editActionsRow}>
                 <Button
                   title="Guardar"
@@ -486,6 +490,7 @@ const styles = StyleSheet.create({
   editForm: {
     gap: spacing.sm,
   },
+  avisoContacto: { marginTop: -spacing.xs, marginBottom: spacing.sm, lineHeight: 16 },
   editProfileButton: {
     alignSelf: 'flex-start',
     paddingHorizontal: spacing.md,
