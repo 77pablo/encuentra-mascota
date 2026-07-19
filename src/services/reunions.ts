@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { clearActivePetsCache, Pet } from './pets';
+import { Pet } from './pets';
 
 // Servicio del "final feliz" (verificación de reencuentro). Vive en un archivo
 // aparte de pets.ts a propósito, para minimizar conflictos de merge.
@@ -10,8 +10,8 @@ export interface MarkReunitedInput {
 }
 
 // Marca un reporte como reunido: lo cierra (`activo=false`) y deja el registro
-// del final feliz. Luego limpia la caché de reportes activos para que la lista
-// se refresque. El dueño ya tiene permiso de UPDATE por RLS.
+// del final feliz. El dueño ya tiene permiso de UPDATE por RLS. Las listas se
+// refrescan solas al volver a la pantalla (ya no hay caché que invalidar).
 export async function markReunited(id: string, input: MarkReunitedInput = {}): Promise<void> {
   const nota = input.nota?.trim();
   const { error } = await supabase
@@ -24,7 +24,6 @@ export async function markReunited(id: string, input: MarkReunitedInput = {}): P
     })
     .eq('id', id);
   if (error) throw error;
-  clearActivePetsCache(); // se cerró un reporte → refrescar listas
 }
 
 // Lista los finales felices más recientes (reportes cerrados con fecha de

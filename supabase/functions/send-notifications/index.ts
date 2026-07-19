@@ -230,7 +230,27 @@ async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {
   return enviados;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
+  // Esta función NO se llama desde el navegador: la dispara pg_cron con POST
+  // (ver docs/agendar-avisos.sql). Por eso no lleva cabeceras CORS: no hay
+  // ningún origen web que deba poder invocarla.
+  //
+  // El chequeo de método NO es cosmético. El gateway de Supabase deja pasar el
+  // preflight OPTIONS SIN verificar el JWT (para que las funciones puedan
+  // contestarlo), y esta función ignoraba el método: un `curl -X OPTIONS` sin
+  // ninguna credencial devolvía 200 y despachaba la cola entera. Comprobado
+  // contra el proyecto real antes de este arreglo. Con esto, un OPTIONS se
+  // contesta y se corta antes de tocar la base.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: { Allow: 'POST' } });
+  }
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Método no permitido' }), {
+      status: 405,
+      headers: { ...HEADERS, Allow: 'POST' },
+    });
+  }
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

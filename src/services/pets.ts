@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
-import { ttlCache } from '../lib/cache';
 import { ErrorAmigable } from '../lib/dbErrors';
 
 export interface Pet {
@@ -24,9 +23,12 @@ export interface Pet {
   final_foto?: string | null;
 }
 
-// Caché de la lista de reportes activos (30s). Evita pedir todo a la base
-// cada vez que se cambia entre Mapa y Lista.
-const activePetsCache = ttlCache<Pet[]>(30_000);
+// NOTA: acá vivía `activePetsCache`, una caché de 30s de "todos los reportes
+// activos". La búsqueda del servidor (migraciones 0014/0015) la dejó sin uso:
+// ninguna pantalla se trae la lista completa, todas piden páginas filtradas con
+// `services/busqueda.ts`. Se quitó junto con `listActivePets()`, que ya no
+// llamaba nadie. Si alguna vez hace falta cachear, conviene hacerlo POR
+// CONSULTA (clave = filtros + cursor), no una lista global.
 
 export async function createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet> {
   const { data, error } = await supabase
@@ -35,25 +37,7 @@ export async function createPet(input: PetInput, fotos: string[], userId: string
     .select()
     .single();
   if (error) throw error;
-  activePetsCache.clear(); // hay un reporte nuevo → refrescar
   return data as Pet;
-}
-
-export async function listActivePets(opts?: { force?: boolean }): Promise<Pet[]> {
-  if (!opts?.force) {
-    const cached = activePetsCache.get();
-    if (cached) return cached;
-  }
-  const { data, error } = await supabase
-    .from('pets')
-    .select('*')
-    .eq('activo', true)
-    .eq('oculto', false)
-    .order('creado_en', { ascending: false });
-  if (error) throw error;
-  const pets = (data ?? []) as Pet[];
-  activePetsCache.set(pets);
-  return pets;
 }
 
 export async function listMyReports(userId: string, activo: boolean): Promise<Pet[]> {
@@ -95,16 +79,9 @@ export async function getPet(id: string): Promise<Pet> {
   return data as Pet;
 }
 
-// Permite a otros servicios (p. ej. reunions.ts) invalidar la caché de
-// reportes activos tras una mutación, sin duplicar el objeto de caché.
-export function clearActivePetsCache(): void {
-  activePetsCache.clear();
-}
-
 export async function closePet(id: string): Promise<void> {
   const { error } = await supabase.from('pets').update({ activo: false }).eq('id', id);
   if (error) throw error;
-  activePetsCache.clear(); // se cerró un reporte → refrescar
 }
 
 export async function updatePet(
@@ -113,13 +90,11 @@ export async function updatePet(
 ): Promise<void> {
   const { error } = await supabase.from('pets').update(fields).eq('id', id);
   if (error) throw error;
-  activePetsCache.clear();
 }
 
 export async function deletePet(id: string): Promise<void> {
   const { error } = await supabase.from('pets').delete().eq('id', id);
   if (error) throw error;
-  activePetsCache.clear();
 }
 
 // Cuenta reencuentros (reportes cerrados) para mostrar en la pantalla de Inicio.

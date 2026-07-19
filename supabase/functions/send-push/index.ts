@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
 
 // Rate limiting en memoria: máx 10 solicitudes por IP por minuto.
 const WINDOW_MS = 60_000;
@@ -6,7 +7,14 @@ const MAX = 10;
 const hits = new Map<string, number[]>();
 
 // Headers de seguridad compartidos: se usan en TODAS las respuestas (200/400/401/403/429/500).
-const HEADERS = { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' };
+const HEADERS_BASE = { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' };
+
+// A esta función SÍ la llama el navegador (ChatScreen, al mandar un mensaje),
+// desde un origen distinto al de la API. Sin CORS el navegador la bloquea.
+function origenesPermitidos(): string[] {
+  const web = Deno.env.get('EXPO_PUBLIC_WEB_URL');
+  return web ? [web.replace(/\/$/, ''), ...ORIGENES_DEV] : ORIGENES_DEV;
+}
 
 function rateLimited(ip: string): boolean {
   const now = Date.now();
@@ -17,6 +25,22 @@ function rateLimited(ip: string): boolean {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = cabecerasCors(req.headers.get('Origin'), origenesPermitidos());
+  const HEADERS = { ...HEADERS_BASE, ...cors };
+
+  // El preflight se contesta ANTES de cualquier otra cosa: el navegador lo manda
+  // sin credenciales, y el gateway de Supabase lo deja pasar sin verificar el
+  // JWT, así que acá todavía no sabemos quién llama ni debemos tocar la base.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: cors });
+  }
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Método no permitido' }), {
+      status: 405,
+      headers: { ...HEADERS, Allow: 'POST, OPTIONS' },
+    });
+  }
+
   const ip = req.headers.get('x-forwarded-for') ?? 'desconocida';
 
   // Autorización: el llamador debe traer su JWT (lo agrega automáticamente

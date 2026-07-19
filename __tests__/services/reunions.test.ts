@@ -16,7 +16,6 @@ function makeQueryBuilder(result: { data: any; error: any }) {
 }
 
 const mockFrom = jest.fn();
-const mockClearCache = jest.fn();
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
@@ -24,18 +23,12 @@ jest.mock('../../src/lib/supabase', () => ({
   },
 }));
 
-// Espiamos que se limpie la caché de reportes activos tras marcar el reencuentro.
-jest.mock('../../src/services/pets', () => ({
-  clearActivePetsCache: (...args: any[]) => mockClearCache(...args),
-}));
-
 beforeEach(() => {
   mockFrom.mockReset();
-  mockClearCache.mockReset();
 });
 
 describe('markReunited', () => {
-  it('cierra el reporte con reunida_en, nota y foto, y limpia la caché', async () => {
+  it('cierra el reporte con reunida_en, nota y foto', async () => {
     const builder = makeQueryBuilder({ data: null, error: null });
     mockFrom.mockReturnValue(builder);
 
@@ -48,7 +41,6 @@ describe('markReunited', () => {
     expect(fields.final_feliz).toBe('Apareció sana'); // recortada
     expect(fields.final_foto).toBe('https://f/1.jpg');
     expect(builder.eq).toHaveBeenCalledWith('id', 'pet-1');
-    expect(mockClearCache).toHaveBeenCalledTimes(1);
   });
 
   it('deja nota y foto en null cuando no se pasan', async () => {
@@ -62,12 +54,11 @@ describe('markReunited', () => {
     expect(fields.final_foto).toBeNull();
   });
 
-  it('propaga el error y no limpia la caché si supabase falla', async () => {
+  it('propaga el error si supabase falla', async () => {
     const builder = makeQueryBuilder({ data: null, error: { message: 'boom' } });
     mockFrom.mockReturnValue(builder);
 
     await expect(markReunited('pet-1')).rejects.toEqual({ message: 'boom' });
-    expect(mockClearCache).not.toHaveBeenCalled();
   });
 });
 

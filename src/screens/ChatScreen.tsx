@@ -36,12 +36,15 @@ export default function ChatScreen({ route }: any) {
     setTexto('');
     try {
       await sendMessage(petId, me, otherUserId, t);
-      // Push "best effort": si falla, el chat igual funcionó.
+      // Push "best effort": si falla, el chat igual funcionó, así que no le
+      // mostramos nada al usuario. Pero SÍ lo dejamos en la consola: este
+      // `catch` vacío tapó durante semanas que la función `send-push` ni
+      // siquiera estaba desplegada (respondía 404) y nadie se enteró.
       supabase.functions
         .invoke('send-push', {
           body: { toUserId: otherUserId, title: 'Nuevo mensaje sobre una mascota', body: t.slice(0, 80) },
         })
-        .catch(() => {});
+        .catch((e) => console.warn('No se pudo mandar el aviso push del mensaje:', e));
     } catch {
       setTexto(t); // restaurar si falla
     }
