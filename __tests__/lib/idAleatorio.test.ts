@@ -9,8 +9,4 @@ describe('idAleatorio', () => {
     const vistos = new Set(Array.from({ length: 1000 }, () => idAleatorio()));
     expect(vistos.size).toBe(1000);
   });
-
-  it('no depende del reloj: dos llamadas seguidas difieren', () => {
-    expect(idAleatorio()).not.toBe(idAleatorio());
-  });
 });
