@@ -11,6 +11,7 @@ import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
+import { AvisoEstafa } from '../ui/AvisoEstafa';
 import { colors, radius, spacing } from '../theme';
 
 const estadoOptions: { key: 'perdida' | 'encontrada'; label: string; color: string }[] = [
@@ -165,6 +166,7 @@ export default function PublishScreen({ navigation, route }: any) {
             multiline
           />
           <Input placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} />
+          {recompensa.trim().length > 0 ? <AvisoEstafa variante="recompensa" /> : null}
 
           {fotoUris.length < MAX_FOTOS ? (
             <View style={styles.photoButtonsRow}>

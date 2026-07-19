@@ -15,6 +15,7 @@ import { useUnread } from '../hooks/useUnread';
 import { markThreadRead, sendMessage } from '../services/messages';
 import { supabase } from '../lib/supabase';
 import { AppText, Screen } from '../ui';
+import { AvisoEstafa } from '../ui/AvisoEstafa';
 import { colors, font, radius, spacing } from '../theme';
 
 export default function ChatScreen({ route }: any) {
@@ -89,6 +90,9 @@ export default function ChatScreen({ route }: any) {
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.aviso}>
+          <AvisoEstafa variante="chat" />
+        </View>
         <FlatList
           data={messages}
           keyExtractor={(m) => m.id}
@@ -140,6 +144,10 @@ export default function ChatScreen({ route }: any) {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  aviso: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   list: {
     padding: spacing.lg,

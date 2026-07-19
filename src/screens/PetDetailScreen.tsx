@@ -27,6 +27,7 @@ import AficheGenerator from '../components/AficheGenerator';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, Profile } from '../services/profile';
 import { AppText, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
+import { AvisoEstafa } from '../ui/AvisoEstafa';
 import { colors, radius, spacing } from '../theme';
 
 const MOTIVOS_DENUNCIA = [
@@ -395,12 +396,17 @@ export default function PetDetailScreen({ route, navigation }: any) {
         </Card>
 
         {pet.recompensa ? (
-          <View style={styles.rewardPill}>
-            <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
-            <AppText weight="bold" size={14} color={colors.ink}>
-              Recompensa: {pet.recompensa}
-            </AppText>
-          </View>
+          <>
+            <View style={styles.rewardPill}>
+              <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
+              <AppText weight="bold" size={14} color={colors.ink}>
+                Recompensa: {pet.recompensa}
+              </AppText>
+            </View>
+            <View style={styles.avisoEstafa}>
+              <AvisoEstafa variante="recompensa" />
+            </View>
+          </>
         ) : null}
 
         <MapView
@@ -896,6 +902,9 @@ const styles = StyleSheet.create({
   },
   rewardIcon: {
     marginRight: spacing.xs,
+  },
+  avisoEstafa: {
+    marginTop: spacing.sm,
   },
   map: {
     width: '100%',
