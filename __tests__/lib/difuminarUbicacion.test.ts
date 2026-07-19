@@ -37,13 +37,46 @@ describe('difuminarUbicacion', () => {
 
   // Sin corregir por cos(lat) el desplazamiento en longitud se achica al
   // alejarse del ecuador: en Punta Arenas seria la mitad de lo que creemos.
+  //
+  // OJO: no mirar el maximo de una muestra con angulo aleatorio (como hacia
+  // esta prueba antes). Con angulo al azar casi siempre hay alguna muestra,
+  // de las 500, que cae cerca de un desplazamiento norte-sur puro y llega
+  // a ~R sin pasar por el eje de longitud para nada: eso deja pasar una
+  // implementacion que borro por completo la correccion por cos(lat), porque
+  // el maximo observado sigue estando cerca de R aunque la longitud este
+  // rota. Por eso aca se fija el angulo a este-oeste puro (Math.PI/2) con un
+  // mock de Math.random, para que el desplazamiento caiga integro en el eje
+  // de longitud y la correccion quede realmente bajo prueba.
   it('corrige la longitud por latitud', () => {
     const PUNTA_ARENAS = { lat: -53.16, lng: -70.91 };
-    const muestras = Array.from({ length: 500 }, () =>
-      distanceKm(PUNTA_ARENAS, difuminarUbicacion(PUNTA_ARENAS)) * 1000,
-    );
-    expect(Math.max(...muestras)).toBeLessThanOrEqual(RADIO_DIFUMINADO_M + 1);
-    expect(Math.max(...muestras)).toBeGreaterThan(RADIO_DIFUMINADO_M * 0.8);
+    // Debe coincidir con la constante interna (no exportada) de
+    // difuminarUbicacion.ts.
+    const METROS_POR_GRADO_LAT = 111_320;
+
+    // difuminarUbicacion llama Math.random() dos veces, en este orden:
+    // 1) angulo = Math.random() * 2 * Math.PI  -> con 0.25 da PI/2 (este-oeste)
+    // 2) distancia = radio * Math.sqrt(Math.random()) -> con 1 da radio maximo
+    const randomSpy = jest.spyOn(Math, 'random');
+    randomSpy.mockReturnValueOnce(0.25).mockReturnValueOnce(1);
+
+    try {
+      const movido = difuminarUbicacion(PUNTA_ARENAS);
+
+      const metrosPorGradoLng =
+        METROS_POR_GRADO_LAT * Math.cos((PUNTA_ARENAS.lat * Math.PI) / 180);
+      const desplazamientoLngEsperado = RADIO_DIFUMINADO_M / metrosPorGradoLng;
+
+      // Con angulo este-oeste puro, todo el desplazamiento debe verse en
+      // longitud y usar el divisor corregido por cos(lat) (mas chico que
+      // METROS_POR_GRADO_LAT, porque en Punta Arenas cos(lat) < 1). Si se
+      // borra la correccion, el resultado usa METROS_POR_GRADO_LAT a secas y
+      // el desplazamiento sale distinto (mas chico) del esperado aca.
+      expect(movido.lng - PUNTA_ARENAS.lng).toBeCloseTo(desplazamientoLngEsperado, 9);
+      // La latitud practicamente no deberia moverse: el angulo es este-oeste puro.
+      expect(movido.lat).toBeCloseTo(PUNTA_ARENAS.lat, 9);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 
   it('respeta un radio explicito', () => {
