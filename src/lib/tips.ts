@@ -13,6 +13,8 @@ export type Tip = {
   creadoEn: string;
   /** Nombre del autor cuando la sesión permite resolverlo; null para el invitado. */
   autorNombre?: string | null;
+  /** Fecha en que el autor borró su cuenta, si la borró. */
+  autorEliminadoEn?: string | null;
 };
 
 export type ValidacionTip = { ok: true; texto: string } | { ok: false; error: string };
@@ -42,8 +44,10 @@ export function puedeBorrarTip(tip: Tip, userId: string | null, duenoPetId: stri
 }
 
 // Cómo se firma la pista. Sin sesión no se puede leer `profiles`, así que la
-// pista igual se muestra: el texto es lo que importa.
-export function firmaAutor(nombre: string | null): string {
+// pista igual se muestra: el texto es lo que importa. Si el autor borró su
+// cuenta pasa lo mismo — la pista le sigue sirviendo a quien busca su mascota.
+export function firmaAutor(nombre: string | null, eliminadoEn?: string | null): string {
+  if (eliminadoEn) return 'Un vecino';
   const limpio = (nombre ?? '').trim();
   return limpio || 'Un vecino';
 }

@@ -55,3 +55,20 @@ describe('firmaAutor', () => {
     expect(firmaAutor(null)).toBe('Un vecino');
   });
 });
+
+describe('firmaAutor con cuentas eliminadas', () => {
+  it('firma "Un vecino" cuando el autor borro su cuenta', () => {
+    // En las pistas no interesa quien fue, interesa el dato: la pista sigue
+    // sirviendole a quien busca su mascota.
+    expect(firmaAutor('Cuenta eliminada', '2026-07-19T00:00:00Z')).toBe('Un vecino');
+  });
+
+  it('sigue firmando con el nombre cuando la cuenta vive', () => {
+    expect(firmaAutor('Ana', null)).toBe('Ana');
+  });
+
+  it('mantiene el comportamiento viejo sin el segundo parametro', () => {
+    expect(firmaAutor('Ana')).toBe('Ana');
+    expect(firmaAutor(null)).toBe('Un vecino');
+  });
+});
