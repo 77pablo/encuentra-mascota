@@ -114,16 +114,30 @@ Deno.serve(async (req: Request) => {
     // (`${userId}/${Date.now()}.jpg`). Chequear solo el prefijo dejaria pasar
     // `<miuid>/../<uid-de-otro>/foto.jpg`.
     const prefijo = `${userId}/`;
-    const propias = (paths as string[]).filter(
-      (p) => p.startsWith(prefijo) && !p.slice(prefijo.length).includes('/'),
-    );
-    if (propias.length < paths.length) {
-      // Hoy esto solo puede pasar si alguien guardo a mano una ruta ajena en su
-      // reporte. Sin este registro, un intento de abuso es completamente invisible.
+    const misRutas = (paths as string[]).filter((p) => {
+      if (!p.startsWith(prefijo)) return false;
+      const resto = p.slice(prefijo.length);
+      // `resto.length > 0` para que esto sea exactamente el mismo filtro que el
+      // regex de la RPC (`^<uid>/[^/]+$`), que exige al menos un caracter. Dos
+      // capas que se suponen iguales tienen que serlo.
+      return resto.length > 0 && !resto.includes('/');
+    });
+
+    if (misRutas.length < paths.length) {
+      // Se cuenta ANTES de deduplicar, para que este aviso signifique lo que
+      // dice: rutas ajenas, no repetidas. Hoy solo puede pasar si alguien
+      // guardo a mano la ruta de otra persona en su propio reporte, y sin este
+      // registro un intento de abuso seria completamente invisible.
       console.warn(
-        `delete-account: se descartaron ${paths.length - propias.length} rutas ajenas al usuario ${userId}`,
+        `delete-account: se descartaron ${paths.length - misRutas.length} rutas ajenas al usuario ${userId}`,
       );
     }
+
+    // Deduplicar: una misma ruta repetida (por ejemplo `final_foto` que tambien
+    // esta en `fotos`) haria que Storage devuelva menos filas de las pedidas y
+    // el chequeo de mas abajo lo leeria como fallo parcial. Como la RPC es
+    // idempotente, esa cuenta no podria borrarse NUNCA.
+    const propias = [...new Set(misRutas)];
 
     // 2. Borrar las fotos. Todavia no se anonimizo: si esto falla, el reintento
     //    empieza de cero y vuelve a pedir la lista completa.
