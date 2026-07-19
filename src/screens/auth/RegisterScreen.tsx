@@ -1,5 +1,13 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { registerSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
@@ -12,10 +20,11 @@ export default function RegisterScreen({ navigation, route }: any) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async () => {
-    const parsed = registerSchema.safeParse({ nombre, email, password });
+    const parsed = registerSchema.safeParse({ nombre, email, password, aceptaTerminos });
     if (!parsed.success) {
       notify('Revisa los datos', parsed.error.issues[0].message);
       return;
@@ -105,9 +114,34 @@ export default function RegisterScreen({ navigation, route }: any) {
                 variant="ghost"
                 onPress={() => navigation.replace('Login', route?.params)}
               />
-              <AppText muted size={12} align="center" style={styles.legalNote}>
-                Al crear tu cuenta aceptas los Términos y la Política de Privacidad.
-              </AppText>
+              {/* Casilla explicita y sin premarcar: Google Play no acepta el
+                  "al continuar aceptas..." en letra chica, y el enlace tiene
+                  que dejar LEER el texto antes de aceptarlo. */}
+              <TouchableOpacity
+                style={styles.terminosFila}
+                onPress={() => setAceptaTerminos((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: aceptaTerminos }}
+                accessibilityLabel="Acepto los Términos y la Política de Privacidad"
+              >
+                <Ionicons
+                  name={aceptaTerminos ? 'checkbox-outline' : 'square-outline'}
+                  size={22}
+                  color={aceptaTerminos ? colors.brandDark : colors.muted}
+                />
+                <AppText size={13} style={styles.terminosTexto}>
+                  Acepto los{' '}
+                  <AppText
+                    size={13}
+                    weight="bold"
+                    style={styles.terminosEnlace}
+                    onPress={() => navigation.navigate('Legal')}
+                  >
+                    Términos y la Política de Privacidad
+                  </AppText>
+                  .
+                </AppText>
+              </TouchableOpacity>
             </Card>
           </View>
         </ScrollView>
@@ -152,8 +186,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
-  legalNote: {
+  terminosFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
     marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  terminosTexto: {
+    flex: 1,
+    lineHeight: 19,
+  },
+  terminosEnlace: {
+    color: colors.brandDark,
+    textDecorationLine: 'underline',
   },
 });

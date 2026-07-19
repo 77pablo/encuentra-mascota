@@ -7,6 +7,13 @@ export const loginSchema = z.object({
 
 export const registerSchema = loginSchema.extend({
   nombre: z.string().trim().min(1, 'El nombre es obligatorio').max(60),
+  // Google Play exige que el usuario acepte los Terminos ANTES de poder
+  // publicar contenido, y no le sirve el "al continuar aceptas..." en letra
+  // chica: tiene que ser un acto explicito. Va en el schema y no solo en la
+  // pantalla para que ningun camino de registro se lo pueda saltar.
+  aceptaTerminos: z.literal(true, {
+    message: 'Para crear tu cuenta tienes que aceptar los Términos',
+  }),
 });
 
 export const forgotPasswordSchema = z.object({

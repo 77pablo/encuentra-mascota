@@ -7,7 +7,13 @@ import { colors, spacing } from '../theme';
 // cualquier usuario lo entienda; conviene revisarlo con un profesional antes
 // de usarlo como documento legal definitivo en Chile.
 const ULTIMA_ACTUALIZACION = '16 de julio de 2026';
-const CORREO_CONTACTO = '[tu correo de contacto]';
+// PENDIENTE: falta definir el correo de contacto de la app. Mientras no exista,
+// la seccion "Contacto" no se muestra: es preferible no prometer un canal que
+// no atendemos antes que dejar un texto de relleno a la vista de los usuarios
+// (hasta hoy decia literalmente "[tu correo de contacto]" en produccion).
+// Ambas tiendas EXIGEN un contacto del desarrollador, asi que esto bloquea la
+// publicacion y hay que llenarlo antes de subir a App Store o Google Play.
+const CORREO_CONTACTO: string | null = null;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -78,11 +84,13 @@ export default function LegalScreen() {
           <Item>No publiques datos sensibles de otras personas en tus reportes o mensajes.</Item>
         </Section>
 
-        <Section title="Contacto">
-          <AppText size={14} style={styles.paragraph}>
-            Si tienes dudas sobre tus datos, escríbenos a: {CORREO_CONTACTO}
-          </AppText>
-        </Section>
+        {CORREO_CONTACTO ? (
+          <Section title="Contacto">
+            <AppText size={14} style={styles.paragraph}>
+              Si tienes dudas sobre tus datos, escríbenos a: {CORREO_CONTACTO}
+            </AppText>
+          </Section>
+        ) : null}
 
         <View style={styles.divider} />
 
