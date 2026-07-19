@@ -43,13 +43,18 @@ Construido con subagentes (5 tareas + revisión final). **239 tests, 32 suites, 
 
 ### ⚠️ PENDIENTE TUYO — el orden importa
 
-**1. Aplicar `0017_borrado_cuenta.sql`** (SQL Editor). **Antes que nada**: si la app sale primero, el botón de borrar falla siempre.
-**2. Desplegar la Edge Function** (segura de desplegar antes de la migración: falla cerrada, en un paso de solo lectura):
-```
-npx supabase functions deploy delete-account
-```
-Y cargale `EXPO_PUBLIC_WEB_URL=https://encuentras-mascota.pages.dev` en los Secrets, o el navegador la bloquea por CORS.
-**3. Recién ahí, subir la web.**
+**1. Aplicar `0017_borrado_cuenta.sql`** (SQL Editor). **Antes que nada**: si la web sale primero, el botón de borrar aparece y falla siempre.
+**2.** ~~Desplegar la Edge Function~~ — ✅ **HECHA (19-jul)**, ver abajo.
+**3. Recién después de la migración, subir la web.**
+
+### ✅ LAS 3 EDGE FUNCTIONS DESPLEGADAS Y VERIFICADAS (19-jul)
+
+`npx supabase functions deploy <nombre> --project-ref ywlrcfaybnikaurxsgtj` (no hace falta `link`).
+
+- **`send-notifications`** — 🔓 **el agujero está cerrado**: un `OPTIONS` sin ninguna credencial devolvía `200` y **despachaba la cola entera**; ahora devuelve `204` con cuerpo vacío sin tocar la base. Comprobado que el camino legítimo sigue vivo: el `POST` de `pg_cron` con la publishable key responde `{"ok":true,"procesados":0,"fallidos":0}`.
+- **`send-push`** — antes respondía **404 (nunca había estado desplegada**, o sea que el push del chat jamás funcionó y el `.catch(() => {})` lo tapaba). Ahora responde `401` sin sesión, que es lo correcto.
+- **`delete-account`** — desplegada; `GET` da `405`. **Todavía no sirve** hasta que apliques la migración `0017`: falla en el primer paso, que es de solo lectura, sin tocar nada (falla cerrada, verificado en revisión).
+- **CORS verificado en las dos que llama el navegador:** preflight desde `https://encuentras-mascota.pages.dev` devuelve `204` con `Access-Control-Allow-Origin` correcto, y un origen impostor (`encuentras-mascota.pages.dev.atacante.com`) recibe `204` **sin** esa cabecera → el navegador lo bloquea. `EXPO_PUBLIC_WEB_URL` ya estaba cargado en los Secrets (se dedujo: sin él, el dominio a secas no habría pasado el allowlist, porque el regex sólo acepta subdominios).
 
 ### Checklist de verificación (nada de esto se pudo probar sin la base real)
 
