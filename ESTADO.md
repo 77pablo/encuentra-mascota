@@ -25,7 +25,7 @@
 legibles por terceros, no se borraron. Datos de prueba limpiados; queda 1 mensaje de la
 prueba E2E del borrado de cuenta, entre dos lápidas (ver más abajo).
 
-### Cómo era antes de arreglarse
+### Las seis piezas
 
 Seis piezas con un tema común: dejar de exponer datos que no hace falta exponer. Plan en
 `docs/superpowers/plans/2026-07-19-tanda-a-privacidad.md`. **260 tests, 35 suites, tsc limpio.**
