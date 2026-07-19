@@ -30,6 +30,12 @@ export default function DeleteAccountScreen() {
   const [borrando, setBorrando] = useState(false);
 
   const onBorrar = async () => {
+    // Guarda contra doble tap: `setBorrando(true)` recien se ejecuta despues
+    // de que `confirmAction` resuelve, asi que dos toques muy rapidos pueden
+    // disparar dos confirmaciones (y dos borrados) en paralelo antes de que
+    // el primero llegue a deshabilitar el boton.
+    if (borrando) return;
+
     const ok = await confirmAction(
       '¿Borrar tu cuenta?',
       'Esto no se puede deshacer. Tus datos se borran para siempre.',
