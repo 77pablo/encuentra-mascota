@@ -405,6 +405,12 @@ export default function ProfileScreen({ navigation }: any) {
           icon="document-text"
           onPress={() => navigation.navigate('Legal')}
         />
+        <Button
+          title="Borrar mi cuenta"
+          variant="ghost"
+          icon="trash-outline"
+          onPress={() => navigation.navigate('DeleteAccount')}
+        />
         <Button title="Cerrar sesión" variant="danger" onPress={signOut} style={styles.signOutButton} />
       </ScrollView>
 

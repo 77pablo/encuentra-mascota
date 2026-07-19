@@ -17,6 +17,7 @@ import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
+import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 import { useUnread } from '../hooks/useUnread';
 import { useAuth } from '../hooks/useAuth';
 import { AccionProtegida, mensajeDe } from '../lib/requireAuth';
@@ -105,6 +106,11 @@ function ProfileStack() {
         name="Legal"
         component={LegalScreen}
         options={{ title: 'Privacidad y términos' }}
+      />
+      <ProfileStackNav.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
+        options={{ title: 'Borrar mi cuenta' }}
       />
     </ProfileStackNav.Navigator>
   );
