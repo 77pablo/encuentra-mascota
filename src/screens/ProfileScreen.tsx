@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -10,14 +10,32 @@ import { useAuth } from '../hooks/useAuth';
 import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { timeAgo } from '../lib/time';
-import { AppText, Badge, Button, Card, Confetti, EmptyState, Input, Mascota, Screen, Title } from '../ui';
+import { AppText, Badge, Button, Card, Chip, Confetti, EmptyState, Input, Mascota, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
+import {
+  construirUrlRedSocial,
+  iconoRedSocial,
+  parseRedSocial,
+  RedSocialTipo,
+} from '../lib/redSocial';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
   gato: 'Gato',
   otro: 'Mascota',
 };
+
+// Opciones del selector de red social. El orden es el que ve el usuario.
+const REDES: { tipo: RedSocialTipo; label: string }[] = [
+  { tipo: 'instagram', label: 'Instagram' },
+  { tipo: 'facebook', label: 'Facebook' },
+  { tipo: 'tiktok', label: 'TikTok' },
+  { tipo: 'otro', label: 'Otro' },
+];
+
+function etiquetaRed(tipo: RedSocialTipo): string {
+  return REDES.find((r) => r.tipo === tipo)?.label ?? 'red social';
+}
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
@@ -32,7 +50,8 @@ export default function ProfileScreen({ navigation }: any) {
   const [editingPerfil, setEditingPerfil] = useState(false);
   const [nombreDraft, setNombreDraft] = useState('');
   const [telefonoDraft, setTelefonoDraft] = useState('');
-  const [redSocialDraft, setRedSocialDraft] = useState('');
+  const [redTipoDraft, setRedTipoDraft] = useState<RedSocialTipo>('instagram');
+  const [redUsuarioDraft, setRedUsuarioDraft] = useState('');
   const [savingPerfil, setSavingPerfil] = useState(false);
 
   const cargar = useCallback(() => {
@@ -144,7 +163,12 @@ export default function ProfileScreen({ navigation }: any) {
   const empezarEdicionPerfil = () => {
     setNombreDraft(profile?.nombre ?? '');
     setTelefonoDraft(profile?.telefono ?? '');
-    setRedSocialDraft(profile?.red_social ?? '');
+    // Se interpreta el valor guardado (una URL nueva o un handle viejo) para
+    // sembrar el selector de plataforma y el usuario. Si es texto viejo suelto,
+    // parseRedSocial lo marca como 'otro' y lo deja tal cual para editar.
+    const red = parseRedSocial(profile?.red_social);
+    setRedTipoDraft(red?.tipo ?? 'instagram');
+    setRedUsuarioDraft(red?.usuario ?? '');
     setEditingPerfil(true);
   };
 
@@ -157,11 +181,15 @@ export default function ProfileScreen({ navigation }: any) {
     }
     setSavingPerfil(true);
     try {
+      // La columna red_social guarda la URL completa al perfil (Instagram,
+      // Facebook, etc.); se arma desde plataforma + usuario. Si el usuario está
+      // vacío queda '' y camposDeContactoParaGuardar decide si mandarlo.
+      const redSocialUrl = construirUrlRedSocial(redTipoDraft, redUsuarioDraft);
       await updateMyProfile(user.id, {
         nombre,
         // Si el perfil vino degradado (mi_perfil() no disponible), esto no
         // manda telefono ni red_social: ver camposDeContactoParaGuardar.
-        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialDraft.trim()),
+        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialUrl),
       });
       notify('Guardado', 'Tu perfil se actualizó.');
       setEditingPerfil(false);
@@ -173,11 +201,23 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const inicial = user?.email ? user.email.charAt(0).toUpperCase() : '🐾';
   const tieneNombre = !!profile?.nombre?.trim();
   const nombreMostrado = tieneNombre ? (profile!.nombre as string) : user?.email ?? '';
+  // La inicial del avatar sale del nombre (antes usaba el correo, que no es lo
+  // que la persona reconoce como suyo).
+  const inicial = nombreMostrado ? nombreMostrado.charAt(0).toUpperCase() : '🐾';
   const telefonoMostrado = profile?.telefono?.trim();
-  const redSocialMostrada = profile?.red_social?.trim();
+  const redSocial = parseRedSocial(profile?.red_social);
+
+  const abrirRed = (url: string) => {
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+      return;
+    }
+    Linking.openURL(url).catch(() =>
+      notify('No se pudo abrir', 'Revisá el enlace de tu red social.'),
+    );
+  };
 
   return (
     <Screen padded>
@@ -220,13 +260,32 @@ export default function ProfileScreen({ navigation }: any) {
                   </AppText>
                 </View>
               ) : null}
-              {redSocialMostrada ? (
-                <View style={styles.contactRow}>
-                  <Ionicons name="share-social" size={13} color={colors.muted} />
-                  <AppText muted size={13} style={styles.contactRowText}>
-                    {redSocialMostrada}
-                  </AppText>
-                </View>
+              {redSocial ? (
+                redSocial.url ? (
+                  <TouchableOpacity
+                    style={styles.contactRow}
+                    activeOpacity={0.7}
+                    onPress={() => abrirRed(redSocial.url!)}
+                  >
+                    <Ionicons
+                      name={iconoRedSocial(redSocial.tipo) as any}
+                      size={13}
+                      color={colors.brand}
+                    />
+                    <AppText size={13} color={colors.brand} style={styles.contactRowText}>
+                      {redSocial.usuario}
+                    </AppText>
+                  </TouchableOpacity>
+                ) : (
+                  // Valor viejo (texto suelto, no navegable): se muestra igual,
+                  // pero sin link. Al reeditarlo queda como link.
+                  <View style={styles.contactRow}>
+                    <Ionicons name="share-social" size={13} color={colors.muted} />
+                    <AppText muted size={13} style={styles.contactRowText}>
+                      {redSocial.usuario}
+                    </AppText>
+                  </View>
+                )
               ) : null}
             </View>
           </View>
@@ -287,16 +346,34 @@ export default function ProfileScreen({ navigation }: any) {
                     keyboardType="phone-pad"
                     icon="call"
                   />
+                  <AppText weight="semi" muted size={13} style={styles.redesLabel}>
+                    Red social
+                  </AppText>
+                  <View style={styles.redesRow}>
+                    {REDES.map((r) => (
+                      <Chip
+                        key={r.tipo}
+                        label={r.label}
+                        active={redTipoDraft === r.tipo}
+                        onPress={() => setRedTipoDraft(r.tipo)}
+                      />
+                    ))}
+                  </View>
                   <Input
-                    label="Red social (Instagram, Facebook…)"
-                    value={redSocialDraft}
-                    onChangeText={setRedSocialDraft}
-                    placeholder="@tu_usuario"
-                    icon="share-social"
+                    label={
+                      redTipoDraft === 'otro'
+                        ? 'Link a tu perfil'
+                        : `Tu usuario de ${etiquetaRed(redTipoDraft)}`
+                    }
+                    value={redUsuarioDraft}
+                    onChangeText={setRedUsuarioDraft}
+                    placeholder={redTipoDraft === 'otro' ? 'https://…' : '@tu_usuario'}
+                    icon={iconoRedSocial(redTipoDraft) as any}
+                    autoCapitalize="none"
                   />
                   <AppText muted size={12} style={styles.avisoContacto}>
-                    Solo tú ves estos datos. Los usamos para armar el afiche de tu mascota, que tú
-                    decides compartir.
+                    Tu teléfono solo lo ves tú (lo usamos para el afiche). Tu red social será un
+                    enlace tocable a tu perfil.
                   </AppText>
                 </>
               )}
@@ -512,6 +589,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   avisoContacto: { marginTop: -spacing.xs, marginBottom: spacing.sm, lineHeight: 16 },
+  redesLabel: {
+    marginBottom: spacing.xs,
+  },
+  redesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   editProfileButton: {
     alignSelf: 'flex-start',
     paddingHorizontal: spacing.md,

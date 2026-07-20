@@ -6,6 +6,7 @@ import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { countReunidas, Pet } from '../services/pets';
 import { buscarReportes } from '../services/busqueda';
 import { listFinalesFelices } from '../services/reunions';
+import { getMyProfile } from '../services/profile';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
 import { useFavorites } from '../hooks/useFavorites';
@@ -30,6 +31,7 @@ export default function HomeScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState(0);
   const [finales, setFinales] = useState<Pet[]>([]);
+  const [nombrePerfil, setNombrePerfil] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useMyLocation(true);
@@ -43,19 +45,23 @@ export default function HomeScreen({ navigation }: any) {
     // la migración 0008 aún no está aplicada), degradamos a [] en vez de tumbar
     // toda la pantalla de Inicio.
     // Inicio solo muestra una tira corta: pedimos 6, no la base entera.
+    // El nombre del perfil es para el saludo: si falla, degrada a null (usamos
+    // el metadata o el correo) sin tumbar Inicio.
     Promise.all([
       buscarReportes({}, null, 6).then((p) => p.reportes as Pet[]),
       countReunidas(),
       listFinalesFelices(6).catch(() => [] as Pet[]),
+      user ? getMyProfile(user.id).catch(() => null) : Promise.resolve(null),
     ])
-      .then(([activePets, count, finalesFelices]) => {
+      .then(([activePets, count, finalesFelices, perfil]) => {
         setPets(activePets);
         setReunidas(count);
         setFinales(finalesFelices);
+        setNombrePerfil(perfil?.nombre?.trim() || null);
       })
       .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   useFocusEffect(cargar);
 
@@ -71,9 +77,16 @@ export default function HomeScreen({ navigation }: any) {
     );
   }
 
-  const emailName = user?.email ? user.email.split('@')[0] : '';
-  const greetingName = emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : '';
-  const avatarLetter = user?.email ? user.email.charAt(0).toUpperCase() : '?';
+  // El saludo usa el nombre real del perfil; si no está, cae al nombre del
+  // registro (metadata) y, como último recurso, a la parte local del correo.
+  const displayName =
+    nombrePerfil ||
+    (user?.user_metadata?.nombre as string | undefined)?.trim() ||
+    (user?.email ? user.email.split('@')[0] : '');
+  const greetingName = displayName
+    ? displayName.charAt(0).toUpperCase() + displayName.slice(1)
+    : '';
+  const avatarLetter = displayName ? displayName.charAt(0).toUpperCase() : '?';
   const hasCoords = !!location.coords;
 
   // Ya vienen ordenadas de más nueva a más vieja; solo tomamos las primeras
