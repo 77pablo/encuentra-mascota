@@ -155,9 +155,9 @@ delete from public.messages
 delete from public.profiles where eliminado_en is not null;
 ```
 
-### 🔴 HALLAZGO DE PRIVACIDAD (anterior a este trabajo, sin resolver)
+### ✅ HALLAZGO DE PRIVACIDAD — RESUELTO por la Tanda A (mig `0018`)
 
-Durante la prueba quedó a la vista: la política de `profiles` es `for select to authenticated using (true)`, así que **cualquier persona con una cuenta puede leer el teléfono y la red social de todos los demás**. Se comprobó leyendo `+56959987786` y `@77.pvblo` (los de Pablo) desde una cuenta descartable recién creada. Merece su propia tanda: una vista o column-level security que exponga solo `id`, `nombre` y `eliminado_en`.
+Durante la prueba quedó a la vista: la política de `profiles` era `for select to authenticated using (true)`, así que cualquier persona con una cuenta podía leer el teléfono y la red social de todos los demás (se comprobó leyendo `+56959987786` y `@77.pvblo` desde una cuenta descartable). **Cerrado por la migración `0018` (column-level security):** `revoke select` de `public/anon/authenticated` y `grant select` solo de `id, nombre, foto_perfil, creado_en, eliminado_en`; el dueño recupera su contacto por `mi_perfil()` **sin parámetros**. En producción y verificado 9/9 (ver sección "TANDA A — PRIVACIDAD" arriba).
 
 ### ✅ WEB SUBIDA (19-jul) — build verificado en el navegador antes de desplegar
 
@@ -190,7 +190,7 @@ La app compilada todavía no tiene ni el borrado de cuenta ni la tanda 4. `npx e
 
 > Lo de hoy (19-jul) quedó **todo cerrado**: borrado de cuenta en producción y verificado 12/12, las 3 Edge Functions desplegadas, migración `0017` aplicada, y la web subida. El detalle está en las secciones de arriba.
 
-1. 🔴 **Cerrar la fuga de datos de contacto en `profiles`** — LO MÁS IMPORTANTE. La política es `for select to authenticated using (true)`: **cualquiera que se registre puede leer el teléfono y la red social de todos los usuarios**. Comprobado el 19-jul leyendo los datos reales de Pablo desde una cuenta descartable recién creada. Idea: una vista (o column-level security) que exponga solo `id`, `nombre` y `eliminado_en`, y dejar el teléfono accesible solo para quien tenga una conversación abierta. Ojo al tocarlo: `services/messages.ts` y `services/tips.ts` leen `profiles`, y el afiche usa el teléfono **propio**.
+1. ✅ ~~**Cerrar la fuga de datos de contacto en `profiles`**~~ — **YA HECHO** por la Tanda A (mig `0018`, en producción y verificada). Se revisó el 20-jul que **ningún flujo quedó roto**: `messages.ts` lee solo `id, nombre, eliminado_en`; `tips.ts` solo `nombre, eliminado_en`; el afiche usa el perfil **propio** (`getMyProfile`); y ninguna pantalla de detalle mostraba el contacto de otra persona. **Decisión de producto (20-jul):** el chat interno + el afiche alcanzan para contactarse; NO se expone el teléfono a quien tiene un chat abierto (se descartó esa idea a propósito, no es un pendiente).
 2. **Limpiar el residuo de la prueba end-to-end** (3 filas lápida + su hilo de mensajes). SQL listo en la sección "PRUEBA END-TO-END".
 3. **Brevo:** la cuenta sigue sin activar (`403 SMTP account is not yet activated`). Hasta que la habiliten, ningún aviso por correo sale. Alternativa: comprar dominio y volver a Resend — el código ya soporta los dos y elige según qué variables estén cargadas.
 
