@@ -48,7 +48,11 @@ as $$
 $$;
 
 revoke all on function public.perfil_publico(uuid) from public;
-grant execute on function public.perfil_publico(uuid) to anon, authenticated;
+-- Dos grants separados a proposito (en vez de `to anon, authenticated`): un solo
+-- statement por rol es mas robusto al copiar/pegar y no encadena un error si una
+-- linea se pierde.
+grant execute on function public.perfil_publico(uuid) to anon;
+grant execute on function public.perfil_publico(uuid) to authenticated;
 
 -- ------------------------------------------------------------
 -- Politica aditiva: el invitado tambien ve los REENCUENTROS.
