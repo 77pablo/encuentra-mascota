@@ -122,18 +122,28 @@ política aditiva de esta migración (ver §1). Si `getPerfilPublico` recibe
 
 ## 3. Insignias — `src/lib/insignias.ts` (lógica pura, TDD)
 
+Tono: **señales de confianza discretas**, no logros de videojuego. Sin hipérbole,
+sin emojis-medalla, sin copy inflado. Cada insignia es un chip apagado con un
+**ícono de línea** (Ionicons) + un título factual corto y una descripción sobria.
+Se **ganan** (umbrales que signifiquen algo); un perfil nuevo puede no tener ninguna,
+y está bien.
+
 ```ts
 export interface StatsPerfil { reencuentros: number; reportes: number; aportes: number; }
-export interface Insignia { clave: string; emoji: string; titulo: string; descripcion: string; }
+export interface Insignia { clave: string; icono: string; titulo: string; descripcion: string; }
 export function insigniasDe(stats: StatsPerfil): Insignia[]
 ```
 
 Reglas (se muestra el **escalón más alto** alcanzado por familia):
-- Reencuentros: `>=3` → 🦸 **Héroe del barrio**; si no, `>=1` → 🏠 **Reencuentro logrado**.
-- Reportes: `>=1` → 📣 **Primer reporte**.
-- Aportes: `>=15` → 🌟 **Súper vecino**; si no, `>=5` → 🤝 **Vecino activo**.
+- Reencuentros: `>=5` → **Vecino de confianza** (`shield-checkmark-outline`,
+  "Ayudó a varias mascotas a volver a casa"); si no, `>=1` → **Reencuentros logrados**
+  (`home-outline`, "Logró que una mascota volviera a casa").
+- Aportes: `>=20` → **Colaborador constante** (`ribbon-outline`,
+  "Aporta seguido pistas y avistamientos"); si no, `>=5` → **Colabora con el barrio**
+  (`people-outline`, "Deja pistas y avistamientos en reportes de otros").
 
-Devuelve `[]` si no alcanza ninguna. Orden: reencuentros, reportes, aportes.
+Sin insignia de "reportes" (publicar por sí solo no es un logro). Devuelve `[]` si
+no alcanza ninguna. Orden: reencuentros, aportes.
 
 ## 4. Pantalla — `src/screens/PublicProfileScreen.tsx`
 
