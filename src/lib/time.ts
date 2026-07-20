@@ -1,3 +1,16 @@
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+// "julio de 2026" a partir de una fecha ISO. Usa UTC para ser determinista (no
+// depende de la zona horaria) y no usa Intl (Hermes lo trae limitado). Para
+// mostrar "Miembro desde …".
+export function mesAnoDe(iso: string): string {
+  const d = new Date(iso);
+  return `${MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
+}
+
 // Tiempo relativo en español a partir de una fecha ISO. Recibe `now` opcional para tests.
 export function timeAgo(iso: string, now: number = Date.now()): string {
   const diffMs = now - new Date(iso).getTime();

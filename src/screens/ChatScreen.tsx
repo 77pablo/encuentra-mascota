@@ -17,7 +17,7 @@ import { supabase } from '../lib/supabase';
 import { AppText, AvisoEstafa, Screen } from '../ui';
 import { colors, font, radius, spacing } from '../theme';
 
-export default function ChatScreen({ route }: any) {
+export default function ChatScreen({ route, navigation }: any) {
   const { petId, otherUserId } = route.params;
   const { user } = useAuth();
   const me = user!.id;
@@ -25,6 +25,7 @@ export default function ChatScreen({ route }: any) {
   const [texto, setTexto] = useState('');
   const { refresh: refreshUnread } = useUnread();
   const [otroEliminado, setOtroEliminado] = useState(false);
+  const [otroNombre, setOtroNombre] = useState<string | null>(null);
 
   useEffect(() => {
     markThreadRead(petId, me, otherUserId)
@@ -47,14 +48,18 @@ export default function ChatScreen({ route }: any) {
     // podria ocultarse o mostrarse con el dato de la conversacion previa hasta
     // que la consulta de abajo resuelva.
     setOtroEliminado(false);
+    setOtroNombre(null);
     // El builder de supabase es un PromiseLike, no un Promise completo (no
     // tiene `.catch`); lo envolvemos en Promise.resolve para poder atrapar el
-    // rechazo sin dejar una promesa suelta.
+    // rechazo sin dejar una promesa suelta. Se lee también el nombre para el
+    // encabezado tocable que lleva al perfil público.
     Promise.resolve(
-      supabase.from('profiles').select('eliminado_en').eq('id', otherUserId).maybeSingle(),
+      supabase.from('profiles').select('nombre, eliminado_en').eq('id', otherUserId).maybeSingle(),
     )
       .then(({ data }) => {
-        if (vivo) setOtroEliminado(Boolean(data?.eliminado_en));
+        if (!vivo) return;
+        setOtroEliminado(Boolean(data?.eliminado_en));
+        setOtroNombre(data?.eliminado_en ? null : (data?.nombre ?? '').trim() || null);
       })
       .catch(() => {
         // Best effort: si la consulta falla (columna inexistente, sin red,
@@ -89,6 +94,26 @@ export default function ChatScreen({ route }: any) {
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {otroEliminado ? (
+          <View style={styles.headerRow}>
+            <Ionicons name="person-circle-outline" size={18} color={colors.muted} />
+            <AppText muted weight="semi" size={14} style={styles.headerNombre}>
+              Cuenta eliminada
+            </AppText>
+          </View>
+        ) : otroNombre ? (
+          <TouchableOpacity
+            style={styles.headerRow}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('PublicProfile', { userId: otherUserId })}
+          >
+            <Ionicons name="person-circle-outline" size={18} color={colors.brand} />
+            <AppText weight="semi" size={14} color={colors.brand} style={styles.headerNombre}>
+              {otroNombre}
+            </AppText>
+            <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+          </TouchableOpacity>
+        ) : null}
         <View style={styles.aviso}>
           <AvisoEstafa variante="chat" />
         </View>
@@ -144,10 +169,21 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  headerNombre: {
+    flexShrink: 1,
+  },
   aviso: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
+
   list: {
     padding: spacing.lg,
     gap: spacing.sm,

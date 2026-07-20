@@ -25,7 +25,7 @@ import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
 import AficheGenerator from '../components/AficheGenerator';
 import { faltaWhatsapp } from '../lib/afiche';
-import { getMyProfile, Profile } from '../services/profile';
+import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -78,6 +78,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [dejandoPista, setDejandoPista] = useState(false);
   const [borrandoPista, setBorrandoPista] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<Profile | null>(null);
+  const [duenoNombre, setDuenoNombre] = useState<string | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
   // Flujo "¡Volvió a casa!" (final feliz)
   const [mostrarReunion, setMostrarReunion] = useState(false);
@@ -118,6 +119,24 @@ export default function PetDetailScreen({ route, navigation }: any) {
       .catch(() => {
         if (vivo) setMatches([]);
       });
+    return () => {
+      vivo = false;
+    };
+  }, [pet]);
+
+  // Nombre público del dueño, para la fila "Publicado por … →" que enlaza a su
+  // perfil público. Silencioso: si no se puede leer, no se muestra la fila.
+  useEffect(() => {
+    if (!pet) {
+      setDuenoNombre(null);
+      return;
+    }
+    let vivo = true;
+    getNombrePublico(pet.user_id)
+      .then((n) => {
+        if (vivo) setDuenoNombre(n);
+      })
+      .catch(() => {});
     return () => {
       vivo = false;
     };
@@ -389,6 +408,20 @@ export default function PetDetailScreen({ route, navigation }: any) {
           {'  ·  '}
           {timeAgo(pet.creado_en)}
         </AppText>
+
+        {!esMio && duenoNombre ? (
+          <TouchableOpacity
+            style={styles.duenoRow}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('PublicProfile', { userId: pet.user_id })}
+          >
+            <Ionicons name="person-circle-outline" size={16} color={colors.brand} />
+            <AppText size={13} color={colors.brand} style={styles.duenoTexto}>
+              Publicado por {duenoNombre}
+            </AppText>
+            <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+          </TouchableOpacity>
+        ) : null}
 
         <Card style={styles.descriptionCard}>
           <AppText size={15} style={styles.descriptionText}>
@@ -707,9 +740,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
                       color={colors.muted}
                       style={styles.pistaFirmaIcono}
                     />
-                    <AppText weight="semi" size={13} style={styles.pistaFirma}>
-                      {firmaAutor(t.autorNombre ?? null, t.autorEliminadoEn ?? null)}
-                    </AppText>
+                    {!t.autorEliminadoEn && (t.autorNombre ?? '').trim() ? (
+                      // Autor resoluble (no anonimizado): la firma enlaza a su
+                      // perfil público. "Un vecino" (borrado o sin nombre) no.
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('PublicProfile', { userId: t.userId })}
+                      >
+                        <AppText weight="semi" size={13} color={colors.brand} style={styles.pistaFirma}>
+                          {firmaAutor(t.autorNombre ?? null, t.autorEliminadoEn ?? null)}
+                        </AppText>
+                      </TouchableOpacity>
+                    ) : (
+                      <AppText weight="semi" size={13} style={styles.pistaFirma}>
+                        {firmaAutor(t.autorNombre ?? null, t.autorEliminadoEn ?? null)}
+                      </AppText>
+                    )}
                     <AppText muted size={12}>
                       {' · '}
                       {timeAgo(t.creadoEn)}
@@ -885,6 +931,15 @@ const styles = StyleSheet.create({
   },
   meta: {
     marginTop: 2,
+  },
+  duenoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  duenoTexto: {
+    flexShrink: 1,
   },
   descriptionCard: {
     marginTop: spacing.xs,

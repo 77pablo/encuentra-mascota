@@ -56,6 +56,20 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
   return filas[0] ?? null;
 }
 
+// Nombre público de una persona (la columna `nombre` es legible desde 0018).
+// Sirve para mostrar "Publicado por …" y enlazar a su perfil público. Devuelve
+// null si no se puede leer o si la cuenta está borrada (para no enlazar a una
+// lápida). Silencioso: cualquier error se trata como "sin nombre".
+export async function getNombrePublico(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('nombre, eliminado_en')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !data || data.eliminado_en) return null;
+  return (data.nombre ?? '').trim() || null;
+}
+
 export async function updateMyProfile(
   userId: string,
   fields: { nombre?: string; foto_perfil?: string; telefono?: string; red_social?: string },

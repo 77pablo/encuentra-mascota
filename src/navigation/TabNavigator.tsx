@@ -11,6 +11,7 @@ import PetDetailScreen from '../screens/PetDetailScreen';
 import AddSightingScreen from '../screens/AddSightingScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import PublicProfileScreen from '../screens/PublicProfileScreen';
 import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
@@ -37,6 +38,7 @@ function InicioStack() {
       <InicioStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <InicioStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <InicioStackNav.Screen name="Chat" component={ChatScreen} />
+      <InicioStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
     </InicioStackNav.Navigator>
   );
 }
@@ -49,6 +51,7 @@ function MapStack() {
       <MapStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <MapStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <MapStackNav.Screen name="Chat" component={ChatScreen} />
+      <MapStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
     </MapStackNav.Navigator>
   );
 }
@@ -66,6 +69,7 @@ function ListStack() {
       <ListStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <ListStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <ListStackNav.Screen name="Chat" component={ChatScreen} />
+      <ListStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
     </ListStackNav.Navigator>
   );
 }
@@ -76,6 +80,7 @@ function MsgStack() {
     <MsgStackNav.Navigator>
       <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} options={{ headerShown: false }} />
       <MsgStackNav.Screen name="Chat" component={ChatScreen} />
+      <MsgStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
     </MsgStackNav.Navigator>
   );
 }
@@ -91,6 +96,7 @@ function ProfileStack() {
       <ProfileStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
       <ProfileStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
       <ProfileStackNav.Screen name="Chat" component={ChatScreen} />
+      <ProfileStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
       <ProfileStackNav.Screen name="EditPet" component={EditPetScreen} options={{ title: 'Editar reporte' }} />
       <ProfileStackNav.Screen
         name="AlertZone"
