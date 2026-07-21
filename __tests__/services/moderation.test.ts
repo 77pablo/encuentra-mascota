@@ -4,6 +4,7 @@ import {
   denunciarMensaje,
   denunciarPista,
   denunciarAvistamiento,
+  denunciarAdopcion,
 } from '../../src/services/moderation';
 
 const mockInsert = jest.fn((..._args: any[]): any => Promise.resolve({ error: null }));
@@ -48,6 +49,11 @@ describe('cada denuncia inserta su tipo y objeto', () => {
   it('denunciarAvistamiento → tipo avistamiento + objeto_id', async () => {
     await denunciarAvistamiento('s1', 'yo', 'Spam');
     expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'avistamiento', objeto_id: 's1' }));
+  });
+
+  it('denunciarAdopcion → tipo adopcion + objeto_id', async () => {
+    await denunciarAdopcion('ad1', 'yo', 'Spam');
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'adopcion', objeto_id: 'ad1' }));
   });
 });
 

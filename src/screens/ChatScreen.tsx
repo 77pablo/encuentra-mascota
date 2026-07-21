@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { useUnread } from '../hooks/useUnread';
-import { markThreadRead, sendMessage } from '../services/messages';
+import { ctxDeParams, markThreadRead, sendMessage } from '../services/messages';
 import { supabase } from '../lib/supabase';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
@@ -22,10 +22,15 @@ import { AppText, AvisoEstafa, Button, Screen } from '../ui';
 import { colors, font, radius, spacing } from '../theme';
 
 export default function ChatScreen({ route, navigation }: any) {
-  const { petId, otherUserId } = route.params;
+  // Params generalizados (0030): un chat puede ser sobre un reporte (`petId`),
+  // una adopcion (`adoptionId`) o un reporte ya borrado (ninguno de los dos).
+  // Se reconstruye el `HiloCtx` explicito con `ctxDeParams`. Va en `useMemo`
+  // para que sea estable entre renders (los hooks/efectos dependen de el).
+  const { petId, adoptionId, otherUserId } = route.params;
+  const ctx = useMemo(() => ctxDeParams({ petId, adoptionId }), [petId, adoptionId]);
   const { user } = useAuth();
   const me = user!.id;
-  const messages = useRealtimeMessages(petId, me, otherUserId);
+  const messages = useRealtimeMessages(ctx, me, otherUserId);
   const [texto, setTexto] = useState('');
   const { refresh: refreshUnread } = useUnread();
   const [otroEliminado, setOtroEliminado] = useState(false);
@@ -38,10 +43,10 @@ export default function ChatScreen({ route, navigation }: any) {
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
 
   useEffect(() => {
-    markThreadRead(petId, me, otherUserId)
+    markThreadRead(ctx, me, otherUserId)
       .then(() => refreshUnread())
       .catch((e) => console.error('No se pudo marcar el hilo como leído:', e));
-  }, [petId, me, otherUserId, messages.length, refreshUnread]);
+  }, [ctx, me, otherUserId, messages.length, refreshUnread]);
 
   // Si la otra persona borró su cuenta, el hilo queda de solo lectura. La RLS
   // ya rechaza el insert (migración 0017); esto es para no ofrecer un campo de
@@ -94,14 +99,28 @@ export default function ChatScreen({ route, navigation }: any) {
     const t = texto;
     setTexto('');
     try {
-      await sendMessage(petId, me, otherUserId, t);
+      await sendMessage(ctx, me, otherUserId, t);
       // Push "best effort": si falla, el chat igual funcionó, así que no le
       // mostramos nada al usuario. Pero SÍ lo dejamos en la consola: este
       // `catch` vacío tapó durante semanas que la función `send-push` ni
       // siquiera estaba desplegada (respondía 404) y nadie se enteró.
+      // El titulo se adapta al contexto: una adopcion no es "una mascota"
+      // (reporte perdida/encontrada). La ruta del deep-link SÍ la arma el
+      // cliente (acá): `send-push` hoy no construía ninguna, solo reenviaba
+      // title/body a Expo sin `data`. Se sigue el mismo patrón que
+      // `send-notifications` (la cola de avisos), que ya manda `data: { ruta }`
+      // en el push. Un hilo de reporte borrado (`pet_borrado`) no tiene a
+      // dónde llevar: se manda sin ruta.
+      const ruta =
+        ctx.tipo === 'adopcion' ? `/adopcion/${ctx.id}` : ctx.tipo === 'pet' ? `/mascota/${ctx.id}` : undefined;
       supabase.functions
         .invoke('send-push', {
-          body: { toUserId: otherUserId, title: 'Nuevo mensaje sobre una mascota', body: t.slice(0, 80) },
+          body: {
+            toUserId: otherUserId,
+            title: ctx.tipo === 'adopcion' ? 'Nuevo mensaje sobre una adopción' : 'Nuevo mensaje sobre una mascota',
+            body: t.slice(0, 80),
+            ruta,
+          },
         })
         .catch((e) => console.warn('No se pudo mandar el aviso push del mensaje:', e));
     } catch {

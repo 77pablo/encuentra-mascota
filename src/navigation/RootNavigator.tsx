@@ -12,6 +12,7 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import PublicPetScreen from '../screens/PublicPetScreen';
 import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 import CollarScreen from '../screens/CollarScreen';
+import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,6 +27,9 @@ const linking: LinkingOptions<any> = {
       // Página pública del collar (Función 2). Se abre por el QR de la placa,
       // en modo invitado, igual que MascotaPublica.
       Collar: 'collar/:token',
+      // Detalle público de una publicación de adopción, mismo trato que
+      // MascotaPublica/Collar: alcanzable por link compartido sin sesión.
+      AdopcionDetail: 'adopcion/:id',
     },
   },
 };
@@ -75,6 +79,10 @@ export default function RootNavigator() {
         {/* Página pública del collar (Función 2): la abre el QR de la placa, en
             modo invitado, igual que MascotaPublica. */}
         <Stack.Screen name="Collar" component={CollarScreen} options={{ title: 'Mascota con collar' }} />
+        {/* Detalle público de una publicación de adopción: se abre por el link
+            compartido (`adopcion/:id`) o desde la pestaña Adopción, en modo
+            invitado, igual que MascotaPublica/Collar. */}
+        <Stack.Screen name="AdopcionDetail" component={AdopcionDetailScreen} options={{ title: 'Adopción' }} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

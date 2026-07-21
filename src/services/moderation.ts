@@ -25,7 +25,7 @@ export type MotivoDenuncia = (typeof MOTIVOS_DENUNCIA)[number];
 // Tipos de objeto denunciable. `reporte` es el historico (0003); el resto se
 // agrego en la pieza 2. La columna `tipo` en la base tiene una CHECK con esta
 // misma lista.
-export type TipoDenuncia = 'reporte' | 'usuario' | 'mensaje' | 'pista' | 'avistamiento';
+export type TipoDenuncia = 'reporte' | 'usuario' | 'mensaje' | 'pista' | 'avistamiento' | 'adopcion';
 
 // El `detalle` es texto libre corto y OPCIONAL. Sin el, el dueño lee "acoso"
 // contra un uuid y no tiene forma de actuar sobre un mensaje que la RLS no le
@@ -145,6 +145,17 @@ export async function denunciarAvistamiento(
     motivo,
     detalle,
   });
+}
+
+// Denunciar una publicacion de ADOPCION (paridad con el resto de reportes;
+// la usa el detalle de adopcion).
+export async function denunciarAdopcion(
+  adoptionId: string,
+  reporterUser: string,
+  motivo: string,
+  detalle?: string,
+): Promise<void> {
+  await insertarDenuncia({ tipo: 'adopcion', objeto_id: adoptionId, reporter_user: reporterUser, motivo, detalle });
 }
 
 // Compatibilidad: la firma vieja que usaba PetDetailScreen. Delega en

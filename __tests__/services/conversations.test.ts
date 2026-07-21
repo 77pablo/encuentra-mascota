@@ -9,13 +9,13 @@ const msgs = [
 ] as any;
 
 describe('foldConversations', () => {
-  it('agrupa por (petId, otro usuario) y conserva el más reciente', () => {
+  it('agrupa por (contexto, otro usuario) y conserva el más reciente', () => {
     const convs = foldConversations(msgs, me);
     expect(convs).toHaveLength(2);
-    const a = convs.find((c) => c.petId === 'petA')!;
+    const a = convs.find((c) => c.ctx.tipo === 'pet' && c.ctx.id === 'petA')!;
     expect(a.otherUser).toBe('otro1');
     expect(a.lastTexto).toBe('último a otro1');
-    const b = convs.find((c) => c.petId === 'petB')!;
+    const b = convs.find((c) => c.ctx.tipo === 'pet' && c.ctx.id === 'petB')!;
     expect(b.otherUser).toBe('otro2');
   });
   it('devuelve vacío sin mensajes', () => {
