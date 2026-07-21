@@ -1,5 +1,43 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-21 (noche) — Apartado de Adopción (feed tipo Instagram)
+
+Construido **subagent-driven** (12 tareas: implementer + revisión por tarea + revisión
+final de rama). Spec `docs/superpowers/specs/2026-07-21-adopcion-design.md`, plan
+`docs/superpowers/plans/2026-07-21-adopcion.md`. **547 tests, tsc limpio.** Fusionado en
+`feat/mvp-encuentra-mascota` (`6256ec7`).
+
+- **Sección aparte** (tabla `adoptions`, mig `0030`): no contamina los reportes; en el feed
+  solo aparecen animales en adopción. Campos: especie/nombre/descripción/fotos + edad,
+  tamaño, esterilizado, vacunas (`al_dia/no/no_se`), convive niños/perros/gatos, requisitos.
+  Ubicación difuminada. RLS: pública solo de activas/no-ocultas/no-adoptadas **o** del dueño.
+  RPC `buscar_adopciones` (cursor con el arreglo de la 0015). La `0030` también amplía
+  `denuncias.tipo` con `'adopcion'` (drop robusto por `pg_constraint`, no por nombre).
+- **Feed tipo Instagram** (8ª pestaña "Adopción"): fotos grandes + carrusel, corazón para
+  guardar, "Quiero conocerlo" (chat), chips de especie/tamaño, recientes/cerca, scroll
+  infinito, pull-to-refresh. Publicar (FAB) con moderación de texto + confirmación de imagen.
+  Detalle público `/adopcion/:id` (modo invitado) con "¡Ya encontró familia!" (Confetti) +
+  borrar + denunciar. Guardar (tabla `adoption_saves` + provider) y sección en "Guardados".
+- **Chat generalizado a `HiloCtx`** (lo delicado): `messages` suma `adoption_id`; el mismo
+  chat sirve reportes y adopciones. La trampa del `.is('pet_id', null)` (un mensaje de
+  adopción tiene `pet_id` null y podría colarse en un hilo de reporte-borrado) quedó cerrada
+  en los 4 caminos (listMessages, markThreadRead, realtime, agrupado). Verificado por la
+  revisión adversarial dedicada.
+- **Los 2 Critical que cazó la revisión (ambos de navegación, ninguno lo vio un test):**
+  (1) la RLS de `adoptions` arrancó con `using(true)` y exponía por la API REST las ocultas/
+  adoptadas → cerrada como `0004_public_read`; (2) el botón "Quiero conocerlo" del **detalle**
+  usaba `navigate('Chat')` relativo desde el stack raíz (CTA muerto, incluido el único camino
+  de contacto de un link compartido) → arreglado con navegación anidada absoluta, patrón de
+  `PublicPetScreen`. Ambos arreglados y verificados.
+
+**⚠️ PENDIENTE del usuario / deploy:**
+1. **Aplicar la migración `0030`** a Supabase (API admin con PAT). **OBLIGATORIO antes de
+   subir la web**: el chat generalizado usa `adoption_id` sin degradación, así que sin la
+   `0030` aplicada se rompería el chat de reportes existente en producción.
+2. **Redesplegar `send-push`** (cambió: ahora manda `data.ruta`) y **subir la web**.
+3. Menores para v1.1: editar una publicación de adopción (hoy: borrar + marcar adoptada);
+   cablear el encabezado del chat de adopción al detalle; consumir `data.ruta` del push.
+
 ## 🗓️ SESIÓN 2026-07-21 (tarde) — Tanda de 4 funciones nuevas en paralelo
 
 Cuatro funciones construidas **en paralelo con 4 agentes** (una rama/worktree cada una),
