@@ -73,13 +73,19 @@ create table public.adoptions (
 
 alter table public.adoptions enable row level security;
 
--- RLS: lectura publica sin restriccion de rol (invitado incluido — hay ruta
--- publica /adopcion/:id, "modo invitado"). La visibilidad EFECTIVA del feed
--- (activa, no oculta, no adoptada) la filtra `buscar_adopciones`, no la RLS:
--- asi el propio dueno puede seguir viendo/editando sus publicaciones
--- inactivas/ocultas/adoptadas desde "Mis adopciones".
+-- RLS: lectura publica de SOLO las adopciones activas/no ocultas/no
+-- adoptadas (invitado incluido — hay ruta publica /adopcion/:id, "modo
+-- invitado"), MAS las propias filas del dueno aunque esten inactivas,
+-- ocultas o ya adoptadas (para "Mis adopciones"). `using (true)` exponia por
+-- la API REST de PostgREST filas ocultadas por moderacion, inactivas y ya
+-- adoptadas a `anon` y a cualquier `authenticated` — exactamente lo que
+-- `buscar_adopciones` excluye por su cuenta, pero la tabla se puede leer
+-- directo sin pasar por la RPC. Mismo patron que la publica de `pets` en
+-- 0004_public_read.sql, con el agregado de `auth.uid() = user_id` porque acá
+-- el propio dueno SI necesita ver sus filas ocultas/inactivas.
 create policy "adopciones visibles"
-  on public.adoptions for select using (true);
+  on public.adoptions for select
+  using ((activo = true and oculto = false and adoptada_en is null) or auth.uid() = user_id);
 
 create policy "crear mis adopciones"
   on public.adoptions for insert to authenticated with check (auth.uid() = user_id);
@@ -150,10 +156,11 @@ create index adoption_saves_user_id_idx on public.adoption_saves (user_id);
 -- 4. RPC buscar_adopciones — espejo simplificado de buscar_reportes
 -- ------------------------------------------------------------
 -- SECURITY INVOKER (el default, no se declara explicito): corre con los
--- permisos de quien llama. Como la RLS de `adoptions` es `using (true)` sin
--- restriccion de rol, esto NO filtra nada por si solo — la visibilidad
--- efectiva del feed (activa/no oculta/no adoptada) la impone el WHERE de
--- abajo, igual que documenta el spec.
+-- permisos de quien llama. La RLS de `adoptions` ya solo deja ver
+-- activa/no-oculta/no-adoptada (mas las propias filas del dueno), asi que el
+-- WHERE de abajo es un segundo filtro redundante con esa parte de la
+-- politica — se deja explicito igual, por claridad y porque documenta el
+-- criterio del feed independiente de como evolucione la RLS.
 --
 -- SIN FILTRO DE BLOQUEO: `buscar_reportes` tampoco lo aplica, y
 -- `hay_bloqueo_con` es SECURITY DEFINER solo para `authenticated` (revoca
@@ -259,10 +266,32 @@ $$;
 -- ------------------------------------------------------------
 -- La 0025 agrego la columna `tipo` con un CHECK inline via
 -- `alter table ... add column ... check (...)`, sin nombrarlo: Postgres le
--- puso el nombre automatico `<tabla>_<columna>_check`. Mismo criterio que
--- `notification_events_tipo_check` (0026/0027): drop + add defensivo, así
--- corre limpio sin importar si ya se aplico antes.
-alter table public.denuncias drop constraint if exists denuncias_tipo_check;
+-- puso el nombre automatico `<tabla>_<columna>_check` (`denuncias_tipo_check`
+-- de asumirse el patron estandar). Pero asumir ese nombre es fragil: si por
+-- lo que sea difiere (renombrado a mano, migracion aplicada distinto, etc.),
+-- un simple `drop constraint if exists denuncias_tipo_check` no borraria
+-- nada y quedarian DOS CHECK sobre `tipo` — el viejo (sin 'adopcion') y el
+-- nuevo — y Postgres
+-- exige que TODOS los CHECK pasen, asi que 'adopcion' quedaria rechazado en
+-- silencio pese a que esta migracion "corrio bien". Por eso, en vez de
+-- adivinar el nombre, se recorre `pg_constraint` buscando CUALQUIER CHECK de
+-- `public.denuncias` cuya definicion mencione la columna `tipo` y se borra
+-- por su nombre real antes de agregar el nuevo.
+do $$
+declare
+  r record;
+begin
+  for r in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.denuncias'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%tipo%'
+  loop
+    execute format('alter table public.denuncias drop constraint %I', r.conname);
+  end loop;
+end $$;
+
 alter table public.denuncias
   add constraint denuncias_tipo_check
   check (tipo in ('reporte', 'usuario', 'mensaje', 'pista', 'avistamiento', 'adopcion'));
