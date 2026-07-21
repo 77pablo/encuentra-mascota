@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
-import { listConversations, Conversation } from '../services/messages';
+import { listConversations, Conversation, paramsDeCtx } from '../services/messages';
 import { useAuth } from '../hooks/useAuth';
 import { timeAgo } from '../lib/time';
 import { AppText, Card, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
@@ -51,7 +51,7 @@ export default function ConversationsScreen({ navigation }: any) {
       </Title>
       <FlatList
         data={convs}
-        keyExtractor={(c) => `${c.petId}:${c.otherUser}`}
+        keyExtractor={(c) => `${c.ctx.tipo}:${c.ctx.tipo === 'pet_borrado' ? '' : c.ctx.id}:${c.otherUser}`}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
@@ -63,7 +63,9 @@ export default function ConversationsScreen({ navigation }: any) {
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => navigation.navigate('Chat', { petId: item.petId, otherUserId: item.otherUser })}
+            onPress={() =>
+              navigation.navigate('Chat', { ...paramsDeCtx(item.ctx), otherUserId: item.otherUser })
+            }
             activeOpacity={0.85}
           >
             <Card style={styles.row}>
