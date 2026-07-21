@@ -16,7 +16,13 @@ Sistema de comunas. Construida en fases; C y D con **agentes en paralelo**. `tsc
 1. ✅ **Migraciones `0020` y `0021` APLICADAS y VERIFICADAS (20-jul)** contra la base real: `pets.comuna`/`comunas_alcance` existen, `buscar_reportes` acepta `p_comuna`, `notification_prefs.comunas_seguidas` existe.
 2. ✅ **Edge Function REDESPLEGADA y verificada (20-jul)**: `OPTIONS` sin credenciales → 204; `POST` con la clave pública → `{"ok":true,"procesados":0,"fallidos":0}`. El aviso por comuna está activo.
 3. ✅ **Web SUBIDA y verificada (20-jul)**: producción sirve el bundle nuevo `index-503de3bd…js` y el ruteo SPA funciona (`/mascota/…` → 200). Las tandas 1/2/3 + B/C(edad)/D están en producción.
-4. ✅ **Smoke test visual con Playwright (20-jul) contra producción:** saludo con nombre ("¿Buscamos juntos, Pablo Prueba?", Tanda 1); pestaña Comunidad + selector de comuna (búsqueda "maip" sin tilde → Maipú/Isla de Maipo/San José de Maipo) + "Maipú · 0 reportes activos" + botón "Avisarme de Maipú" (Tanda 3); rechazo por edad <14 con mensaje en español y sin crear cuenta (Tanda C). **NO ejercitado en navegador** (verificado en código + DB): bloqueo/denuncia (necesita 2 cuentas + un reporte), Instagram pinchable / perfil público con stats, y el auto-sugerir comuna al publicar (el navegador headless no da GPS).
+4. ✅ **Smoke test visual con Playwright (20-jul) contra producción — COMPLETO, todas las tandas ejercitadas:**
+   - **Tanda 1:** saludo "¿Buscamos juntos, Pablo Prueba?" (nombre, no correo) + inicial "P".
+   - **Tanda 3:** pestaña Comunidad + selector (búsqueda "maip" sin tilde → Maipú/Isla de Maipo/San José de Maipo) + "Maipú · 0 reportes activos" + botón "Avisarme de Maipú"; chip "Filtrar por comuna" en Lista; **publicar** con "Comuna: Santiago" auto-sugerida + chips de vecinas → reporte publicado OK.
+   - **Tanda C:** rechazo por edad <14 con mensaje en español y sin crear cuenta; y registro con edad válida OK.
+   - **Tanda B:** con una 2.ª cuenta, abrir el reporte → "Publicado por Pablo Prueba" → perfil público → botones **Denunciar + Bloquear** → bloqueo confirmado ("Persona bloqueada").
+   - **Tanda 2:** perfil público con portada, tiles (Reencuentros 0 · Reportes 1 · Aportes 0) y secciones.
+   - ⚠️ **Datos de prueba que quedaron en producción:** un reporte de Pablo ("Perro… REPORTE DE PRUEBA" + su foto), la cuenta `pwvecino…@example.com` ("Vecino Prueba"), y un bloqueo (Vecino → Pablo). Borrables desde la app si se quiere; o quedan como huella.
 
 ### 🏪 Tandas B, C(edad) y D — construidas con 3 agentes en paralelo (20-jul)
 
