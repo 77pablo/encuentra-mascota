@@ -3,8 +3,9 @@ import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Scro
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
-import { getPet, Pet } from '../services/pets';
+import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
+import { NudgeVigencia } from '../components/NudgeVigencia';
 import { markReunited } from '../services/reunions';
 import {
   denunciarAvistamiento,
@@ -87,6 +88,8 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [fotoFeliz, setFotoFeliz] = useState<string | null>(null);
   const [guardandoReunion, setGuardandoReunion] = useState(false);
   const [mostrarConfetti, setMostrarConfetti] = useState(false);
+  // Nudge de vigencia (ciclo de vida): "sigue perdida" / "archivar".
+  const [guardandoVigencia, setGuardandoVigencia] = useState(false);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -328,6 +331,44 @@ export default function PetDetailScreen({ route, navigation }: any) {
     }
   };
 
+  // "Sigue perdida": renueva el reporte (reinicia el reloj de 45 días) para que
+  // siga apareciendo en las búsquedas. Reflejamos el cambio sin volver a la base.
+  const renovarVigencia = async () => {
+    if (!pet) return;
+    setGuardandoVigencia(true);
+    try {
+      await renovarReporte(pet.id);
+      setPet({ ...pet, renovado_en: new Date().toISOString() });
+      notify('Gracias', 'Tu reporte sigue activo. Seguimos buscando.');
+    } catch (e: any) {
+      notify('No se pudo actualizar', mensajeDeErrorDb(e));
+    } finally {
+      setGuardandoVigencia(false);
+    }
+  };
+
+  // "Archivar por ahora": lo vence ya (sale de las búsquedas), pero queda en
+  // "Mis reportes" para reactivarlo con un toque. No se borra nada.
+  const archivarVigencia = async () => {
+    if (!pet) return;
+    const ok = await confirmAction(
+      '¿Archivar este reporte?',
+      'Dejará de aparecer en las búsquedas y el mapa. Podés reactivarlo cuando quieras desde tu perfil.',
+    );
+    if (!ok) return;
+    setGuardandoVigencia(true);
+    try {
+      await archivarReporte(pet.id);
+      const hace46Dias = new Date(Date.now() - 46 * 24 * 60 * 60 * 1000).toISOString();
+      setPet({ ...pet, renovado_en: hace46Dias });
+      notify('Archivado', 'Tu reporte quedó guardado. Lo reactivás cuando quieras.');
+    } catch (e: any) {
+      notify('No se pudo archivar', mensajeDeErrorDb(e));
+    } finally {
+      setGuardandoVigencia(false);
+    }
+  };
+
   const crearAfiche = async () => {
     if (!user) return;
     try {
@@ -461,6 +502,18 @@ export default function PetDetailScreen({ route, navigation }: any) {
             {pet.descripcion}
           </AppText>
         </Card>
+
+        {/* Nudge de vigencia: solo en el reporte propio, no reunido, cuando ya
+            pasaron 14+ días sin renovar. Se dibuja solo (null) si no toca. */}
+        {esMio && !reunida ? (
+          <NudgeVigencia
+            pet={pet}
+            onVolvio={() => setMostrarReunion(true)}
+            onRenovar={renovarVigencia}
+            onArchivar={archivarVigencia}
+            guardando={guardandoVigencia}
+          />
+        ) : null}
 
         {pet.recompensa ? (
           <>
