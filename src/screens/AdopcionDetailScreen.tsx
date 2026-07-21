@@ -129,7 +129,18 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
 
   const contactar = () => {
     if (!requireAuth('contactar')) return;
-    navigation.navigate('Chat', { adoptionId: adoption.id, otherUserId: adoption.user_id });
+    // AdopcionDetail vive en el stack RAÍZ (para el link público `adopcion/:id`),
+    // y ahí NO existe la pantalla `Chat`. Un `navigate('Chat')` a secas burbujea
+    // hacia arriba y queda sin manejar (CTA muerto). Hay que direccionar de forma
+    // anidada y absoluta hasta el `Chat` que vive dentro de la pestaña Adopción,
+    // igual que `PublicPetScreen` salta a la pestaña Mapa para abrir su chat.
+    navigation.navigate('App', {
+      screen: 'Adopcion',
+      params: {
+        screen: 'Chat',
+        params: { adoptionId: adoption.id, otherUserId: adoption.user_id },
+      },
+    });
   };
 
   const alternarGuardado = () => {
