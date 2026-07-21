@@ -65,7 +65,13 @@ creado_en     timestamptz not null default now()
 `'recientes'|'cerca'`, **paginación por cursor** (misma técnica y arreglo de redondeo del
 cursor de distancia que la 0015, para no repetir/saltear filas), excluye
 `activo=false`/`oculto=true`/`adoptada_en is not null`. Devuelve las columnas de la tarjeta +
-`distancia_km`.
+`distancia_km`. **Sin filtro de bloqueo en la RPC**: `buscar_reportes` tampoco lo hace, y
+`hay_bloqueo_con` es solo para `authenticated` mientras el feed es público/invitado (llamarlo
+como anon rompería). El ocultado de bloqueados se maneja como en reportes (fuera del RPC).
+
+**Ampliar `denuncias.tipo`:** la `0025` dejó el CHECK en
+`('reporte','usuario','mensaje','pista','avistamiento')`. La `0030` lo amplía con `'adopcion'`
+(drop + add defensivo) para que `denunciarAdopcion` (tarea 7) funcione.
 
 ### Generalización del chat (la parte delicada)
 
@@ -168,9 +174,9 @@ adopciones guardadas (o una entrada aparte); decisión menor de UI en implementa
 - **Ubicación difuminada** (~250 m), nunca la exacta.
 - **Legal:** los Términos ya prohíben la venta de animales; la adopción gratuita es
   legítima. La denuncia/bloqueo (Tanda B) debe alcanzar también las publicaciones de
-  adopción y su chat → `moderation.ts` suma `denunciarAdopcion`, y el ocultado de contenido
-  de usuarios bloqueados aplica al feed (filtrar en `buscar_adopciones` como en reportes, no
-  después de paginar).
+  adopción y su chat → `moderation.ts` suma `denunciarAdopcion` (`tipo='adopcion'`, agregado
+  al CHECK de `denuncias` en la `0030`). El ocultado de contenido de usuarios bloqueados se
+  maneja como en reportes (no en la RPC — ver la nota en `buscar_adopciones`).
 
 ## Testing
 
