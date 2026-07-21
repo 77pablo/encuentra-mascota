@@ -1,5 +1,27 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-20 — Tandas 1 y 2 (perfil / comunidad)
+
+Se acordó un plan de **3 tandas** (1 → 2 → 3). Hechas la 1 y la 2; la 3 queda pendiente.
+
+**🟢 Tanda 1 — commit `f8ea67f`** (código listo, falta verificación visual en navegador):
+- **Saludo con el nombre** del perfil en Inicio (antes usaba la parte local del correo) + inicial del avatar; también se arregló la inicial en Perfil.
+- **Red social pinchable:** en Perfil se elige plataforma (Instagram/Facebook/TikTok/Otro) + usuario; se guarda como **URL** en la columna `red_social` (sin migración) y se muestra como link tocable. Helper puro `src/lib/redSocial.ts` (14 tests).
+
+**🔵 Tanda 2 — commit `b9f839e`** (código listo + migración aplicada y verificada; falta verificación visual):
+- **Perfil público** (`PublicProfileScreen`): portada, 3 stats tocables (reencuentros/reportes/aportes), insignias sobrias, red social como link, secciones de reportes y reencuentros. La ve cualquiera, incluso invitado. **Fail-closed** si el RPC no está.
+- **Migración `0019` APLICADA y VERIFICADA (20-jul) contra la base real:** RPC `perfil_publico(user_id)` `security definer` — devuelve stats + red social, **nunca `telefono`** (comprobado: la respuesta ni siquiera trae esa columna, y pedir `telefono` directo sigue dando `42501`); `user_id` inexistente/borrado → 0 filas; responde a invitado y a autenticado. Incluye política aditiva para que el invitado también vea reencuentros (y de paso la tira "Finales felices" de Inicio). ⚠️ Al aplicarla, el `grant ... to anon, authenticated` en una línea se rompió al copiar (perdió `authenticated;`) → se partió en dos `grant` (commit `da…`); la versión del repo ya es la robusta.
+- **Insignias** `src/lib/insignias.ts` (8 tests): "Reencuentros logrados"→"Vecino de confianza" (≥5), "Colabora con el barrio" (≥5)→"Colaborador constante" (≥20). Tono de **señal de confianza, no gamificación** (pedido explícito: "no tan infantil ni tan IA").
+- **Entradas al perfil:** "Publicado por [nombre] →" en el detalle, firma de pistas tocable (no "Un vecino"), y encabezado tocable en el chat. `PublicProfile` registrado en los 5 stacks. `profile.getNombrePublico`.
+- **Desvíos anotados:** los avistamientos NO se hicieron tocables (la UI no muestra su autor); "desde el chat" se resolvió como encabezado en `ChatScreen`, no en la lista de Conversaciones (ahí tocar la fila abre el chat).
+- Spec: `docs/superpowers/specs/2026-07-20-tanda2-perfil-publico-design.md`.
+
+**Estado de verificación:** `tsc` limpio, **302 tests** verdes. Migración `0019` verificada contra la base. **Falta: prueba visual en el navegador** (saludo, red social tocable, y las tres entradas al perfil público).
+
+**⏭️ Pendiente inmediato:** (1) verificación visual de las tandas 1 y 2 en el navegador; (2) **Tanda 3 — comunidad por comuna** (A: comuna + feed por comuna; B: comunas vecinas al publicar; C: avisar a vecinos; D: amplificar el compartir) — la grande, candidata a construirse con agentes en paralelo. La fuga de contacto de `profiles` **ya estaba cerrada** por `0018` (ver más abajo; el punto que decía lo contrario en "PARA RETOMAR" estaba desactualizado y se corrigió).
+
+---
+
 Última sesión: 2026-07-19 (**borrar mi cuenta** en producción y verificado end-to-end; las 3 Edge Functions desplegadas; migración `0017` aplicada) · Rama de trabajo: `feat/mvp-encuentra-mascota`. El repo no tiene remoto en GitHub todavía. ✅ **`master` ya tiene TODO fusionado** (merge local `--no-ff`; ambas ramas idénticas en `a657fe7`), incluidas las 3 funciones nuevas de esta sesión (alertas por zona, visto por acá, reencuentro).
 
 ## 🔒 TANDA A — PRIVACIDAD (19-jul) — ✅ EN PRODUCCIÓN Y VERIFICADA
