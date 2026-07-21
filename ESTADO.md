@@ -15,7 +15,8 @@ Sistema de comunas. Construida en fases; C y D con **agentes en paralelo**. `tsc
 **Pendiente del usuario para la Tanda 3:**
 1. ✅ **Migraciones `0020` y `0021` APLICADAS y VERIFICADAS (20-jul)** contra la base real: `pets.comuna`/`comunas_alcance` existen, `buscar_reportes` acepta `p_comuna`, `notification_prefs.comunas_seguidas` existe.
 2. ✅ **Edge Function REDESPLEGADA y verificada (20-jul)**: `OPTIONS` sin credenciales → 204; `POST` con la clave pública → `{"ok":true,"procesados":0,"fallidos":0}`. El aviso por comuna está activo.
-3. ✅ **Web SUBIDA y verificada (20-jul)**: producción sirve el bundle nuevo `index-503de3bd…js` y el ruteo SPA funciona (`/mascota/…` → 200). Las tandas 1/2/3 + B/C(edad)/D están en producción. Falta solo la **verificación visual** en el navegador.
+3. ✅ **Web SUBIDA y verificada (20-jul)**: producción sirve el bundle nuevo `index-503de3bd…js` y el ruteo SPA funciona (`/mascota/…` → 200). Las tandas 1/2/3 + B/C(edad)/D están en producción.
+4. ✅ **Smoke test visual con Playwright (20-jul) contra producción:** saludo con nombre ("¿Buscamos juntos, Pablo Prueba?", Tanda 1); pestaña Comunidad + selector de comuna (búsqueda "maip" sin tilde → Maipú/Isla de Maipo/San José de Maipo) + "Maipú · 0 reportes activos" + botón "Avisarme de Maipú" (Tanda 3); rechazo por edad <14 con mensaje en español y sin crear cuenta (Tanda C). **NO ejercitado en navegador** (verificado en código + DB): bloqueo/denuncia (necesita 2 cuentas + un reporte), Instagram pinchable / perfil público con stats, y el auto-sugerir comuna al publicar (el navegador headless no da GPS).
 
 ### 🏪 Tandas B, C(edad) y D — construidas con 3 agentes en paralelo (20-jul)
 
