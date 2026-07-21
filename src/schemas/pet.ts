@@ -9,6 +9,11 @@ export const petSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   recompensa: z.string().trim().max(100).optional().or(z.literal('')),
+  // Comuna "casa" del reporte + comunas de alcance (vecinas). Opcionales en el
+  // schema para no romper EditPet (que reusa este schema y no toca la comuna);
+  // PublishScreen exige la comuna por su cuenta antes de publicar.
+  comuna: z.string().trim().min(1).max(80).optional(),
+  comunas_alcance: z.array(z.string()).optional(),
 });
 
 export type PetInput = z.infer<typeof petSchema>;

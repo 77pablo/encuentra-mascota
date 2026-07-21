@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { FlatList, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
@@ -10,7 +10,8 @@ import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
-import { AppText, AvisoEstafa, Button, Card, Input, Screen, Title } from '../ui';
+import { buscarComunas, comunaDeCoords, comunasCercanas } from '../lib/comunas';
+import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const estadoOptions: { key: 'perdida' | 'encontrada'; label: string; color: string }[] = [
@@ -41,7 +42,38 @@ export default function PublishScreen({ navigation, route }: any) {
     typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
   );
   const [coords, setCoords] = useState({ lat: -33.45, lng: -70.66 });
+  const [comuna, setComuna] = useState<string | null>(null);
+  const [comunasAlcance, setComunasAlcance] = useState<string[]>([]);
+  const [comunaManual, setComunaManual] = useState(false);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [busquedaComuna, setBusquedaComuna] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Auto-sugerir la comuna desde el punto del mapa. Se recalcula cuando el
+  // usuario mueve el pin, salvo que ya la haya fijado a mano. Al cambiar la
+  // comuna "casa", se limpia el alcance (las vecinas de antes ya no aplican).
+  useEffect(() => {
+    if (comunaManual) return;
+    const c = comunaDeCoords(coords.lat, coords.lng);
+    if (c && c.nombre !== comuna) {
+      setComuna(c.nombre);
+      setComunasAlcance([]);
+    }
+  }, [coords, comunaManual, comuna]);
+
+  const elegirComuna = (nombre: string) => {
+    setComuna(nombre);
+    setComunaManual(true);
+    setComunasAlcance([]);
+    setSelectorOpen(false);
+    setBusquedaComuna('');
+  };
+
+  const toggleAlcance = (nombre: string) => {
+    setComunasAlcance((prev) =>
+      prev.includes(nombre) ? prev.filter((n) => n !== nombre) : [...prev, nombre],
+    );
+  };
 
   const addFotos = (nuevas: string[]) => {
     if (nuevas.length === 0) return;
@@ -76,13 +108,27 @@ export default function PublishScreen({ navigation, route }: any) {
   };
 
   const onSubmit = async () => {
-    const parsed = petSchema.safeParse({ estado, especie, raza, nombre, descripcion, recompensa, ...coords });
+    const parsed = petSchema.safeParse({
+      estado,
+      especie,
+      raza,
+      nombre,
+      descripcion,
+      recompensa,
+      comuna: comuna ?? undefined,
+      comunas_alcance: comunasAlcance,
+      ...coords,
+    });
     if (!parsed.success) {
       notify('Falta algo', parsed.error.issues[0].message);
       return;
     }
     if (fotoUris.length === 0) {
       notify('Falta la foto', 'Agrega al menos una foto de la mascota.');
+      return;
+    }
+    if (!comuna) {
+      notify('Falta la comuna', 'Confirmá la comuna del reporte.');
       return;
     }
     setSaving(true);
@@ -236,6 +282,37 @@ export default function PublishScreen({ navigation, route }: any) {
               }
             />
           </MapView>
+
+          <View style={styles.comunaRow}>
+            <Ionicons name="business-outline" size={18} color={colors.brand} />
+            <AppText size={14} style={styles.comunaLabel}>
+              Comuna: <AppText weight="bold" size={14}>{comuna ?? 'sin detectar'}</AppText>
+            </AppText>
+            <Button
+              title="Cambiar"
+              variant="ghost"
+              onPress={() => setSelectorOpen(true)}
+              style={styles.comunaCambiar}
+            />
+          </View>
+
+          {comuna && comunasCercanas(comuna, 4).length > 0 ? (
+            <>
+              <AppText muted size={12} style={styles.helper}>
+                Sumá comunas vecinas para que tu reporte llegue a más gente (opcional):
+              </AppText>
+              <View style={styles.chipsRow}>
+                {comunasCercanas(comuna, 4).map((v) => (
+                  <Chip
+                    key={v.nombre}
+                    label={v.nombre}
+                    active={comunasAlcance.includes(v.nombre)}
+                    onPress={() => toggleAlcance(v.nombre)}
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
         </Card>
 
         <Button
@@ -247,6 +324,50 @@ export default function PublishScreen({ navigation, route }: any) {
           style={styles.submitButton}
         />
       </ScrollView>
+
+      <Modal
+        visible={selectorOpen}
+        animationType="slide"
+        onRequestClose={() => setSelectorOpen(false)}
+      >
+        <Screen padded>
+          <View style={styles.selectorHeader}>
+            <Title size={20}>Elegí la comuna</Title>
+            <TouchableOpacity onPress={() => setSelectorOpen(false)} accessibilityLabel="Cerrar">
+              <Ionicons name="close" size={24} color={colors.ink} />
+            </TouchableOpacity>
+          </View>
+          <Input
+            placeholder="Buscar comuna…"
+            value={busquedaComuna}
+            onChangeText={setBusquedaComuna}
+            icon="search"
+            autoCapitalize="none"
+          />
+          <FlatList
+            data={buscarComunas(busquedaComuna)}
+            keyExtractor={(c) => c.nombre}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => elegirComuna(item.nombre)}
+                style={styles.comunaItem}
+              >
+                <AppText size={15}>{item.nombre}</AppText>
+                <AppText muted size={12}>
+                  {item.region}
+                </AppText>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <AppText muted size={14} style={styles.selectorVacio}>
+                No encontramos esa comuna.
+              </AppText>
+            }
+          />
+        </Screen>
+      </Modal>
     </Screen>
   );
 }
@@ -328,6 +449,34 @@ const styles = StyleSheet.create({
   },
   helper: {
     marginBottom: spacing.xs,
+  },
+  comunaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  comunaLabel: {
+    flex: 1,
+  },
+  comunaCambiar: {
+    paddingHorizontal: spacing.sm,
+  },
+  selectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  comunaItem: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  selectorVacio: {
+    textAlign: 'center',
+    marginTop: spacing.xl,
   },
   map: {
     width: '100%',

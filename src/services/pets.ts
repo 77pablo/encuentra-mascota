@@ -19,6 +19,10 @@ export interface Pet {
   activo: boolean;
   oculto: boolean;
   creado_en: string;
+  // Comuna "casa" del reporte y comunas de alcance (vecinas). Pueden faltar en
+  // reportes viejos (anteriores a la Tanda 3).
+  comuna?: string | null;
+  comunas_alcance?: string[] | null;
   // Final feliz (verificación de reencuentro) — ver reunions.ts / lib/reunion.ts.
   reunida_en?: string | null;
   final_feliz?: string | null;
