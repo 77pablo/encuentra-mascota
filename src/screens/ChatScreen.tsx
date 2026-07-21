@@ -105,14 +105,21 @@ export default function ChatScreen({ route, navigation }: any) {
       // `catch` vacío tapó durante semanas que la función `send-push` ni
       // siquiera estaba desplegada (respondía 404) y nadie se enteró.
       // El titulo se adapta al contexto: una adopcion no es "una mascota"
-      // (reporte perdida/encontrada). La ruta del deep-link (/adopcion/:id vs
-      // /mascota/:id) la arma la propia funcion send-push (fuera de esta tarea).
+      // (reporte perdida/encontrada). La ruta del deep-link SÍ la arma el
+      // cliente (acá): `send-push` hoy no construía ninguna, solo reenviaba
+      // title/body a Expo sin `data`. Se sigue el mismo patrón que
+      // `send-notifications` (la cola de avisos), que ya manda `data: { ruta }`
+      // en el push. Un hilo de reporte borrado (`pet_borrado`) no tiene a
+      // dónde llevar: se manda sin ruta.
+      const ruta =
+        ctx.tipo === 'adopcion' ? `/adopcion/${ctx.id}` : ctx.tipo === 'pet' ? `/mascota/${ctx.id}` : undefined;
       supabase.functions
         .invoke('send-push', {
           body: {
             toUserId: otherUserId,
             title: ctx.tipo === 'adopcion' ? 'Nuevo mensaje sobre una adopción' : 'Nuevo mensaje sobre una mascota',
             body: t.slice(0, 80),
+            ruta,
           },
         })
         .catch((e) => console.warn('No se pudo mandar el aviso push del mensaje:', e));

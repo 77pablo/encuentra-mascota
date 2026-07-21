@@ -80,7 +80,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { toUserId, title, body } = await req.json();
+    // `ruta` es opcional y la arma el cliente (ChatScreen): `/adopcion/:id`
+    // para un chat de adopción, `/mascota/:id` para uno de reporte, o
+    // ausente para un hilo de reporte ya borrado. Mismo patrón (`data: { ruta }`
+    // en el push de Expo) que usa `send-notifications` para la cola de avisos.
+    const { toUserId, title, body, ruta } = await req.json();
     if (!toUserId || !title) {
       return new Response(JSON.stringify({ error: 'Faltan datos' }), {
         status: 400,
@@ -119,7 +123,12 @@ Deno.serve(async (req: Request) => {
       .select('token')
       .eq('user_id', toUserId);
 
-    const messages = (tokens ?? []).map((t) => ({ to: t.token, title, body: body ?? '' }));
+    const messages = (tokens ?? []).map((t) => ({
+      to: t.token,
+      title,
+      body: body ?? '',
+      ...(typeof ruta === 'string' && ruta ? { data: { ruta } } : {}),
+    }));
     if (messages.length > 0) {
       await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',

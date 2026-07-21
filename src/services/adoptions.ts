@@ -80,6 +80,24 @@ export async function listMyAdoptions(userId: string): Promise<Adoption[]> {
   return (data ?? []) as Adoption[];
 }
 
+// Las adopciones guardadas completas, para la pantalla "Guardados". A
+// diferencia de `listMyFavorites` (que hace join `favorites → pets` en una
+// sola consulta), acá partimos de los ids en memoria de `useAdoptionSaves`
+// (tabla paralela `adoption_saves`, sin FK de storage/join directo desde el
+// cliente) y traemos las filas por `.in('id', ids)`. Con `ids` vacío no
+// consultamos: `.in('id', [])` es una llamada de red innecesaria que además
+// algunos clientes de PostgREST resuelven distinto.
+export async function getAdoptionsByIds(ids: string[]): Promise<Adoption[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('adoptions')
+    .select('*')
+    .in('id', ids)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Adoption[];
+}
+
 export async function updateAdoption(
   id: string,
   fields: Partial<

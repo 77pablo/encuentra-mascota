@@ -1,6 +1,7 @@
 import {
   createAdoption,
   getAdoption,
+  getAdoptionsByIds,
   listMyAdoptions,
   updateAdoption,
   deleteAdoption,
@@ -18,6 +19,7 @@ function makeQueryBuilder(result: { data: any; error: any }) {
     update: jest.fn(() => builder),
     delete: jest.fn(() => builder),
     eq: jest.fn(() => builder),
+    in: jest.fn(() => builder),
     order: jest.fn(() => builder),
     single: jest.fn(() => Promise.resolve(result)),
     maybeSingle: jest.fn(() => Promise.resolve(result)),
@@ -145,6 +147,43 @@ describe('listMyAdoptions', () => {
     mockFrom.mockReturnValue(builder);
 
     await expect(listMyAdoptions('user-1')).rejects.toEqual({ message: 'boom' });
+  });
+});
+
+describe('getAdoptionsByIds', () => {
+  it('trae las filas por id y ordena por creado_en desc', async () => {
+    const rows = [{ id: 'ad-2' }, { id: 'ad-1' }];
+    const builder = makeQueryBuilder({ data: rows, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    const adoptions = await getAdoptionsByIds(['ad-1', 'ad-2']);
+
+    expect(mockFrom).toHaveBeenCalledWith('adoptions');
+    expect(builder.in).toHaveBeenCalledWith('id', ['ad-1', 'ad-2']);
+    expect(builder.order).toHaveBeenCalledWith('creado_en', { ascending: false });
+    expect(adoptions).toEqual(rows);
+  });
+
+  it('no consulta la base si no hay ids', async () => {
+    const adoptions = await getAdoptionsByIds([]);
+
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(adoptions).toEqual([]);
+  });
+
+  it('devuelve [] cuando data es null', async () => {
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    const adoptions = await getAdoptionsByIds(['ad-1']);
+    expect(adoptions).toEqual([]);
+  });
+
+  it('propaga el error de supabase', async () => {
+    const builder = makeQueryBuilder({ data: null, error: { message: 'boom' } });
+    mockFrom.mockReturnValue(builder);
+
+    await expect(getAdoptionsByIds(['ad-1'])).rejects.toEqual({ message: 'boom' });
   });
 });
 
