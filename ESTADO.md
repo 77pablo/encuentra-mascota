@@ -17,6 +17,18 @@ Sistema de comunas. Construida en fases; C y D con **agentes en paralelo**. `tsc
 2. **Redesplegar la Edge Function** para que el aviso por comuna funcione: `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`. (Pendiente.)
 3. **Subir la web** (`npx expo export --platform web` → Cloudflare) para que las tandas 1/2/3 estén en producción, y verificación visual en el navegador (publicar con comuna + vecinas; pestaña Comunidad; seguir; los 3 feeds).
 
+### 🏪 Tandas B, C(edad) y D — construidas con 3 agentes en paralelo (20-jul)
+
+Sobre la base de las tandas 1-3, tres tandas más **en paralelo** (agentes, archivos disjuntos, migraciones asignadas). `tsc` limpio, **364 tests**. Revisé a mano la RLS de bloqueo y las funciones compartidas antes de commitear.
+- **Tanda B — bloquear + denunciar** (commit `14e0cca`): bloqueador de tiendas. Migración `0022` (tabla `bloqueos` con **RLS asimétrica** —nadie sabe quién lo bloqueó—, `hay_bloqueo_con(otro)` security definer de un parámetro, y la policy de insert de `messages` rechaza al bloqueado en el servidor) + migración `0025` (denuncias generalizadas: `tipo/objeto_id/usuario_denunciado/detalle`, `pet_id` nullable — **la creé yo**, ningún agente la tenía asignada). `bloqueos.ts` + `moderation.ts` (denunciar reporte/usuario/mensaje/pista/avistamiento), botones en perfil público/chat/detalle, ocultado de contenido de bloqueados.
+- **Tanda C (solo EDAD)** (commit `1a728b6`): mínimo 14 + fecha de nacimiento en el registro. Migración `0024` (`profiles.fecha_nacimiento` privada, `handle_new_user()` la guarda, `mi_perfil()` la devuelve). **El resto de C (legal, correo de contacto, página de borrado de Google) sigue PARADO** esperando: correo de contacto, nombre legal, y revisar los `[[PENDIENTE]]` de los docs legales.
+- **Tanda D — rendimiento/costos** (commit `ae69795`): migración `0023` (purga de la cola de avisos, solo `estado='enviado'` >90 días, nunca los `error`), cron del despachador a cada 5 min, `listConversations` paginado. Las **fotos huérfanas ya estaban resueltas** en `deletePet`.
+
+**⚠️ Pendiente del usuario (B/C/D):**
+1. Aplicar migraciones **`0022`, `0023`, `0024`, `0025`** en Supabase (SQL Editor).
+2. Agendar la purga de avisos (opcional): SQL en `docs/purga-avisos.sql` (semanal, separado del despachador).
+3. **Follow-ups menores anotados** (no urgentes): `anonimizar_mi_cuenta()` (0017) no limpia las filas de `bloqueos` del que se borra; y no se ocultan las *novedades* del dueño bloqueado (sí sus pistas/avistamientos).
+
 ### Tandas 1 y 2
 
 **🟢 Tanda 1 — commit `f8ea67f`** (código listo, falta verificación visual en navegador):
