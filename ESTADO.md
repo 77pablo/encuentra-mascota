@@ -294,7 +294,14 @@ La app compilada todavía no tiene ni el borrado de cuenta ni la tanda 4. `npx e
 3. **Brevo:** la cuenta sigue sin activar (`403 SMTP account is not yet activated`). Hasta que la habiliten, ningún aviso por correo sale. Alternativa: comprar dominio y volver a Resend — el código ya soporta los dos y elige según qué variables estén cargadas.
 
 4. **Bloqueo de cuenta por intentos fallidos:** recomendación es **no hacerlo tal cual**. Bloquear tras N intentos deja que cualquiera eche al dueño de un reporte tirando claves malas a propósito, justo cuando más necesita entrar. Supabase ya limita por IP. Si se hace, mejor con demora creciente que con bloqueo.
-5. **Nombre de la app:** sin decidir, pero ya **investigado (19-jul)**. Dominios `.cl` verificados uno por uno en el WHOIS de NIC Chile; colisiones buscadas en Google Play / App Store. **INAPI NO se pudo verificar** (su buscador es un formulario ASP.NET que no acepta consultas por URL) — eso hay que hacerlo a mano en `buscadormarcas.inapi.cl`, búsqueda **literal y fonética**, clases **9** (software), **42** (SaaS) y **45** (servicios comunitarios).
+5. **Nombre de la app — DECIDIDO (21-jul): "Huella".** Elegido por Pablo. ⚠️ Diligencia
+   21-jul: `huella.cl` **TOMADO** (desde 2013), `mihuella.cl`/`huellapp.cl` también (este
+   último registrado el 12-jul, landing "HuellApp" en Vercel sin contenido). **`holahuella.cl`
+   LIBRE** → dominio sugerido. En Play ya hay "Huella Canina"/"Huella animal" (compuestos).
+   Es palabra genérica → registrar **marca mixta** y verificar INAPI a mano (literal+fonética,
+   clases 9/42/45). **Falta aplicar el rename en el código** (`app.config.ts` name/slug/scheme
+   + strings "Encuentra tu Mascota"). Investigación previa (19-jul) abajo, ya superada por la
+   decisión: Dominios `.cl` verificados uno por uno en el WHOIS de NIC Chile; colisiones buscadas en Google Play / App Store. **INAPI NO se pudo verificar** (su buscador es un formulario ASP.NET que no acepta consultas por URL) — eso hay que hacerlo a mano en `buscadormarcas.inapi.cl`, búsqueda **literal y fonética**, clases **9** (software), **42** (SaaS) y **45** (servicios comunitarios).
 
    | Nombre | Colisión en tiendas | Dominio `.cl` | Observación |
    |---|---|---|---|
