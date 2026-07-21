@@ -23,6 +23,9 @@ export interface FiltrosBusqueda {
 
 // Un reporte tal como vuelve de la búsqueda: los campos de siempre más la
 // distancia ya calculada por la base (null si no mandamos punto de referencia).
+// `buscar_reportes` (migración 0028) suma `renovado_en` al retorno para que el
+// cliente sepa cuándo nudgear; se hereda de `Pet` y llega en el cast de abajo,
+// sin mapeo manual (la RPC ya solo devuelve los no vencidos).
 export interface PetConDistancia extends Pet {
   distancia_km: number | null;
 }
