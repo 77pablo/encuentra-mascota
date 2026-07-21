@@ -4,7 +4,11 @@ import { petUrl } from './links';
 
 // Arma el texto de un reporte listo para compartir por WhatsApp u otra app.
 export function buildShareText(pet: Pet): string {
-  const estado = pet.estado === 'perdida' ? '🔴 PERDIDA' : '🟢 ENCONTRADA';
+  const base = pet.estado === 'perdida' ? '🔴 PERDIDA' : '🟢 ENCONTRADA';
+  // Si el reporte tiene comuna (Tanda 3), se antepone el lugar ("... en Maipú").
+  // Los reportes viejos no la tienen: sin comuna el texto queda igual que antes.
+  const comuna = pet.comuna?.trim();
+  const estado = comuna ? `${base} en ${comuna}` : base;
   const nombre = pet.nombre ? ` "${pet.nombre}"` : '';
   const raza = pet.raza ? ` (${pet.raza})` : '';
   const recompensa = pet.recompensa ? `\n🎁 Recompensa: ${pet.recompensa}` : '';
