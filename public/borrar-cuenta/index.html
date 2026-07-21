@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Borrar tu cuenta — Encuentra tu Mascota</title>
+    <!--
+      Página pública de borrado de cuenta, exigida por Google Play (Data safety →
+      Data deletion): debe poder llegarse SIN login y SIN instalar la app. Apple
+      no la exige (el borrado in-app ya cumple), pero Google sí.
+
+      Se sirve en /borrar-cuenta/ . Cloudflare Pages sirve los archivos estáticos
+      ANTES del catch-all de public/_redirects, así que la regla SPA no la pisa
+      (verificado el 19-jul: /metadata.json devuelve JSON, no HTML).
+
+      ⚠️ PENDIENTE antes de subir: reemplazar [[CORREO_CONTACTO]] por el correo de
+      contacto real. Sin ese correo la vía alternativa no funciona y la página no
+      debe publicarse (mismo bloqueo que los docs legales).
+    -->
+    <style>
+      :root {
+        --pino: #0f4e39;
+        --pino-claro: #1c6b4f;
+        --arena: #fbf7ef;
+        --tinta: #21302b;
+        --linea: #e6ddcd;
+        --coral: #e2604a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--arena);
+        color: var(--tinta);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+          sans-serif;
+        line-height: 1.6;
+      }
+      .wrap {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      header {
+        text-align: center;
+        padding: 8px 0 24px;
+      }
+      .marca {
+        color: var(--pino);
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        font-size: 15px;
+      }
+      h1 {
+        font-size: 28px;
+        line-height: 1.25;
+        margin: 24px 0 8px;
+        color: var(--pino);
+      }
+      .intro {
+        font-size: 17px;
+        color: #4a5a52;
+        margin: 0 0 8px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--linea);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin: 20px 0;
+      }
+      .card h2 {
+        font-size: 18px;
+        margin: 0 0 12px;
+        color: var(--pino);
+      }
+      ol.pasos {
+        margin: 0;
+        padding-left: 20px;
+      }
+      ol.pasos li {
+        margin-bottom: 8px;
+      }
+      ul.lista {
+        margin: 0;
+        padding-left: 18px;
+      }
+      ul.lista li {
+        margin-bottom: 8px;
+      }
+      .plazo {
+        display: inline-block;
+        background: #eef6f1;
+        color: var(--pino);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .aviso {
+        background: #fff6f4;
+        border: 1px solid #f3cabf;
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 14px;
+        color: #7a3327;
+        margin: 16px 0 0;
+      }
+      a {
+        color: var(--pino-claro);
+        font-weight: 600;
+      }
+      footer {
+        text-align: center;
+        color: #8a978f;
+        font-size: 13px;
+        margin-top: 40px;
+      }
+      .correo {
+        font-weight: 700;
+        color: var(--coral);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="marca">🐾 Encuentra tu Mascota</div>
+        <h1>Borrar tu cuenta</h1>
+        <p class="intro">
+          Podés pedir el borrado de tu cuenta y de tus datos personales cuando quieras. Si te
+          vas, te vas de verdad: no guardamos una copia por las dudas.
+        </p>
+      </header>
+
+      <div class="card">
+        <h2>La forma más rápida: desde la app</h2>
+        <ol class="pasos">
+          <li>Abrí la app <strong>Encuentra tu Mascota</strong> e iniciá sesión.</li>
+          <li>Andá a la pestaña <strong>Perfil</strong>.</li>
+          <li>Tocá <strong>Borrar mi cuenta</strong>.</li>
+          <li>Confirmá. El borrado es inmediato y no se puede deshacer.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>¿No podés entrar a la app?</h2>
+        <p>
+          Si perdiste el acceso a tu cuenta, escribinos desde el correo con el que te
+          registraste a <span class="correo">[[CORREO_CONTACTO]]</span> con el asunto
+          <strong>“Borrar mi cuenta”</strong>. Verificamos que la cuenta es tuya y la
+          borramos por vos.
+        </p>
+        <p style="margin-bottom: 0">
+          <span class="plazo">Respondemos dentro de 30 días</span>
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Qué se borra para siempre</h2>
+        <ul class="lista">
+          <li>Tus reportes de mascotas, con sus fotos.</li>
+          <li>Las pistas y avistamientos que otros vecinos dejaron en esos reportes.</li>
+          <li>Tu nombre, tu foto, tu teléfono y tu red social.</li>
+          <li>Tu zona de alerta y tus reportes guardados.</li>
+          <li>Tu correo: nadie va a poder relacionar lo que quede con vos.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Qué queda, pero sin tu nombre</h2>
+        <ul class="lista">
+          <li>
+            Las pistas y avistamientos que dejaste en reportes de otros, firmados
+            <strong>“Un vecino”</strong>: le siguen sirviendo a alguien que busca a su mascota.
+          </li>
+          <li>
+            Tus conversaciones, del lado de la otra persona, como
+            <strong>“Cuenta eliminada”</strong>. No va a poder escribirte más.
+          </li>
+        </ul>
+        <div class="aviso">
+          Estos datos se conservan de forma anonimizada porque también son de otras personas
+          (la ayuda que le diste a un vecino sigue siendo suya). No permiten identificarte.
+        </div>
+      </div>
+
+      <footer>
+        Encuentra tu Mascota · Chile
+      </footer>
+    </div>
+  </body>
+</html>

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
 import ComunaPickerModal from '../components/ComunaPickerModal';
 import { petSchema } from '../schemas/pet';
+import { moderarTextoReporte } from '../lib/moderarTexto';
 import { uploadPetPhotos } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
@@ -47,6 +48,7 @@ export default function PublishScreen({ navigation, route }: any) {
   const [comunasAlcance, setComunasAlcance] = useState<string[]>([]);
   const [comunaManual, setComunaManual] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [confirmado, setConfirmado] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Auto-sugerir la comuna desde el punto del mapa. Se recalcula cuando el
@@ -121,12 +123,26 @@ export default function PublishScreen({ navigation, route }: any) {
       notify('Falta algo', parsed.error.issues[0].message);
       return;
     }
+    // Filtro de contenido ANTES de subir las fotos: si el texto no pasa, no
+    // gastamos una subida al bucket. Ver src/lib/moderarTexto.ts.
+    const moderacion = moderarTextoReporte({ nombre, raza, descripcion, recompensa });
+    if (!moderacion.ok) {
+      notify('Revisá el texto', moderacion.motivo);
+      return;
+    }
     if (fotoUris.length === 0) {
       notify('Falta la foto', 'Agrega al menos una foto de la mascota.');
       return;
     }
     if (!comuna) {
       notify('Falta la comuna', 'Confirmá la comuna del reporte.');
+      return;
+    }
+    if (!confirmado) {
+      notify(
+        'Falta confirmar',
+        'Marcá la casilla para confirmar que la foto es de la mascota y respeta las reglas.',
+      );
       return;
     }
     setSaving(true);
@@ -313,6 +329,36 @@ export default function PublishScreen({ navigation, route }: any) {
           ) : null}
         </Card>
 
+        {/* Casilla de confirmación, sin premarcar. Es el control de imagen que
+            eligió el usuario en vez de moderación por IA: la persona atestigua
+            que la foto es de la mascota y respeta las reglas; el resto lo cubre
+            denunciar + retiro rápido. Mismo patrón que RegisterScreen. */}
+        <TouchableOpacity
+          style={styles.confirmRow}
+          onPress={() => setConfirmado((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: confirmado }}
+          accessibilityLabel="Confirmo que la foto es de la mascota y respeta las reglas"
+        >
+          <Ionicons
+            name={confirmado ? 'checkbox-outline' : 'square-outline'}
+            size={22}
+            color={confirmado ? colors.brand : colors.muted}
+          />
+          <AppText size={13} style={styles.confirmText}>
+            Confirmo que la foto es de la mascota y que el reporte respeta las{' '}
+            <AppText
+              size={13}
+              weight="bold"
+              style={styles.confirmLink}
+              onPress={() => navigation.navigate('Perfil', { screen: 'Legal' })}
+            >
+              reglas de la comunidad
+            </AppText>
+            .
+          </AppText>
+        </TouchableOpacity>
+
         <Button
           title="Publicar"
           icon="paw"
@@ -427,6 +473,21 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: radius.md,
     marginTop: spacing.sm,
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  confirmText: {
+    flex: 1,
+    lineHeight: 19,
+  },
+  confirmLink: {
+    color: colors.brandDark,
+    textDecorationLine: 'underline',
   },
   submitButton: {
     alignSelf: 'stretch',

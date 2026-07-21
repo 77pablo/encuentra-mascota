@@ -8,17 +8,33 @@ const config: ExpoConfig = {
   scheme: 'encuentramascota',
   android: {
     package: 'com.pabloespinoza.encuentramascota',
-    permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'android.permission.CAMERA'],
+    permissions: [
+      'ACCESS_FINE_LOCATION',
+      'ACCESS_COARSE_LOCATION',
+      'android.permission.CAMERA',
+      // Android 13+ (API 33): sin este permiso el sistema NO entrega ningún push,
+      // aunque la Edge Function los mande. Necesario para los avisos de la app.
+      'android.permission.POST_NOTIFICATIONS',
+    ],
+    // Ubicación EN SEGUNDO PLANO: la app no la usa ni la quiere. Se bloquea de
+    // forma explícita para que ninguna dependencia la cuele en el manifest: si
+    // aparece, Google exige un formulario + video + una revisión de semanas.
+    blockedPermissions: ['android.permission.ACCESS_BACKGROUND_LOCATION'],
     config: {
       googleMaps: { apiKey: process.env.GOOGLE_MAPS_API_KEY },
     },
   },
   ios: {
     bundleIdentifier: 'com.pabloespinoza.encuentramascota',
+    // Purpose strings con la fórmula que Apple acepta: qué se accede + para qué
+    // función + beneficio. Los genéricos cortos ("usamos la cámara") los rechaza.
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
-        'Usamos tu ubicación para mostrar y publicar mascotas cerca de ti.',
-      NSCameraUsageDescription: 'Usamos la cámara para tomar fotos de la mascota.',
+        'Usamos tu ubicación aproximada para mostrarte mascotas perdidas cerca tuyo y para ubicar tu reporte en el mapa, así los vecinos del sector pueden ayudar. No guardamos tu ubicación exacta.',
+      NSCameraUsageDescription:
+        'Usamos la cámara para que tomes una foto de la mascota y sumarla a tu reporte, para que otros puedan reconocerla.',
+      NSPhotoLibraryUsageDescription:
+        'Accedemos a tu galería para que elijas una foto de la mascota y adjuntarla a tu reporte, para que otros puedan reconocerla.',
     },
   },
   plugins: [

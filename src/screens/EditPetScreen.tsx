@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { petSchema } from '../schemas/pet';
 import { Pet, updatePet } from '../services/pets';
+import { moderarTextoReporte } from '../lib/moderarTexto';
 import { notify } from '../lib/notify';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
@@ -44,6 +45,13 @@ export default function EditPetScreen({ route, navigation }: any) {
     });
     if (!parsed.success) {
       notify('Falta algo', parsed.error.issues[0].message);
+      return;
+    }
+    // Filtro de contenido: editar es el otro camino de escritura del reporte, así
+    // que se revisa igual que al publicar (si no, sería el bypass obvio).
+    const moderacion = moderarTextoReporte({ nombre, raza, descripcion, recompensa });
+    if (!moderacion.ok) {
+      notify('Revisá el texto', moderacion.motivo);
       return;
     }
     setSaving(true);
