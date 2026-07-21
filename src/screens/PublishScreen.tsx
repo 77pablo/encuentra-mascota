@@ -50,8 +50,15 @@ export default function PublishScreen({ navigation, route }: any) {
   const [fotoUris, setFotoUris] = useState<string[]>(
     typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
   );
-  // Vínculo con la ficha de origen, para que createPet lo guarde.
-  const origenMyPet: string | null = typeof params.origenMyPet === 'string' ? params.origenMyPet : null;
+  // Vínculo con la ficha de origen, para que createPet lo guarde. Es ESTADO (no
+  // una const derivada de params) a propósito: Publicar es un tab persistente, así
+  // que si ya estaba montado cuando se toca "Reportar como perdida" desde una
+  // ficha, los inicializadores de useState no vuelven a correr. Sin esto se
+  // perdería el vínculo ficha↔reporte —el valor central de "Mi mascota"—. El
+  // efecto de abajo lo re-aplica cuando llegan params de pre-carga nuevos.
+  const [origenMyPet, setOrigenMyPet] = useState<string | null>(
+    typeof params.origenMyPet === 'string' ? params.origenMyPet : null,
+  );
   const [coords, setCoords] = useState({ lat: -33.45, lng: -70.66 });
   const [comuna, setComuna] = useState<string | null>(null);
   const [comunasAlcance, setComunasAlcance] = useState<string[]>([]);
@@ -59,6 +66,33 @@ export default function PublishScreen({ navigation, route }: any) {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Re-aplicar la pre-carga cuando se navega a Publicar desde una ficha "Mi
+  // mascota" (Función 2) estando el tab YA montado: en ese caso los
+  // inicializadores de useState no vuelven a correr y se perdería la pre-carga
+  // (incluido origenMyPet). Solo actuamos si llegan params de pre-carga; una
+  // entrada normal al tab (sin params, o con la misma referencia de params) no
+  // dispara el efecto y no pisa lo que el usuario haya escrito.
+  useEffect(() => {
+    const p = route?.params;
+    if (!p) return;
+    const hayPrecarga =
+      p.origenMyPet != null ||
+      p.estado != null ||
+      p.especie != null ||
+      p.raza != null ||
+      p.nombre != null ||
+      p.descripcion != null ||
+      p.fotoUri != null;
+    if (!hayPrecarga) return;
+    if (p.estado === 'perdida' || p.estado === 'encontrada') setEstado(p.estado);
+    if (p.especie === 'perro' || p.especie === 'gato' || p.especie === 'otro') setEspecie(p.especie);
+    if (typeof p.raza === 'string') setRaza(p.raza);
+    if (typeof p.nombre === 'string') setNombre(p.nombre);
+    if (typeof p.descripcion === 'string') setDescripcion(p.descripcion);
+    if (typeof p.fotoUri === 'string') setFotoUris([p.fotoUri]);
+    setOrigenMyPet(typeof p.origenMyPet === 'string' ? p.origenMyPet : null);
+  }, [route?.params]);
 
   // Auto-sugerir la comuna desde el punto del mapa. Se recalcula cuando el
   // usuario mueve el pin, salvo que ya la haya fijado a mano. Al cambiar la

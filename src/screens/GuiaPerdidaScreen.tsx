@@ -73,7 +73,13 @@ export default function GuiaPerdidaScreen({ navigation }: any) {
 
   const irA = (paso: GuiaPaso) => {
     if (!paso.accion) return;
-    navigation.navigate(paso.accion.ruta, paso.accion.params);
+    // La guía vive en el stack RAÍZ (hermana de 'App'), pero sus destinos
+    // ('Publicar', 'Comunidad') son tabs ANIDADOS dentro de 'App'. React
+    // Navigation resuelve navigate(name) burbujeando hacia el padre, nunca hacia
+    // los descendientes, así que un nombre pelado desde acá no encontraría el tab
+    // y el botón no haría nada. Hay que direccionar el tab de forma anidada, igual
+    // que PublicPetScreen para entrar al chat.
+    navigation.navigate('App', { screen: paso.accion.ruta, params: paso.accion.params });
   };
 
   const total = GUIA_PERDIDA.length;
