@@ -1,8 +1,23 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 🗓️ SESIÓN 2026-07-20 — Tandas 1 y 2 (perfil / comunidad)
+## 🗓️ SESIÓN 2026-07-20 — Tandas 1, 2 y 3
 
-Se acordó un plan de **3 tandas** (1 → 2 → 3). Hechas la 1 y la 2; la 3 queda pendiente.
+Plan de **3 tandas** (1 → 2 → 3): **las tres construidas** esta sesión.
+
+### 🟣 Tanda 3 — Comunidad por comuna (A+B+C+D)
+
+Sistema de comunas. Construida en fases; C y D con **agentes en paralelo**. `tsc` limpio, **324 tests**.
+- **Fundación** (commit `59daabe`): `src/data/comunas.ts` (345 comunas de Chile con centro, de datos abiertos geo-chile, Recoleta/Coltauco corregidas); helpers puros `src/lib/comunas.ts` con TDD (`comunaDeCoords`, `comunasCercanas`, `buscarComunas`); **migración `0020`** (pets.comuna + comunas_alcance + índices, notification_prefs.comunas_seguidas, el evento reporte_nuevo lleva la comuna); **publicar con comuna** auto-sugerida del punto + selector buscable + chips de comunas vecinas (**sub-feature B**).
+- **Fase 2 — Feed (A)** (commit `9f16b39`): **migración `0021`** (`buscar_reportes` con filtro `p_comuna`, casa o alcance, sin tocar el cursor); `contarReportesEnComuna`; componente `ComunaPickerModal` (reusado, PublishScreen migrado); **pestaña Comunidad** (`ComunidadScreen`: feed + conteo + seguir comuna); `comunasSeguidas.ts`; selector de comuna en la Lista; sección "En tu comuna" en Inicio. ⚠️ Quedaron **7 pestañas** (apretado en pantallas chicas; se puede consolidar).
+- **Fase 3 — Aviso por comuna (C)** (commit `a1f2c71`): `resolverDestinatarios` suma un 2.º camino en `reporte_nuevo` — quien **sigue** la comuna recibe el aviso, ADEMÁS del de zona GPS. Opt-in explícito → NO se filtra por la preferencia `zona`; sí dedup con zona, excluye al actor, respeta canales. Cambiado en las **dos copias espejo** de `notifyTargets` + la Edge Function (`armarContexto` consulta `comunas_seguidas`). Test-espejo verde.
+- **Fase 4 — Compartir (D)** (commit `46a0cf6`): `buildShareText` dice "🔴 PERDIDA en [comuna]" cuando hay comuna.
+
+**⚠️ Pendiente del usuario para la Tanda 3:**
+1. Aplicar **`0020_comunas.sql`** y **`0021_buscar_por_comuna.sql`** en Supabase (SQL Editor). Sin ellas, los feeds por comuna quedan vacíos (fail-closed, no rompe).
+2. **Redesplegar la Edge Function** para que el aviso por comuna funcione: `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`.
+3. Verificación visual en el navegador (publicar con comuna + vecinas; pestaña Comunidad; seguir; los 3 feeds).
+
+### Tandas 1 y 2
 
 **🟢 Tanda 1 — commit `f8ea67f`** (código listo, falta verificación visual en navegador):
 - **Saludo con el nombre** del perfil en Inicio (antes usaba la parte local del correo) + inicial del avatar; también se arregló la inicial en Perfil.
@@ -18,7 +33,7 @@ Se acordó un plan de **3 tandas** (1 → 2 → 3). Hechas la 1 y la 2; la 3 que
 
 **Estado de verificación:** `tsc` limpio, **302 tests** verdes. Migración `0019` verificada contra la base. **Falta: prueba visual en el navegador** (saludo, red social tocable, y las tres entradas al perfil público).
 
-**⏭️ Pendiente inmediato:** (1) verificación visual de las tandas 1 y 2 en el navegador; (2) **Tanda 3 — comunidad por comuna** (A: comuna + feed por comuna; B: comunas vecinas al publicar; C: avisar a vecinos; D: amplificar el compartir) — la grande, candidata a construirse con agentes en paralelo. La fuga de contacto de `profiles` **ya estaba cerrada** por `0018` (ver más abajo; el punto que decía lo contrario en "PARA RETOMAR" estaba desactualizado y se corrigió).
+**⏭️ Pendiente de las tandas 1 y 2:** verificación visual en el navegador. La fuga de contacto de `profiles` **ya estaba cerrada** por `0018` (ver más abajo; el punto que decía lo contrario en "PARA RETOMAR" estaba desactualizado y se corrigió). La **Tanda 3 ya se construyó** (ver arriba).
 
 ---
 
