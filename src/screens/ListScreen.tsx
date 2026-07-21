@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { Pet } from '../services/pets';
 import PetCard from '../components/PetCard';
+import ComunaPickerModal from '../components/ComunaPickerModal';
 import { AppText, Card, Chip, EmptyState, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { useMyLocation } from '../hooks/useMyLocation';
@@ -54,6 +55,8 @@ export default function ListScreen({ navigation }: any) {
   const [busquedaDiferida, setBusquedaDiferida] = useState('');
   const [conRecompensa, setConRecompensa] = useState(false);
   const [rango, setRango] = useState<RangoTiempo>('todo');
+  const [comunaFiltro, setComunaFiltro] = useState<string | null>(null);
+  const [comunaPickerOpen, setComunaPickerOpen] = useState(false);
   const location = useMyLocation();
 
   useEffect(() => {
@@ -96,8 +99,9 @@ export default function ListScreen({ navigation }: any) {
       conRecompensa,
       desde: desdeDeRango(rango, Date.now()),
       orden: cerca ? 'cerca' : 'recientes',
+      comuna: comunaFiltro,
     }),
-    [cerca, location.coords, radioKm, estado, especie, busquedaDiferida, conRecompensa, rango],
+    [cerca, location.coords, radioKm, estado, especie, busquedaDiferida, conRecompensa, rango, comunaFiltro],
   );
 
   const { reportes, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
@@ -109,6 +113,7 @@ export default function ListScreen({ navigation }: any) {
     rango !== 'todo' ||
     estado !== 'todas' ||
     especie !== 'todas' ||
+    comunaFiltro !== null ||
     cerca;
 
   if (cargando) {
@@ -187,6 +192,14 @@ export default function ListScreen({ navigation }: any) {
           onPress={toggleCercaDeMi}
         />
       </View>
+      <View style={styles.chipsRow}>
+        <Chip
+          label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
+          active={!!comunaFiltro}
+          onPress={() => setComunaPickerOpen(true)}
+        />
+        {comunaFiltro ? <Chip label="✕ Quitar" onPress={() => setComunaFiltro(null)} /> : null}
+      </View>
       {cercaDeMi ? (
         <View style={styles.chipsRow}>
           {radios.map((r) => (
@@ -231,6 +244,13 @@ export default function ListScreen({ navigation }: any) {
             onPress={() => navigation.navigate('PetDetail', { id: item.id })}
           />
         )}
+      />
+
+      <ComunaPickerModal
+        visible={comunaPickerOpen}
+        onClose={() => setComunaPickerOpen(false)}
+        onSelect={setComunaFiltro}
+        titulo="Filtrar por comuna"
       />
     </Screen>
   );

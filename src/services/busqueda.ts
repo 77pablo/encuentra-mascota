@@ -18,6 +18,7 @@ export interface FiltrosBusqueda {
   conRecompensa?: boolean;
   desde?: Date | null; // rango de tiempo ("hoy", "última semana")
   orden?: Orden;
+  comuna?: string | null; // feed por comuna: casa o alcance (Tanda 3)
 }
 
 // Un reporte tal como vuelve de la búsqueda: los campos de siempre más la
@@ -69,6 +70,7 @@ export async function buscarReportes(
     p_cursor_id: cursor?.id ?? null,
     p_cursor_dist: cursor?.distancia ?? null,
     p_limite: limite,
+    p_comuna: filtros.comuna?.trim() ? filtros.comuna.trim() : null,
   });
   if (error) throw error;
 
@@ -78,6 +80,20 @@ export async function buscarReportes(
     // Si vino una página incompleta, ya no hay más: nos ahorramos una consulta.
     cursor: reportes.length < limite ? null : cursorDe(reportes),
   };
+}
+
+// Cuenta reportes activos en una comuna (casa o alcance), para el encabezado del
+// feed y la sección de Inicio. Los nombres de comuna no tienen comas ni comillas,
+// así que el `.or` es seguro. RLS pública se aplica (solo activos no ocultos).
+export async function contarReportesEnComuna(comuna: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('pets')
+    .select('id', { count: 'exact', head: true })
+    .eq('activo', true)
+    .eq('oculto', false)
+    .or(`comuna.eq.${comuna},comunas_alcance.cs.{"${comuna}"}`);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 // Coincidencias perdido ↔ encontrado de un reporte. Antes se calculaban en el

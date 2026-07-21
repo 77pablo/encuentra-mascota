@@ -12,6 +12,7 @@ import AddSightingScreen from '../screens/AddSightingScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
+import ComunidadScreen from '../screens/ComunidadScreen';
 import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
@@ -74,6 +75,19 @@ function ListStack() {
   );
 }
 
+const ComunidadStackNav = createNativeStackNavigator();
+function ComunidadStack() {
+  return (
+    <ComunidadStackNav.Navigator>
+      <ComunidadStackNav.Screen name="Comunidad" component={ComunidadScreen} options={{ headerShown: false }} />
+      <ComunidadStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <ComunidadStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
+      <ComunidadStackNav.Screen name="Chat" component={ChatScreen} />
+      <ComunidadStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
+    </ComunidadStackNav.Navigator>
+  );
+}
+
 const MsgStackNav = createNativeStackNavigator();
 function MsgStack() {
   return (
@@ -126,6 +140,7 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Inicio: 'home',
   Mapa: 'map',
   Lista: 'list',
+  Comunidad: 'people',
   Publicar: 'add-circle',
   Mensajes: 'chatbubble-ellipses',
   Perfil: 'person',
@@ -178,6 +193,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Inicio" component={InicioStack} options={{ headerShown: false }} />
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Comunidad" component={ComunidadStack} options={{ headerShown: false }} />
       <Tab.Screen name="Publicar" component={PublishScreen} listeners={porteroDeTab('publicar')} />
       <Tab.Screen
         name="Mensajes"

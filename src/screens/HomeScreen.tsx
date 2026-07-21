@@ -1,12 +1,13 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { countReunidas, Pet } from '../services/pets';
-import { buscarReportes } from '../services/busqueda';
+import { buscarReportes, contarReportesEnComuna } from '../services/busqueda';
 import { listFinalesFelices } from '../services/reunions';
 import { getMyProfile } from '../services/profile';
+import { comunaDeCoords } from '../lib/comunas';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
 import { useFavorites } from '../hooks/useFavorites';
@@ -32,6 +33,8 @@ export default function HomeScreen({ navigation }: any) {
   const [reunidas, setReunidas] = useState(0);
   const [finales, setFinales] = useState<Pet[]>([]);
   const [nombrePerfil, setNombrePerfil] = useState<string | null>(null);
+  const [comunaInicio, setComunaInicio] = useState<string | null>(null);
+  const [comunaCount, setComunaCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useMyLocation(true);
@@ -64,6 +67,19 @@ export default function HomeScreen({ navigation }: any) {
   }, [user]);
 
   useFocusEffect(cargar);
+
+  // Comuna del usuario (de su ubicación) + cuántos reportes activos tiene, para
+  // la sección "En tu comuna" que lleva a la pestaña Comunidad. Degrada en
+  // silencio si falla (p. ej. migración 0021 sin aplicar).
+  useEffect(() => {
+    if (!location.coords) return;
+    const c = comunaDeCoords(location.coords.lat, location.coords.lng);
+    if (!c) return;
+    setComunaInicio(c.nombre);
+    contarReportesEnComuna(c.nombre)
+      .then(setComunaCount)
+      .catch(() => setComunaCount(null));
+  }, [location.coords]);
 
   if (loading) {
     return <Loading />;
@@ -166,6 +182,24 @@ export default function HomeScreen({ navigation }: any) {
             />
           </View>
         </Card>
+
+        {/* En tu comuna → pestaña Comunidad */}
+        {comunaInicio && comunaCount !== null && comunaCount > 0 ? (
+          <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Comunidad')}>
+            <Card style={styles.comunaCard}>
+              <Ionicons name="business" size={20} color={colors.brand} />
+              <View style={styles.comunaTextWrap}>
+                <AppText weight="bold" size={14}>
+                  En {comunaInicio}
+                </AppText>
+                <AppText muted size={12}>
+                  {comunaCount} {comunaCount === 1 ? 'reporte activo' : 'reportes activos'} · ver comunidad
+                </AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+            </Card>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Chips de filtro */}
         <ScrollView
@@ -386,6 +420,17 @@ const styles = StyleSheet.create({
   heroButton: {
     flex: 1,
     paddingHorizontal: spacing.sm,
+  },
+  comunaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.sky,
+  },
+  comunaTextWrap: {
+    flex: 1,
+    gap: 2,
   },
   chipsRow: {
     paddingRight: spacing.xl,

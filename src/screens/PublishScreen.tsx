@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from '../components/PlatformMap';
+import ComunaPickerModal from '../components/ComunaPickerModal';
 import { petSchema } from '../schemas/pet';
 import { uploadPetPhotos } from '../services/storage';
 import { createPet } from '../services/pets';
@@ -10,7 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
-import { buscarComunas, comunaDeCoords, comunasCercanas } from '../lib/comunas';
+import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
@@ -46,7 +47,6 @@ export default function PublishScreen({ navigation, route }: any) {
   const [comunasAlcance, setComunasAlcance] = useState<string[]>([]);
   const [comunaManual, setComunaManual] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [busquedaComuna, setBusquedaComuna] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Auto-sugerir la comuna desde el punto del mapa. Se recalcula cuando el
@@ -65,8 +65,6 @@ export default function PublishScreen({ navigation, route }: any) {
     setComuna(nombre);
     setComunaManual(true);
     setComunasAlcance([]);
-    setSelectorOpen(false);
-    setBusquedaComuna('');
   };
 
   const toggleAlcance = (nombre: string) => {
@@ -325,49 +323,11 @@ export default function PublishScreen({ navigation, route }: any) {
         />
       </ScrollView>
 
-      <Modal
+      <ComunaPickerModal
         visible={selectorOpen}
-        animationType="slide"
-        onRequestClose={() => setSelectorOpen(false)}
-      >
-        <Screen padded>
-          <View style={styles.selectorHeader}>
-            <Title size={20}>Elegí la comuna</Title>
-            <TouchableOpacity onPress={() => setSelectorOpen(false)} accessibilityLabel="Cerrar">
-              <Ionicons name="close" size={24} color={colors.ink} />
-            </TouchableOpacity>
-          </View>
-          <Input
-            placeholder="Buscar comuna…"
-            value={busquedaComuna}
-            onChangeText={setBusquedaComuna}
-            icon="search"
-            autoCapitalize="none"
-          />
-          <FlatList
-            data={buscarComunas(busquedaComuna)}
-            keyExtractor={(c) => c.nombre}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => elegirComuna(item.nombre)}
-                style={styles.comunaItem}
-              >
-                <AppText size={15}>{item.nombre}</AppText>
-                <AppText muted size={12}>
-                  {item.region}
-                </AppText>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <AppText muted size={14} style={styles.selectorVacio}>
-                No encontramos esa comuna.
-              </AppText>
-            }
-          />
-        </Screen>
-      </Modal>
+        onClose={() => setSelectorOpen(false)}
+        onSelect={elegirComuna}
+      />
     </Screen>
   );
 }
@@ -461,22 +421,6 @@ const styles = StyleSheet.create({
   },
   comunaCambiar: {
     paddingHorizontal: spacing.sm,
-  },
-  selectorHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
-  },
-  comunaItem: {
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  selectorVacio: {
-    textAlign: 'center',
-    marginTop: spacing.xl,
   },
   map: {
     width: '100%',
