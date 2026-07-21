@@ -12,10 +12,10 @@ Sistema de comunas. Construida en fases; C y D con **agentes en paralelo**. `tsc
 - **Fase 3 — Aviso por comuna (C)** (commit `a1f2c71`): `resolverDestinatarios` suma un 2.º camino en `reporte_nuevo` — quien **sigue** la comuna recibe el aviso, ADEMÁS del de zona GPS. Opt-in explícito → NO se filtra por la preferencia `zona`; sí dedup con zona, excluye al actor, respeta canales. Cambiado en las **dos copias espejo** de `notifyTargets` + la Edge Function (`armarContexto` consulta `comunas_seguidas`). Test-espejo verde.
 - **Fase 4 — Compartir (D)** (commit `46a0cf6`): `buildShareText` dice "🔴 PERDIDA en [comuna]" cuando hay comuna.
 
-**⚠️ Pendiente del usuario para la Tanda 3:**
-1. Aplicar **`0020_comunas.sql`** y **`0021_buscar_por_comuna.sql`** en Supabase (SQL Editor). Sin ellas, los feeds por comuna quedan vacíos (fail-closed, no rompe).
-2. **Redesplegar la Edge Function** para que el aviso por comuna funcione: `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`.
-3. Verificación visual en el navegador (publicar con comuna + vecinas; pestaña Comunidad; seguir; los 3 feeds).
+**Pendiente del usuario para la Tanda 3:**
+1. ✅ **Migraciones `0020` y `0021` APLICADAS y VERIFICADAS (20-jul)** contra la base real: `pets.comuna`/`comunas_alcance` existen, `buscar_reportes` acepta `p_comuna`, `notification_prefs.comunas_seguidas` existe.
+2. **Redesplegar la Edge Function** para que el aviso por comuna funcione: `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`. (Pendiente.)
+3. **Subir la web** (`npx expo export --platform web` → Cloudflare) para que las tandas 1/2/3 estén en producción, y verificación visual en el navegador (publicar con comuna + vecinas; pestaña Comunidad; seguir; los 3 feeds).
 
 ### Tandas 1 y 2
 
