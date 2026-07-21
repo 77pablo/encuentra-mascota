@@ -24,8 +24,8 @@ Sobre la base de las tandas 1-3, tres tandas más **en paralelo** (agentes, arch
 - **Tanda C (solo EDAD)** (commit `1a728b6`): mínimo 14 + fecha de nacimiento en el registro. Migración `0024` (`profiles.fecha_nacimiento` privada, `handle_new_user()` la guarda, `mi_perfil()` la devuelve). **El resto de C (legal, correo de contacto, página de borrado de Google) sigue PARADO** esperando: correo de contacto, nombre legal, y revisar los `[[PENDIENTE]]` de los docs legales.
 - **Tanda D — rendimiento/costos** (commit `ae69795`): migración `0023` (purga de la cola de avisos, solo `estado='enviado'` >90 días, nunca los `error`), cron del despachador a cada 5 min, `listConversations` paginado. Las **fotos huérfanas ya estaban resueltas** en `deletePet`.
 
-**⚠️ Pendiente del usuario (B/C/D):**
-1. Aplicar migraciones **`0022`, `0023`, `0024`, `0025`** en Supabase (SQL Editor).
+**Pendiente del usuario (B/C/D):**
+1. ✅ Migraciones **`0022`, `0023`, `0024`, `0025` APLICADAS y VERIFICADAS (20-jul)** contra la base: `bloqueos`+`hay_bloqueo_con` OK; `fecha_nacimiento` privada (42501 directo) y `mi_perfil()` la devuelve; `denuncias` con las columnas nuevas. (El aviso `spatial_ref_sys` del Advisor es un falso positivo de PostGIS: aceptarlo, no se arregla.)
 2. Agendar la purga de avisos (opcional): SQL en `docs/purga-avisos.sql` (semanal, separado del despachador).
 3. **Follow-ups menores anotados** (no urgentes): `anonimizar_mi_cuenta()` (0017) no limpia las filas de `bloqueos` del que se borra; y no se ocultan las *novedades* del dueño bloqueado (sí sus pistas/avistamientos).
 
