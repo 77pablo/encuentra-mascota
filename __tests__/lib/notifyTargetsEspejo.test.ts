@@ -94,6 +94,19 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       },
     },
   },
+  {
+    // Coincidencia (func. 1): destinatario = dueño del reporte de referencia; el
+    // título depende de match_estado y la ruta apunta al match. Las dos copias
+    // deben resolverlo idéntico.
+    nombre: 'coincidencia (match encontrado) al dueño del reporte de referencia',
+    evento: {
+      id: 'e9', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'encontrada', match_especie: 'perro' },
+    },
+    ctx: {
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
+    },
+  },
 ];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {

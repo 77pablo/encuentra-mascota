@@ -205,6 +205,90 @@ describe('resolverDestinatarios · seguidores de comuna (reporte_nuevo)', () => 
   });
 });
 
+// Coincidencia proactiva (func. 1): al publicarse un reporte, se avisa al dueño
+// del reporte de referencia (pet_id del evento) sobre el reporte que calza (el
+// match). Se resuelve igual que avistamiento/pista: destinatario único = dueño,
+// excluye al actor, filtra por la preferencia `coincidencias` y por canales.
+describe('resolverDestinatarios · coincidencia', () => {
+  it('avisa al dueño del reporte de referencia', () => {
+    const ev: EventoAviso = {
+      id: 'k1', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'encontrada', match_especie: 'perro' },
+    };
+    expect(resolverDestinatarios(ev, ctxBase)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('nunca le avisa al actor de su propio evento', () => {
+    const ev: EventoAviso = {
+      id: 'k2', tipo: 'coincidencia', petId: 'p1', actorId: 'dueno',
+      datos: { match_pet_id: 'p2', match_estado: 'perdida' },
+    };
+    expect(resolverDestinatarios(ev, ctxBase)).toEqual([]);
+  });
+
+  it('respeta el interruptor de coincidencias apagado', () => {
+    const ev: EventoAviso = {
+      id: 'k3', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'encontrada' },
+    };
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([]);
+  });
+
+  it('respeta los canales del dueño', () => {
+    const ev: EventoAviso = {
+      id: 'k4', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'perdida' },
+    };
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(ev, ctx)[0].canales).toEqual(['push']);
+  });
+});
+
+describe('componerAviso · coincidencia', () => {
+  const base = (datos: EventoAviso['datos']): EventoAviso => ({
+    id: 'k', tipo: 'coincidencia', petId: 'p1', actorId: 'x', datos,
+  });
+
+  it('apunta la ruta al reporte que calza (el otro), no al propio', () => {
+    const aviso = componerAviso(base({ match_pet_id: 'otro-999', match_estado: 'encontrada' }), ctxBase);
+    expect(aviso.ruta).toBe('/mascota/otro-999');
+  });
+
+  it('cuando el match es un encontrado, el título habla de un encontrado', () => {
+    const aviso = componerAviso(base({ match_pet_id: 'p2', match_estado: 'encontrada' }), ctxBase);
+    expect(aviso.titulo).toContain('encontrado');
+    expect(aviso.titulo).toContain('Pelusa');
+  });
+
+  it('cuando el match es un perdido, el título habla de un perdido', () => {
+    const aviso = componerAviso(base({ match_pet_id: 'p2', match_estado: 'perdida' }), ctxBase);
+    expect(aviso.titulo).toContain('perdido');
+    expect(aviso.titulo).not.toContain('encontrado');
+  });
+
+  it('funciona sin nombre de mascota (no muestra "null")', () => {
+    const aviso = componerAviso(base({ match_pet_id: 'p2', match_estado: 'encontrada' }),
+                                { ...ctxBase, nombrePet: null });
+    expect(aviso.titulo).not.toContain('null');
+    expect(aviso.titulo.toLowerCase()).toContain('tu mascota');
+  });
+});
+
 describe('componerAviso', () => {
   it('usa el nombre de la mascota cuando lo hay', () => {
     const ev: EventoAviso = { id: 'e8', tipo: 'avistamiento', petId: 'p1', actorId: 'v', datos: {} };
