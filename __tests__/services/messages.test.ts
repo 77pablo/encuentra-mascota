@@ -11,7 +11,25 @@ function makeQueryBuilder(result: { data: any; error: any }) {
     eq: jest.fn(() => builder),
     is: jest.fn(() => builder),
     update: jest.fn(() => builder),
+    range: jest.fn(() => builder),
     then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
+  };
+  return builder;
+}
+
+// Builder que devuelve la tabla `messages` en PÁGINAS: cada `.range(desde, ...)`
+// resuelve el trozo correspondiente de `todos`. Sirve para probar que
+// `listConversations` recorre TODA la historia y no pierde hilos que quedan en
+// páginas posteriores.
+function makePagedMessagesBuilder(todos: any[], pagina: number) {
+  const builder: any = {
+    select: jest.fn(() => builder),
+    or: jest.fn(() => builder),
+    order: jest.fn(() => builder),
+    range: jest.fn((desde: number, hasta: number) => ({
+      then: (resolve: any, reject: any) =>
+        Promise.resolve({ data: todos.slice(desde, hasta + 1), error: null }).then(resolve, reject),
+    })),
   };
   return builder;
 }
@@ -114,6 +132,77 @@ describe('listConversations', () => {
     });
 
     await expect(listConversations('me')).rejects.toEqual({ message: 'boom' });
+  });
+
+  it('pagina la consulta (usa .range) en vez de traer todo sin cota', async () => {
+    const messagesBuilder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'messages') return messagesBuilder;
+      throw new Error(`tabla inesperada: ${table}`);
+    });
+
+    await listConversations('me');
+
+    // La primera página va de 0 a 999: la consulta está acotada, no es un
+    // select sin límite que dependa del tope de filas del servidor.
+    expect(messagesBuilder.range).toHaveBeenCalledWith(0, 999);
+  });
+
+  // El bug que el spec rechaza explícitamente: un `.limit(500)` (o depender del
+  // tope de filas del servidor) corta por recencia de MENSAJE y haría
+  // desaparecer un hilo viejo-pero-vivo que quedó debajo de mucho tráfico de
+  // otro hilo. Acá el hilo B es el mensaje más viejo de todos y cae en la
+  // SEGUNDA página: si `listConversations` no paginara, se perdería sin error.
+  it('no pierde un hilo viejo-pero-vivo que cae en una página posterior', async () => {
+    const PAGINA = 1000;
+    const todos: any[] = [];
+    // Página 1 llena: 1000 mensajes del hilo A (petA / otherU).
+    for (let i = 0; i < PAGINA; i++) {
+      todos.push({
+        pet_id: 'petA', from_user: 'me', to_user: 'otherU',
+        texto: `a${i}`, creado_en: `2026-07-16T10:00:${String(i % 60).padStart(2, '0')}Z`,
+      });
+    }
+    // El más viejo de todos, en la página 2: hilo B (petB / otherV). Vivo, solo
+    // que sepultado por el tráfico del hilo A.
+    todos.push({
+      pet_id: 'petB', from_user: 'otherV', to_user: 'me',
+      texto: 'hola de B', creado_en: '2020-01-01T00:00:00Z',
+    });
+
+    const messagesBuilder = makePagedMessagesBuilder(todos, PAGINA);
+    const profilesBuilder = makeQueryBuilder({
+      data: [
+        { id: 'otherU', nombre: 'Ana', eliminado_en: null },
+        { id: 'otherV', nombre: 'Beto', eliminado_en: null },
+      ],
+      error: null,
+    });
+    const petsBuilder = makeQueryBuilder({
+      data: [
+        { id: 'petA', estado: 'perdida', especie: 'perro' },
+        { id: 'petB', estado: 'encontrada', especie: 'gato' },
+      ],
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'messages') return messagesBuilder;
+      if (table === 'profiles') return profilesBuilder;
+      if (table === 'pets') return petsBuilder;
+      throw new Error(`tabla inesperada: ${table}`);
+    });
+
+    const convs = await listConversations('me');
+
+    // Los dos hilos sobreviven: el activo (A) y el viejo-pero-vivo (B).
+    expect(convs).toHaveLength(2);
+    const hiloB = convs.find((c) => c.otherUser === 'otherV');
+    expect(hiloB).toBeDefined();
+    expect(hiloB?.lastTexto).toBe('hola de B');
+    // Recorrió las dos páginas: [0,999] y [1000,1999].
+    expect(messagesBuilder.range).toHaveBeenCalledWith(0, 999);
+    expect(messagesBuilder.range).toHaveBeenCalledWith(1000, 1999);
   });
 });
 

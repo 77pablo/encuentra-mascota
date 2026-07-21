@@ -78,27 +78,72 @@ export type Conversation = ConversationKey & {
   petLabel: string;
 };
 
-// Pura: asume msgs ordenados de más nuevo a más viejo. Un hilo por (petId, otro usuario).
-export function foldConversations(msgs: Message[], me: string): ConversationKey[] {
-  const threads = new Map<string, ConversationKey>();
+// Pliega una página de mensajes (ordenados de más nuevo a más viejo) DENTRO de
+// un mapa acumulador. "El primero visto gana", por eso el orden desc importa: el
+// primer mensaje que se ve de cada hilo es el más nuevo, y ese es el que queda
+// como `lastTexto`/`lastAt`. Se separó de `foldConversations` para poder plegar
+// página por página en `listConversations` sin tener que juntar TODOS los
+// mensajes en memoria antes de agrupar.
+function foldPageInto(threads: Map<string, ConversationKey>, msgs: Message[], me: string): void {
   for (const m of msgs) {
     const otherUser = m.from_user === me ? m.to_user : m.from_user;
+    // `pet_id` nulo (reporte borrado, 0017) da la clave `null:<otro>`: todos los
+    // hilos con reporte borrado de una misma persona se funden en uno, a
+    // propósito.
     const key = `${m.pet_id}:${otherUser}`;
     if (!threads.has(key)) {
       threads.set(key, { petId: m.pet_id, otherUser, lastTexto: m.texto, lastAt: m.creado_en });
     }
   }
+}
+
+// Pura: asume msgs ordenados de más nuevo a más viejo. Un hilo por (petId, otro usuario).
+export function foldConversations(msgs: Message[], me: string): ConversationKey[] {
+  const threads = new Map<string, ConversationKey>();
+  foldPageInto(threads, msgs, me);
   return [...threads.values()];
 }
 
+// Tamaño de página al barrer la historia de mensajes. Se pagina a propósito y
+// NO se usa un `.limit(500)`: ese atajo corta por recencia de MENSAJE, no de
+// CONVERSACIÓN, así que una conversación vieja pero viva (mucho tráfico de otros
+// hilos por encima) desaparecería de la lista SIN ningún error —exactamente la
+// clase de pérdida silenciosa que ya se coló tres veces en este proyecto—. Y
+// tampoco se deja la consulta sin cota: una consulta sin `.range()` depende del
+// tope de filas del servidor (PostgREST), que si algún día se configura truncaría
+// la historia en silencio y volvería a esconder hilos. Paginando y plegando cada
+// página se ven TODOS los mensajes, así que ningún hilo se pierde, sin tener que
+// traerlos todos juntos a memoria de una vez.
+//
+// El agrupado real (una sola consulta con `distinct on` en el servidor) está
+// diseñado en el spec de la Tanda D como paso siguiente; requiere una RPC y su
+// migración. Mientras no exista, esto es correcto: no pierde hilos.
+const PAGINA_MENSAJES = 1000;
+
 export async function listConversations(me: string): Promise<Conversation[]> {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .or(`from_user.eq.${me},to_user.eq.${me}`)
-    .order('creado_en', { ascending: false });
-  if (error) throw error;
-  const base = foldConversations((data ?? []) as Message[], me);
+  const threads = new Map<string, ConversationKey>();
+  // Barremos la historia por páginas y plegamos cada una. Se ordena además por
+  // `id` para desempatar `creado_en` repetidos: sin ese segundo criterio, dos
+  // mensajes con el mismo instante podrían caer en distinta página de forma no
+  // determinista y saltearse en el borde (el mismo bug del cursor de distancia
+  // que salteaba filas).
+  for (let desde = 0; ; desde += PAGINA_MENSAJES) {
+    const { data, error } = await supabase
+      .from('messages')
+      // Solo las columnas que necesita el agrupado y el enriquecido: sin `id`
+      // ni `leido`, que la lista de conversaciones no usa.
+      .select('pet_id, from_user, to_user, texto, creado_en')
+      .or(`from_user.eq.${me},to_user.eq.${me}`)
+      .order('creado_en', { ascending: false })
+      .order('id', { ascending: false })
+      .range(desde, desde + PAGINA_MENSAJES - 1);
+    if (error) throw error;
+    const pagina = (data ?? []) as Message[];
+    foldPageInto(threads, pagina, me);
+    // Página incompleta = era la última. Es lo que corta el bucle.
+    if (pagina.length < PAGINA_MENSAJES) break;
+  }
+  const base = [...threads.values()];
   if (base.length === 0) return [];
 
   const userIds = [...new Set(base.map((t) => t.otherUser))];
