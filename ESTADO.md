@@ -14,8 +14,8 @@ Sistema de comunas. Construida en fases; C y D con **agentes en paralelo**. `tsc
 
 **Pendiente del usuario para la Tanda 3:**
 1. ✅ **Migraciones `0020` y `0021` APLICADAS y VERIFICADAS (20-jul)** contra la base real: `pets.comuna`/`comunas_alcance` existen, `buscar_reportes` acepta `p_comuna`, `notification_prefs.comunas_seguidas` existe.
-2. **Redesplegar la Edge Function** para que el aviso por comuna funcione: `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`. (Pendiente.)
-3. **Subir la web** (`npx expo export --platform web` → Cloudflare) para que las tandas 1/2/3 estén en producción, y verificación visual en el navegador (publicar con comuna + vecinas; pestaña Comunidad; seguir; los 3 feeds).
+2. ✅ **Edge Function REDESPLEGADA y verificada (20-jul)**: `OPTIONS` sin credenciales → 204; `POST` con la clave pública → `{"ok":true,"procesados":0,"fallidos":0}`. El aviso por comuna está activo.
+3. ✅ **Web SUBIDA y verificada (20-jul)**: producción sirve el bundle nuevo `index-503de3bd…js` y el ruteo SPA funciona (`/mascota/…` → 200). Las tandas 1/2/3 + B/C(edad)/D están en producción. Falta solo la **verificación visual** en el navegador.
 
 ### 🏪 Tandas B, C(edad) y D — construidas con 3 agentes en paralelo (20-jul)
 
