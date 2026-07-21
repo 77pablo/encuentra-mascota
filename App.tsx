@@ -10,6 +10,7 @@ import {
 import { AuthProvider } from './src/hooks/useAuth';
 import { UnreadProvider } from './src/hooks/useUnread';
 import { FavoritesProvider } from './src/hooks/useFavorites';
+import { AdoptionSavesProvider } from './src/context/AdoptionSavesProvider';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initMonitoring } from './src/lib/monitoring';
 import { setupPushNotifications } from './src/lib/pushSetup';
@@ -34,7 +35,9 @@ export default function App() {
     <AuthProvider>
       <UnreadProvider>
         <FavoritesProvider>
-          <RootNavigator />
+          <AdoptionSavesProvider>
+            <RootNavigator />
+          </AdoptionSavesProvider>
         </FavoritesProvider>
       </UnreadProvider>
     </AuthProvider>
