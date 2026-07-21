@@ -483,11 +483,17 @@ export default function ProfileScreen({ navigation }: any) {
         )}
 
         <Button
+          title="Mis mascotas"
+          variant="ghost"
+          icon="paw-outline"
+          onPress={() => navigation.navigate('MyPets')}
+          style={styles.legalButton}
+        />
+        <Button
           title="Guardados"
           variant="ghost"
           icon="heart-outline"
           onPress={() => navigation.navigate('Guardados')}
-          style={styles.legalButton}
         />
         <Button
           title="Mi zona de alerta"

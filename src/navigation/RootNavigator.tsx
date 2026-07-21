@@ -10,6 +10,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import PublicPetScreen from '../screens/PublicPetScreen';
+import CollarScreen from '../screens/CollarScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -21,6 +22,9 @@ const linking: LinkingOptions<any> = {
   config: {
     screens: {
       MascotaPublica: 'mascota/:id',
+      // Página pública del collar (Función 2). Se abre por el QR de la placa,
+      // en modo invitado, igual que MascotaPublica.
+      Collar: 'collar/:token',
     },
   },
 };
@@ -59,6 +63,7 @@ export default function RootNavigator() {
       >
         <Stack.Screen name="App" component={TabNavigator} />
         <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ title: 'Reporte' }} />
+        <Stack.Screen name="Collar" component={CollarScreen} options={{ title: 'Mascota con collar' }} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
