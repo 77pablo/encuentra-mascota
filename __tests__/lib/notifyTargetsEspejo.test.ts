@@ -9,12 +9,12 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
   {
     nombre: 'avistamiento al dueño',
     evento: { id: 'e1', tipo: 'avistamiento', petId: 'p1', actorId: 'vecino', datos: {} },
-    ctx: { duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {} },
+    ctx: { duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [] },
   },
   {
     nombre: 'pista del propio dueño (no se auto-avisa)',
     evento: { id: 'e2', tipo: 'pista', petId: 'p1', actorId: 'dueno', datos: { extracto: 'lo vi' } },
-    ctx: { duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {} },
+    ctx: { duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [] },
   },
   {
     nombre: 'reporte nuevo con zonas cerca y lejos',
@@ -23,7 +23,7 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       datos: { lat: -33.45, lng: -70.66, especie: 'perro' },
     },
     ctx: {
-      duenoPetId: 'autor', nombrePet: null, prefs: {},
+      duenoPetId: 'autor', nombrePet: null, prefs: {}, seguidoresComuna: [],
       zonas: [
         { userId: 'cerca', lat: -33.451, lng: -70.661, radioKm: 5 },
         { userId: 'lejos', lat: -34.9, lng: -71.9, radioKm: 5 },
@@ -35,7 +35,7 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
     nombre: 'reporte nuevo sin coordenadas',
     evento: { id: 'e4', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor', datos: {} },
     ctx: {
-      duenoPetId: 'autor', nombrePet: null, prefs: {},
+      duenoPetId: 'autor', nombrePet: null, prefs: {}, seguidoresComuna: [],
       zonas: [{ userId: 'cerca', lat: -33.45, lng: -70.66, radioKm: 5 }],
     },
   },
@@ -43,7 +43,7 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
     nombre: 'interruptor de tipo apagado',
     evento: { id: 'e5', tipo: 'avistamiento', petId: 'p1', actorId: 'vecino', datos: {} },
     ctx: {
-      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [],
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], seguidoresComuna: [],
       prefs: {
         dueno: { userId: 'dueno', zona: true, avistamientos: false, pistas: true,
                  coincidencias: true, canalEmail: true, canalPush: true },
@@ -54,7 +54,7 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
     nombre: 'un solo canal encendido',
     evento: { id: 'e6', tipo: 'pista', petId: 'p1', actorId: 'vecino', datos: { extracto: 'andaba solo' } },
     ctx: {
-      duenoPetId: 'dueno', nombrePet: null, zonas: [],
+      duenoPetId: 'dueno', nombrePet: null, zonas: [], seguidoresComuna: [],
       prefs: {
         dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
                  coincidencias: true, canalEmail: false, canalPush: true },
@@ -68,8 +68,30 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       datos: { lat: -33.45, lng: -70.66, especie: 'gato' },
     },
     ctx: {
-      duenoPetId: 'autor', nombrePet: null, prefs: {},
+      duenoPetId: 'autor', nombrePet: null, prefs: {}, seguidoresComuna: [],
       zonas: [{ userId: 'ana', lat: -33.4505, lng: -70.6605, radioKm: 2 }],
+    },
+  },
+  {
+    // Camino por comuna (Tanda 3 · C): unión zona + seguidores, dedup, opt-in sin
+    // filtro de `zona`, y el actor excluido aunque siga la comuna. El espejo debe
+    // resolver esto idéntico en las dos copias.
+    nombre: 'reporte nuevo con seguidores de comuna (unión + dedup + opt-in)',
+    evento: {
+      id: 'e8', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+      datos: { lat: -33.45, lng: -70.66, especie: 'perro', comuna: 'Maipú' },
+    },
+    ctx: {
+      duenoPetId: 'autor', nombrePet: null,
+      // 'ana' entra por zona; 'ana' y 'siguezona' siguen la comuna; 'autor' (actor)
+      // también la sigue pero nunca recibe.
+      zonas: [{ userId: 'ana', lat: -33.451, lng: -70.661, radioKm: 5 }],
+      seguidoresComuna: ['ana', 'siguezona', 'autor'],
+      prefs: {
+        // 'siguezona' tiene `zona` apagada: igual recibe por ser opt-in de comuna.
+        siguezona: { userId: 'siguezona', zona: false, avistamientos: true, pistas: true,
+                     coincidencias: true, canalEmail: true, canalPush: false },
+      },
     },
   },
 ];

@@ -159,6 +159,7 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
   const nombrePet = (pet as { nombre: string | null }).nombre ?? null;
 
   let zonas: ZonaAlerta[] = [];
+  let seguidoresComuna: string[] = [];
   if (ev.tipo === 'reporte_nuevo') {
     const { data } = await supabase
       .from('alert_zones')
@@ -169,10 +170,27 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
     zonas = ((data ?? []) as Array<{ user_id: string; lat: number; lng: number; radio_km: number }>).map(
       (z) => ({ userId: z.user_id, lat: z.lat, lng: z.lng, radioKm: z.radio_km }),
     );
+
+    // Camino por comuna (Tanda 3 · C): quien SIGUE la comuna del reporte recibe el
+    // aviso además del camino por zona GPS. El evento trae la comuna en datos.comuna
+    // (migración 0020). Es un opt-in explícito, así que después NO se filtra por `zona`.
+    const comuna = typeof ev.datos.comuna === 'string' ? (ev.datos.comuna as string) : null;
+    if (comuna) {
+      const { data: seg } = await supabase
+        .from('notification_prefs')
+        .select('user_id')
+        .contains('comunas_seguidas', [comuna]);
+      seguidoresComuna = ((seg ?? []) as Array<{ user_id: string }>).map((r) => r.user_id);
+    }
   }
 
-  // Solo pedimos las prefs de quienes podrían recibir el aviso.
-  const candidatos = ev.tipo === 'reporte_nuevo' ? zonas.map((z) => z.userId) : [duenoPetId];
+  // Solo pedimos las prefs de quienes podrían recibir el aviso: la UNIÓN del camino
+  // por zona y del camino por comuna seguida (para que el filtro de canales aplique a
+  // ambos). El `Set` deduplica a quien está en los dos.
+  const candidatos =
+    ev.tipo === 'reporte_nuevo'
+      ? [...zonas.map((z) => z.userId), ...seguidoresComuna]
+      : [duenoPetId];
   const prefs: Record<string, Prefs> = {};
   if (candidatos.length > 0) {
     const { data } = await supabase
@@ -193,7 +211,7 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
     }
   }
 
-  return { duenoPetId, nombrePet, zonas, prefs };
+  return { duenoPetId, nombrePet, zonas, prefs, seguidoresComuna };
 }
 
 async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {

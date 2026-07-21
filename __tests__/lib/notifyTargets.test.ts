@@ -1,6 +1,12 @@
 import { resolverDestinatarios, componerAviso, EventoAviso, Contexto } from '../../src/lib/notifyTargets';
 
-const ctxBase: Contexto = { duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {} };
+const ctxBase: Contexto = {
+  duenoPetId: 'dueno',
+  nombrePet: 'Pelusa',
+  zonas: [],
+  prefs: {},
+  seguidoresComuna: [],
+};
 
 describe('resolverDestinatarios', () => {
   it('avisa al dueño de un avistamiento', () => {
@@ -79,6 +85,123 @@ describe('resolverDestinatarios', () => {
       },
     };
     expect(resolverDestinatarios(ev, ctx)).toEqual([]);
+  });
+});
+
+// Camino por comuna seguida (Tanda 3 · C): se SUMA al camino por zona GPS.
+describe('resolverDestinatarios · seguidores de comuna (reporte_nuevo)', () => {
+  const evComuna: EventoAviso = {
+    id: 'c1', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+    datos: { lat: -33.45, lng: -70.66, especie: 'perro', comuna: 'Maipú' },
+  };
+
+  it('avisa a quien sigue la comuna aunque tenga la preferencia de zona apagada', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      zonas: [],
+      seguidoresComuna: ['sigue'],
+      prefs: {
+        // zona:false NO lo excluye: seguir la comuna es un opt-in explícito.
+        sigue: { userId: 'sigue', zona: false, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evComuna, ctx)).toEqual([
+      { userId: 'sigue', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('quien matchea por zona Y sigue la comuna recibe un solo aviso (dedup)', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      // 'ana' cae dentro de la zona...
+      zonas: [{ userId: 'ana', lat: -33.451, lng: -70.661, radioKm: 5 }],
+      // ...y además sigue la comuna.
+      seguidoresComuna: ['ana'],
+      prefs: {},
+    };
+    expect(resolverDestinatarios(evComuna, ctx)).toEqual([
+      { userId: 'ana', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('nunca le avisa al actor aunque siga la comuna', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      zonas: [],
+      seguidoresComuna: ['autor'],
+      prefs: {},
+    };
+    expect(resolverDestinatarios(evComuna, ctx)).toEqual([]);
+  });
+
+  it('respeta los canales de los seguidores de comuna', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      zonas: [],
+      seguidoresComuna: ['sigue'],
+      prefs: {
+        sigue: { userId: 'sigue', zona: false, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: true, canalPush: false },
+      },
+    };
+    expect(resolverDestinatarios(evComuna, ctx)).toEqual([
+      { userId: 'sigue', canales: ['email'] },
+    ]);
+  });
+
+  it('un seguidor que apagó los dos canales no recibe nada', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      zonas: [],
+      seguidoresComuna: ['sigue'],
+      prefs: {
+        sigue: { userId: 'sigue', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: false },
+      },
+    };
+    expect(resolverDestinatarios(evComuna, ctx)).toEqual([]);
+  });
+
+  it('combina ambos caminos: por zona (respetando `zona`) y por comuna (opt-in)', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      zonas: [
+        { userId: 'porZona', lat: -33.451, lng: -70.661, radioKm: 5 },
+        { userId: 'zonaApagada', lat: -33.452, lng: -70.662, radioKm: 5 },
+      ],
+      seguidoresComuna: ['porComuna'],
+      prefs: {
+        // 'zonaApagada' cae en la zona pero apagó la preferencia `zona`: NO recibe.
+        zonaApagada: { userId: 'zonaApagada', zona: false, avistamientos: true, pistas: true,
+                       coincidencias: true, canalEmail: true, canalPush: true },
+      },
+    };
+    const ids = resolverDestinatarios(evComuna, ctx).map((d) => d.userId).sort();
+    expect(ids).toEqual(['porComuna', 'porZona']);
+  });
+
+  it('el camino por zona de siempre sigue igual cuando no hay seguidores de comuna', () => {
+    const ev: EventoAviso = {
+      id: 'c2', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+      datos: { lat: -33.45, lng: -70.66 },
+    };
+    const ctx: Contexto = {
+      ...ctxBase,
+      duenoPetId: 'autor',
+      seguidoresComuna: [],
+      zonas: [
+        { userId: 'cerca', lat: -33.451, lng: -70.661, radioKm: 5 },
+        { userId: 'lejos', lat: -34.9, lng: -71.9, radioKm: 5 },
+      ],
+    };
+    expect(resolverDestinatarios(ev, ctx).map((d) => d.userId)).toEqual(['cerca']);
   });
 });
 

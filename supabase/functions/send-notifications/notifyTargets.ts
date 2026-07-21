@@ -17,7 +17,7 @@ export type EventoAviso = {
   tipo: TipoEvento;
   petId: string;
   actorId: string | null;
-  datos: { lat?: number; lng?: number; especie?: string; extracto?: string; estado_pet?: string };
+  datos: { lat?: number; lng?: number; especie?: string; extracto?: string; estado_pet?: string; comuna?: string };
 };
 
 export type Prefs = {
@@ -37,6 +37,10 @@ export type Contexto = {
   nombrePet: string | null;
   zonas: ZonaAlerta[];
   prefs: Record<string, Prefs>;
+  // userIds que SIGUEN la comuna del evento (opt-in explícito). Los computa el que
+  // llama (la Edge Function), consultando notification_prefs.comunas_seguidas.
+  // Solo se usan en 'reporte_nuevo'; en el resto va vacío.
+  seguidoresComuna: string[];
 };
 
 export type Destinatario = { userId: string; canales: ('email' | 'push')[] };
@@ -78,9 +82,22 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
   return canales;
 }
 
+// Reglas (misma lógica que src/lib/notifyTargets.ts):
+// - 'reporte_nuevo' va a la UNIÓN de (a) zonas de alerta que cubren el punto
+//   (filtradas por la preferencia `zona`) y (b) ctx.seguidoresComuna, que como es un
+//   opt-in EXPLÍCITO NO se filtra por la preferencia `zona`.
+// - 'avistamiento' y 'pista' van solo al dueño del reporte.
+// - Nunca al actor; se deduplica por userId; se respeta el filtro de canales.
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
+  // Los seguidores de comuna son opt-in explícito: entran sí o sí (salvo el actor y
+  // los canales). Guardamos el conjunto para saltarles el filtro de preferencia `zona`.
+  const seguidores = evento.tipo === 'reporte_nuevo' ? ctx.seguidoresComuna ?? [] : [];
+  const optIn = new Set(seguidores);
+
   const candidatos: string[] =
-    evento.tipo === 'reporte_nuevo' ? candidatosPorZona(evento, ctx) : [ctx.duenoPetId];
+    evento.tipo === 'reporte_nuevo'
+      ? [...candidatosPorZona(evento, ctx), ...seguidores]
+      : [ctx.duenoPetId];
 
   const vistos = new Set<string>();
   const salida: Destinatario[] = [];
@@ -92,7 +109,8 @@ export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Desti
     vistos.add(userId);
 
     const p = prefsDe(ctx, userId);
-    if (!quiereEsteTipo(p, evento.tipo)) continue;
+    // Los seguidores de la comuna no pasan por el interruptor de tipo (`zona`).
+    if (!optIn.has(userId) && !quiereEsteTipo(p, evento.tipo)) continue;
 
     const canales = canalesDe(p);
     if (canales.length === 0) continue;

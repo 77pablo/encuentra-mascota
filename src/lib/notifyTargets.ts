@@ -17,7 +17,7 @@ export type EventoAviso = {
   tipo: TipoEvento;
   petId: string;
   actorId: string | null;
-  datos: { lat?: number; lng?: number; especie?: string; extracto?: string; estado_pet?: string };
+  datos: { lat?: number; lng?: number; especie?: string; extracto?: string; estado_pet?: string; comuna?: string };
 };
 
 export type Prefs = {
@@ -37,6 +37,10 @@ export type Contexto = {
   nombrePet: string | null; // para el texto ("Alguien vio a Pelusa")
   zonas: ZonaAlerta[]; // todas las zonas activas (solo se usan en 'reporte_nuevo')
   prefs: Record<string, Prefs>; // por userId; si falta, se asumen los valores por defecto
+  // userIds que SIGUEN la comuna del evento (opt-in explícito). Los computa el que
+  // llama (la Edge Function), consultando notification_prefs.comunas_seguidas.
+  // Solo se usan en 'reporte_nuevo'; en el resto va vacío.
+  seguidoresComuna: string[];
 };
 
 export type Destinatario = { userId: string; canales: ('email' | 'push')[] };
@@ -71,13 +75,26 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 }
 
 // Devuelve a quién hay que avisarle y por qué canales. Reglas:
-// - 'reporte_nuevo' va a las zonas de alerta que cubren el punto del reporte.
+// - 'reporte_nuevo' va a la UNIÓN de dos caminos:
+//     (a) las zonas de alerta que cubren el punto del reporte (filtradas por la
+//         preferencia `zona` del usuario, como siempre), y
+//     (b) quienes siguen la comuna del reporte (ctx.seguidoresComuna): como es un
+//         opt-in EXPLÍCITO, a estos NO se los filtra por la preferencia `zona`.
 // - 'avistamiento' y 'pista' van solo al dueño del reporte.
 // - Nunca se le avisa al actor de su propio evento.
-// - Se deduplica por userId (una persona, un aviso).
+// - Se deduplica por userId (una persona, un aviso): quien está en los dos caminos
+//   recibe uno solo.
+// - En todos los casos se respeta el filtro de canales (email/push).
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
+  // Los seguidores de comuna son opt-in explícito: entran sí o sí (salvo el actor y
+  // los canales). Guardamos el conjunto para saltarles el filtro de preferencia `zona`.
+  const seguidores = evento.tipo === 'reporte_nuevo' ? ctx.seguidoresComuna ?? [] : [];
+  const optIn = new Set(seguidores);
+
   const candidatos: string[] =
-    evento.tipo === 'reporte_nuevo' ? candidatosPorZona(evento, ctx) : [ctx.duenoPetId];
+    evento.tipo === 'reporte_nuevo'
+      ? [...candidatosPorZona(evento, ctx), ...seguidores]
+      : [ctx.duenoPetId];
 
   const vistos = new Set<string>();
   const salida: Destinatario[] = [];
@@ -89,7 +106,9 @@ export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Desti
     vistos.add(userId);
 
     const p = prefsDe(ctx, userId);
-    if (!quiereEsteTipo(p, evento.tipo)) continue;
+    // Los seguidores de la comuna no pasan por el interruptor de tipo (`zona`):
+    // ya dijeron que sí explícitamente al seguir la comuna.
+    if (!optIn.has(userId) && !quiereEsteTipo(p, evento.tipo)) continue;
 
     const canales = canalesDe(p);
     if (canales.length === 0) continue; // apagó los dos canales: no hay por dónde
