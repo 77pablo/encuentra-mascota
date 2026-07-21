@@ -27,6 +27,10 @@ export interface Pet {
   reunida_en?: string | null;
   final_feliz?: string | null;
   final_foto?: string | null;
+  // Ciclo de vida (migración 0028): última vez que el dueño confirmó que el
+  // reporte sigue vigente (o la creación). A los 45 días sin renovar, el reporte
+  // sale solo de las búsquedas. Puede faltar en reportes anteriores a la 0028.
+  renovado_en?: string | null;
 }
 
 // NOTA: acá vivía `activePetsCache`, una caché de 30s de "todos los reportes
@@ -91,6 +95,31 @@ export async function getPet(id: string): Promise<Pet> {
 
 export async function closePet(id: string): Promise<void> {
   const { error } = await supabase.from('pets').update({ activo: false }).eq('id', id);
+  if (error) throw error;
+}
+
+// CICLO DE VIDA (migración 0028). Renovar = "sigue perdida, mantenelo vivo":
+// reinicia el reloj de 45 días poniendo `renovado_en = ahora`, y el reporte
+// vuelve a aparecer en las búsquedas al instante. Se usa un timestamp del
+// cliente igual que `markReunited` (la RLS ya permite el update al dueño).
+export async function renovarReporte(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('pets')
+    .update({ renovado_en: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// Archivar = "dejar vencer ya". En vez de un estado nuevo, se reusa la MISMA
+// columna `renovado_en` poniéndola 46 días en el pasado: el reporte cae fuera
+// del umbral de 45 días y sale de las búsquedas al instante, quedando en "Mis
+// reportes" como reactivable con un toque (renovarReporte lo trae de vuelta).
+export async function archivarReporte(id: string): Promise<void> {
+  const hace46Dias = new Date(Date.now() - 46 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from('pets')
+    .update({ renovado_en: hace46Dias })
+    .eq('id', id);
   if (error) throw error;
 }
 

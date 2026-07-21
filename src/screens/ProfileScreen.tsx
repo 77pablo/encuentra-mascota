@@ -3,7 +3,8 @@ import { Image, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, Vie
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
-import { closePet, deletePet, listMyReports, Pet } from '../services/pets';
+import { closePet, deletePet, listMyReports, Pet, renovarReporte } from '../services/pets';
+import { vencido } from '../lib/cicloVida';
 import { camposDeContactoParaGuardar, getMyProfile, Profile, updateMyProfile } from '../services/profile';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
@@ -120,6 +121,18 @@ export default function ProfileScreen({ navigation }: any) {
 
   const editar = (item: Pet) => {
     navigation.navigate('EditPet', { pet: item });
+  };
+
+  // Reactiva un reporte vencido/archivado: reinicia el reloj de 45 días y vuelve
+  // a aparecer en las búsquedas al instante.
+  const reactivar = async (id: string) => {
+    try {
+      await renovarReporte(id);
+      notify('Reactivado', 'Tu reporte volvió a aparecer en las búsquedas.');
+      cargar();
+    } catch (e: any) {
+      notify('Error', mensajeDeErrorDb(e));
+    }
   };
 
   const borrar = async (id: string) => {
@@ -417,8 +430,10 @@ export default function ProfileScreen({ navigation }: any) {
           />
         ) : (
           <View style={styles.list}>
-            {mis.map((item) => (
-              <Card key={item.id} style={styles.reportCard}>
+            {mis.map((item) => {
+              const estaVencido = vencido(item);
+              return (
+              <Card key={item.id} style={[styles.reportCard, estaVencido && styles.reportCardVencida]}>
                 <Badge estado={item.estado} />
                 <AppText weight="semi" size={14} style={styles.reportTitle}>
                   {especieLabel[item.especie]}
@@ -426,6 +441,24 @@ export default function ProfileScreen({ navigation }: any) {
                 <AppText muted size={13} style={styles.reportDescription}>
                   {item.descripcion.slice(0, 60)}
                 </AppText>
+                {estaVencido ? (
+                  // Realce del reporte vencido: pausado, no aparece en búsquedas,
+                  // pero se reactiva con un toque.
+                  <View style={styles.vencidaAviso}>
+                    <Ionicons name="pause-circle" size={16} color={colors.muted} />
+                    <AppText muted size={12} style={styles.vencidaTexto}>
+                      En pausa: no aparece en las búsquedas. Reactivalo para que se vea de nuevo.
+                    </AppText>
+                  </View>
+                ) : null}
+                {estaVencido ? (
+                  <Button
+                    title="Reactivar"
+                    icon="refresh"
+                    onPress={() => reactivar(item.id)}
+                    style={styles.reportButton}
+                  />
+                ) : null}
                 <Button
                   title="Ya apareció"
                   variant="secondary"
@@ -450,7 +483,8 @@ export default function ProfileScreen({ navigation }: any) {
                   />
                 </View>
               </Card>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -620,6 +654,20 @@ const styles = StyleSheet.create({
   },
   reportCard: {
     gap: spacing.xs,
+  },
+  reportCardVencida: {
+    borderWidth: 1,
+    borderColor: colors.sun,
+  },
+  vencidaAviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  vencidaTexto: {
+    flex: 1,
+    lineHeight: 16,
   },
   reportTitle: {
     marginTop: spacing.xs,
