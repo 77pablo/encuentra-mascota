@@ -6,7 +6,13 @@ import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { markReunited } from '../services/reunions';
-import { denunciarPet } from '../services/moderation';
+import {
+  denunciarAvistamiento,
+  denunciarPista,
+  denunciarReporte,
+  MOTIVOS_DENUNCIA,
+  TipoDenuncia,
+} from '../services/moderation';
 import { useAuth } from '../hooks/useAuth';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { shareReport } from '../lib/share';
@@ -28,13 +34,6 @@ import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
-
-const MOTIVOS_DENUNCIA = [
-  'Contenido falso o engañoso',
-  'Contenido ofensivo',
-  'Spam',
-  'Otro',
-] as const;
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -64,7 +63,9 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [mostrarMotivos, setMostrarMotivos] = useState(false);
+  // Denuncia unificada: apunta a lo que se está denunciando (el reporte, una
+  // pista o un avistamiento). null = ningún selector de motivos abierto.
+  const [denunciaTarget, setDenunciaTarget] = useState<{ tipo: TipoDenuncia; id: string } | null>(null);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [matches, setMatches] = useState<Coincidencia[]>([]);
   const [sightings, setSightings] = useState<Sighting[]>([]);
@@ -284,9 +285,13 @@ export default function PetDetailScreen({ route, navigation }: any) {
     navigation.navigate('Chat', { petId: pet.id, otherUserId: pet.user_id });
   };
 
-  const abrirMotivosDenuncia = () => {
+  // Abre (o cierra, si se vuelve a tocar lo mismo) el selector de motivos para
+  // denunciar el reporte, una pista o un avistamiento.
+  const abrirDenuncia = (tipo: TipoDenuncia, targetId: string) => {
     if (!requireAuth('denunciar')) return;
-    setMostrarMotivos((v) => !v);
+    setDenunciaTarget((actual) =>
+      actual && actual.tipo === tipo && actual.id === targetId ? null : { tipo, id: targetId },
+    );
   };
 
   const reunida = isReunited(pet);
@@ -343,22 +348,50 @@ export default function PetDetailScreen({ route, navigation }: any) {
 
   const denunciar = async (motivo: string) => {
     if (!requireAuth('denunciar')) return;
-    if (!user || !pet) return;
+    if (!user || !pet || !denunciaTarget) return;
+    const { tipo, id: targetId } = denunciaTarget;
     setEnviandoDenuncia(true);
     try {
-      await denunciarPet(pet.id, user.id, motivo);
-      setMostrarMotivos(false);
-      notify('Gracias', 'Recibimos tu denuncia y la revisaremos.');
-    } catch (e: any) {
-      if (e?.code === '23505') {
-        setMostrarMotivos(false);
-        notify('Ya habías denunciado este reporte.');
+      if (tipo === 'pista') {
+        await denunciarPista(targetId, user.id, motivo);
+      } else if (tipo === 'avistamiento') {
+        await denunciarAvistamiento(targetId, user.id, motivo);
       } else {
-        notify('Error', mensajeDeErrorDb(e));
+        await denunciarReporte(pet.id, user.id, motivo);
       }
+      setDenunciaTarget(null);
+      notify('Gracias', 'Recibimos tu denuncia y la revisaremos dentro de las próximas 24 horas.');
+    } catch (e: any) {
+      setDenunciaTarget(null);
+      // `denunciar…` ya traduce el duplicado (23505) a un ErrorAmigable claro.
+      notify('Aviso', mensajeDeErrorDb(e));
     } finally {
       setEnviandoDenuncia(false);
     }
+  };
+
+  // Lista de botones de motivo para el selector abierto sobre `tipo`/`id`. Se
+  // reutiliza en el reporte, en cada pista y en cada avistamiento.
+  const renderMotivos = (tipo: TipoDenuncia, targetId: string) => {
+    if (!denunciaTarget || denunciaTarget.tipo !== tipo || denunciaTarget.id !== targetId) return null;
+    return (
+      <View style={styles.reasonList}>
+        <AppText muted size={13} style={styles.reasonTitle}>
+          ¿Por qué querés denunciar?
+        </AppText>
+        {MOTIVOS_DENUNCIA.map((motivo) => (
+          <Button
+            key={motivo}
+            title={motivo}
+            variant="secondary"
+            loading={enviandoDenuncia}
+            disabled={enviandoDenuncia}
+            onPress={() => denunciar(motivo)}
+            style={styles.reasonButton}
+          />
+        ))}
+      </View>
+    );
   };
 
   return (
@@ -617,8 +650,18 @@ export default function PetDetailScreen({ route, navigation }: any) {
                         {distanceLabel(sightingDistanceKm(origen, s))} del reporte · {timeAgo(s.creado_en)}
                       </AppText>
                     </View>
+                    {s.user_id && s.user_id !== user?.id ? (
+                      <TouchableOpacity
+                        onPress={() => abrirDenuncia('avistamiento', s.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.sightingFlag}
+                      >
+                        <Ionicons name="flag-outline" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                   {s.foto ? <Image source={{ uri: s.foto }} style={styles.sightingPhoto} /> : null}
+                  {renderMotivos('avistamiento', s.id)}
                 </Card>
               ))}
             </View>
@@ -761,6 +804,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
                       {timeAgo(t.creadoEn)}
                     </AppText>
                     <View style={styles.pistaSpacer} />
+                    {t.userId && t.userId !== user?.id ? (
+                      <TouchableOpacity
+                        onPress={() => abrirDenuncia('pista', t.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.pistaAccionIcono}
+                      >
+                        <Ionicons name="flag-outline" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    ) : null}
                     {puedeBorrarTip(t, user?.id ?? null, pet.user_id) ? (
                       <TouchableOpacity
                         onPress={() => eliminarPista(t)}
@@ -774,6 +826,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
                   <AppText size={14} style={styles.pistaTexto}>
                     {t.texto}
                   </AppText>
+                  {renderMotivos('pista', t.id)}
                 </View>
               ))}
             </View>
@@ -853,27 +906,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
               variant="ghost"
               icon="flag-outline"
               disabled={enviandoDenuncia}
-              onPress={abrirMotivosDenuncia}
+              onPress={() => abrirDenuncia('reporte', pet.id)}
               style={styles.reportButton}
             />
-            {mostrarMotivos ? (
-              <View style={styles.reasonList}>
-                <AppText muted size={13} style={styles.reasonTitle}>
-                  ¿Por qué quieres denunciar este reporte?
-                </AppText>
-                {MOTIVOS_DENUNCIA.map((motivo) => (
-                  <Button
-                    key={motivo}
-                    title={motivo}
-                    variant="secondary"
-                    loading={enviandoDenuncia}
-                    disabled={enviandoDenuncia}
-                    onPress={() => denunciar(motivo)}
-                    style={styles.reasonButton}
-                  />
-                ))}
-              </View>
-            ) : null}
+            {renderMotivos('reporte', pet.id)}
           </View>
         )}
 
@@ -994,6 +1030,10 @@ const styles = StyleSheet.create({
   sightingIcon: {
     marginTop: 2,
     marginRight: spacing.sm,
+  },
+  sightingFlag: {
+    marginLeft: spacing.sm,
+    marginTop: 2,
   },
   sightingBody: {
     flex: 1,
@@ -1127,6 +1167,9 @@ const styles = StyleSheet.create({
   },
   pistaSpacer: {
     flex: 1,
+  },
+  pistaAccionIcono: {
+    marginRight: spacing.md,
   },
   pistaTexto: {
     marginTop: spacing.xs,

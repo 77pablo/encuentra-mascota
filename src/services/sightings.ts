@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
+import { filtrarBloqueados, idsBloqueados } from './bloqueos';
 
 export interface Sighting {
   id: string;
@@ -59,14 +60,22 @@ export async function addSighting(input: NewSighting): Promise<Sighting> {
 }
 
 // Rastro de avistamientos de un reporte, del más reciente al más antiguo.
+//
+// Se ocultan los avistamientos de gente que bloquee. Decision de producto: se
+// oculta el avistamiento entero (nota, firma y pin). El filtro es del CLIENTE
+// (lista corta, sin cursor) y degrada a conjunto vacio si no hay sesion o la
+// tabla 0022 todavia no existe.
 export async function listSightings(petId: string): Promise<Sighting[]> {
-  const { data, error } = await supabase
-    .from('sightings')
-    .select('*')
-    .eq('pet_id', petId)
-    .order('creado_en', { ascending: false });
+  const [{ data, error }, bloqueados] = await Promise.all([
+    supabase
+      .from('sightings')
+      .select('*')
+      .eq('pet_id', petId)
+      .order('creado_en', { ascending: false }),
+    idsBloqueados(),
+  ]);
   if (error) throw error;
-  return (data ?? []) as Sighting[];
+  return filtrarBloqueados((data ?? []) as Sighting[], bloqueados, (s) => s.user_id);
 }
 
 // Borra un avistamiento (autor del avistamiento o dueño del reporte, según RLS).

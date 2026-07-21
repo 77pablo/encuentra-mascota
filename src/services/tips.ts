@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { ordenarTips, validarTip, Tip } from '../lib/tips';
 import { ErrorAmigable } from '../lib/dbErrors';
+import { filtrarBloqueados, idsBloqueados } from './bloqueos';
 
 // PISTAS DEL BARRIO — acceso a `pet_tips` (migración 0012).
 // Mismo patrón que `petUpdates.ts`, con una diferencia: `listarTips` degrada a
@@ -55,10 +56,17 @@ export async function listarTips(petId: string): Promise<Tip[]> {
       .eq('pet_id', petId)
       .order('creado_en', { ascending: false });
 
+  // Pistas de gente que bloquee: se ocultan (una pista es texto dirigido a
+  // personas). Se filtra en el CLIENTE porque la lista es corta y sin cursor;
+  // degrada a conjunto vacio si no hay sesion o la tabla 0022 no existe.
+  const bloqueados = await idsBloqueados();
+  const ocultarBloqueados = (tips: Tip[]) =>
+    filtrarBloqueados(tips, bloqueados, (t) => t.userId);
+
   try {
     const conAutor = await consulta(SELECT_CON_AUTOR);
     if (!conAutor.error) {
-      return ordenarTips(((conAutor.data ?? []) as unknown as FilaTip[]).map(aTip));
+      return ocultarBloqueados(ordenarTips(((conAutor.data ?? []) as unknown as FilaTip[]).map(aTip)));
     }
     // La consulta con `eliminado_en` fallo (probablemente porque la migracion
     // 0017 todavia no esta aplicada). Reintentamos pidiendo solo `nombre`
@@ -66,14 +74,14 @@ export async function listarTips(petId: string): Promise<Tip[]> {
     // pasarian a firmar "Un vecino" en vez de solo las de cuentas borradas.
     const soloNombre = await consulta(SELECT_SOLO_NOMBRE);
     if (!soloNombre.error) {
-      return ordenarTips(((soloNombre.data ?? []) as unknown as FilaTip[]).map(aTip));
+      return ocultarBloqueados(ordenarTips(((soloNombre.data ?? []) as unknown as FilaTip[]).map(aTip)));
     }
     // Sin sesión el embed a `profiles` no se puede resolver de ninguna forma:
     // reintentamos sin él, porque el texto de la pista importa más que la
     // firma.
     const sinAutor = await consulta(SELECT_SIN_AUTOR);
     if (sinAutor.error) return [];
-    return ordenarTips(((sinAutor.data ?? []) as unknown as FilaTip[]).map(aTip));
+    return ocultarBloqueados(ordenarTips(((sinAutor.data ?? []) as unknown as FilaTip[]).map(aTip)));
   } catch {
     return [];
   }

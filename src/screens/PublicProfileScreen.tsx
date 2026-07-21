@@ -12,8 +12,12 @@ import { Pet } from '../services/pets';
 import { insigniasDe } from '../lib/insignias';
 import { iconoRedSocial, parseRedSocial } from '../lib/redSocial';
 import { mesAnoDe } from '../lib/time';
-import { notify } from '../lib/notify';
-import { AppText, Badge, Card, Loading, Screen, Title } from '../ui';
+import { confirmAction, notify } from '../lib/notify';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
+import { useAuth } from '../hooks/useAuth';
+import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
+import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
+import { AppText, Badge, Button, Card, Loading, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -24,11 +28,19 @@ const especieLabel: Record<Pet['especie'], string> = {
 
 export default function PublicProfileScreen({ route, navigation }: any) {
   const userId: string | undefined = route.params?.userId;
+  const { user } = useAuth();
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null);
   const [reportes, setReportes] = useState<Pet[]>([]);
   const [reencuentros, setReencuentros] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [noDisponible, setNoDisponible] = useState(false);
+  // Bloqueo/denuncia sobre esta persona.
+  const [bloqueado, setBloqueado] = useState(false);
+  const [procesandoBloqueo, setProcesandoBloqueo] = useState(false);
+  const [mostrarMotivos, setMostrarMotivos] = useState(false);
+  const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
+
+  const esMio = !!userId && userId === user?.id;
 
   const scrollRef = useRef<ScrollView>(null);
   const reportesY = useRef(0);
@@ -42,6 +54,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     }
     setLoading(true);
     setNoDisponible(false);
+    setMostrarMotivos(false);
     getPerfilPublico(userId)
       .then((p) => {
         setPerfil(p);
@@ -52,9 +65,86 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     // Las listas degradan a vacío si fallan: no deben tumbar la pantalla.
     listReportesPublicos(userId).then(setReportes).catch(() => {});
     listReencuentrosPublicos(userId).then(setReencuentros).catch(() => {});
-  }, [userId]);
+    // ¿Ya lo tengo bloqueado? Solo si hay sesión y no es mi propio perfil.
+    // Silencioso: si falla, dejamos el botón en "Bloquear".
+    if (user && userId !== user.id) {
+      bloqueEmitido(userId).then(setBloqueado).catch(() => {});
+    } else {
+      setBloqueado(false);
+    }
+  }, [userId, user]);
 
   useFocusEffect(cargar);
+
+  // Portero del modo invitado, en línea: no existe una acción 'bloquear' en el
+  // enum de requireAuth (vive en un archivo ajeno a esta tarea), así que
+  // replicamos el mismo gesto: avisar y empujar el registro.
+  const pedirCuenta = (mensaje: string): boolean => {
+    if (user) return true;
+    notify(mensaje);
+    navigation.navigate('Register');
+    return false;
+  };
+
+  const alternarBloqueo = async () => {
+    if (!userId) return;
+    if (!pedirCuenta('Creá tu cuenta para bloquear a esta persona')) return;
+    if (!bloqueado) {
+      const ok = await confirmAction(
+        '¿Bloquear a esta persona?',
+        'No podrá escribirte y dejarás de ver lo que publique. Puedes deshacerlo cuando quieras.',
+      );
+      if (!ok) return;
+    }
+    setProcesandoBloqueo(true);
+    try {
+      if (bloqueado) {
+        await desbloquear(userId);
+        setBloqueado(false);
+        notify('Desbloqueada', 'Esta persona vuelve a poder escribirte.');
+      } else {
+        await bloquear(userId);
+        setBloqueado(true);
+        notify('Persona bloqueada', 'No podrá escribirte y no verás lo que publique.');
+      }
+    } catch (e: any) {
+      notify('No se pudo completar', mensajeDeErrorDb(e));
+    } finally {
+      setProcesandoBloqueo(false);
+    }
+  };
+
+  const abrirMotivosDenuncia = () => {
+    if (!pedirCuenta('Creá tu cuenta para denunciar a esta persona')) return;
+    setMostrarMotivos((v) => !v);
+  };
+
+  const denunciar = async (motivo: string) => {
+    if (!userId || !user) return;
+    setEnviandoDenuncia(true);
+    try {
+      await denunciarUsuario(userId, user.id, motivo);
+      setMostrarMotivos(false);
+      // Denunciar y bloquear son el mismo impulso: se ofrece bloquear acá mismo.
+      if (!bloqueado) {
+        const ok = await confirmAction(
+          'Denuncia recibida',
+          'La revisaremos dentro de las próximas 24 horas. ¿Querés también bloquear a esta persona?',
+        );
+        if (ok) {
+          await bloquear(userId);
+          setBloqueado(true);
+        }
+      } else {
+        notify('Denuncia recibida', 'La revisaremos dentro de las próximas 24 horas.');
+      }
+    } catch (e: any) {
+      setMostrarMotivos(false);
+      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+    } finally {
+      setEnviandoDenuncia(false);
+    }
+  };
 
   if (loading) return <Loading />;
 
@@ -145,6 +235,49 @@ export default function PublicProfileScreen({ route, navigation }: any) {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Acciones sobre esta persona: denunciar / bloquear. No se muestran en
+            el perfil propio. */}
+        {!esMio ? (
+          <View style={styles.acciones}>
+            <View style={styles.accionesRow}>
+              <Button
+                title="Denunciar"
+                variant="ghost"
+                icon="flag-outline"
+                disabled={enviandoDenuncia}
+                onPress={abrirMotivosDenuncia}
+                style={styles.accionBoton}
+              />
+              <Button
+                title={bloqueado ? 'Desbloquear' : 'Bloquear'}
+                variant="secondary"
+                icon="ban-outline"
+                loading={procesandoBloqueo}
+                onPress={alternarBloqueo}
+                style={styles.accionBoton}
+              />
+            </View>
+            {mostrarMotivos ? (
+              <View style={styles.reasonList}>
+                <AppText muted size={13} style={styles.reasonTitle}>
+                  ¿Por qué quieres denunciar a esta persona?
+                </AppText>
+                {MOTIVOS_DENUNCIA.map((motivo) => (
+                  <Button
+                    key={motivo}
+                    title={motivo}
+                    variant="secondary"
+                    loading={enviandoDenuncia}
+                    disabled={enviandoDenuncia}
+                    onPress={() => denunciar(motivo)}
+                    style={styles.reasonButton}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Estadísticas tocables */}
         <View style={styles.statsRow}>
@@ -285,6 +418,26 @@ const styles = StyleSheet.create({
   },
   redLinkText: {
     marginLeft: spacing.xs,
+  },
+  acciones: {
+    gap: spacing.sm,
+  },
+  accionesRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  accionBoton: {
+    flex: 1,
+  },
+  reasonList: {
+    gap: spacing.sm,
+  },
+  reasonTitle: {
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  reasonButton: {
+    width: '100%',
   },
   statsRow: {
     flexDirection: 'row',

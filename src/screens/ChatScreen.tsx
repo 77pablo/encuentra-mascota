@@ -14,7 +14,11 @@ import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { useUnread } from '../hooks/useUnread';
 import { markThreadRead, sendMessage } from '../services/messages';
 import { supabase } from '../lib/supabase';
-import { AppText, AvisoEstafa, Screen } from '../ui';
+import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
+import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
+import { confirmAction, notify } from '../lib/notify';
+import { mensajeDeErrorDb } from '../lib/dbErrors';
+import { AppText, AvisoEstafa, Button, Screen } from '../ui';
 import { colors, font, radius, spacing } from '../theme';
 
 export default function ChatScreen({ route, navigation }: any) {
@@ -26,6 +30,12 @@ export default function ChatScreen({ route, navigation }: any) {
   const { refresh: refreshUnread } = useUnread();
   const [otroEliminado, setOtroEliminado] = useState(false);
   const [otroNombre, setOtroNombre] = useState<string | null>(null);
+  // Bloqueo/denuncia desde el propio chat.
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [bloqueado, setBloqueado] = useState(false);
+  const [procesandoBloqueo, setProcesandoBloqueo] = useState(false);
+  const [mostrarMotivos, setMostrarMotivos] = useState(false);
+  const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
 
   useEffect(() => {
     markThreadRead(petId, me, otherUserId)
@@ -49,6 +59,16 @@ export default function ChatScreen({ route, navigation }: any) {
     // que la consulta de abajo resuelva.
     setOtroEliminado(false);
     setOtroNombre(null);
+    setMenuAbierto(false);
+    setMostrarMotivos(false);
+    setBloqueado(false);
+    // ¿Ya bloqueé a esta persona? Silencioso: si falla (tabla 0022 sin aplicar)
+    // dejamos el chat como está.
+    bloqueEmitido(otherUserId)
+      .then((b) => {
+        if (vivo) setBloqueado(b);
+      })
+      .catch(() => {});
     // El builder de supabase es un PromiseLike, no un Promise completo (no
     // tiene `.catch`); lo envolvemos en Promise.resolve para poder atrapar el
     // rechazo sin dejar una promesa suelta. Se lee también el nombre para el
@@ -91,28 +111,140 @@ export default function ChatScreen({ route, navigation }: any) {
 
   const puedeEnviar = texto.trim().length > 0;
 
+  const alternarBloqueo = async () => {
+    setMenuAbierto(false);
+    if (!bloqueado) {
+      const ok = await confirmAction(
+        '¿Bloquear a esta persona?',
+        'No podrá escribirte y dejarás de ver lo que publique. Puedes deshacerlo cuando quieras.',
+      );
+      if (!ok) return;
+    }
+    setProcesandoBloqueo(true);
+    try {
+      if (bloqueado) {
+        await desbloquear(otherUserId);
+        setBloqueado(false);
+        notify('Desbloqueada', 'Esta persona vuelve a poder escribirte.');
+      } else {
+        await bloquear(otherUserId);
+        setBloqueado(true);
+        // Al bloquear se corta el chat y se vuelve a Conversaciones.
+        navigation.goBack();
+      }
+    } catch (e: any) {
+      notify('No se pudo completar', mensajeDeErrorDb(e));
+    } finally {
+      setProcesandoBloqueo(false);
+    }
+  };
+
+  const abrirDenuncia = () => {
+    setMenuAbierto(false);
+    setMostrarMotivos((v) => !v);
+  };
+
+  const denunciar = async (motivo: string) => {
+    setEnviandoDenuncia(true);
+    try {
+      await denunciarUsuario(otherUserId, me, motivo);
+      setMostrarMotivos(false);
+      if (!bloqueado) {
+        const ok = await confirmAction(
+          'Denuncia recibida',
+          'La revisaremos dentro de las próximas 24 horas. ¿Querés también bloquear a esta persona?',
+        );
+        if (ok) {
+          await bloquear(otherUserId);
+          navigation.goBack();
+        }
+      } else {
+        notify('Denuncia recibida', 'La revisaremos dentro de las próximas 24 horas.');
+      }
+    } catch (e: any) {
+      setMostrarMotivos(false);
+      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+    } finally {
+      setEnviandoDenuncia(false);
+    }
+  };
+
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {otroEliminado ? (
-          <View style={styles.headerRow}>
-            <Ionicons name="person-circle-outline" size={18} color={colors.muted} />
-            <AppText muted weight="semi" size={14} style={styles.headerNombre}>
-              Cuenta eliminada
-            </AppText>
+        <View style={styles.headerBar}>
+          <View style={styles.headerLeft}>
+            {otroEliminado ? (
+              <View style={styles.headerRow}>
+                <Ionicons name="person-circle-outline" size={18} color={colors.muted} />
+                <AppText muted weight="semi" size={14} style={styles.headerNombre}>
+                  Cuenta eliminada
+                </AppText>
+              </View>
+            ) : otroNombre ? (
+              <TouchableOpacity
+                style={styles.headerRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('PublicProfile', { userId: otherUserId })}
+              >
+                <Ionicons name="person-circle-outline" size={18} color={colors.brand} />
+                <AppText weight="semi" size={14} color={colors.brand} style={styles.headerNombre}>
+                  {otroNombre}
+                </AppText>
+                <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+              </TouchableOpacity>
+            ) : null}
           </View>
-        ) : otroNombre ? (
-          <TouchableOpacity
-            style={styles.headerRow}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('PublicProfile', { userId: otherUserId })}
-          >
-            <Ionicons name="person-circle-outline" size={18} color={colors.brand} />
-            <AppText weight="semi" size={14} color={colors.brand} style={styles.headerNombre}>
-              {otroNombre}
+          {/* Menú de la conversación: denunciar / bloquear sin salir del chat.
+              A una cuenta eliminada no se le ofrece: ya no puede escribir. */}
+          {!otroEliminado ? (
+            <TouchableOpacity
+              onPress={() => setMenuAbierto((v) => !v)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.menuBoton}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        {menuAbierto && !otroEliminado ? (
+          <View style={styles.menu}>
+            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={abrirDenuncia}>
+              <Ionicons name="flag-outline" size={17} color={colors.ink} />
+              <AppText size={14} style={styles.menuItemTexto}>
+                Denunciar conversación
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.7}
+              disabled={procesandoBloqueo}
+              onPress={alternarBloqueo}
+            >
+              <Ionicons name="ban-outline" size={17} color={colors.ink} />
+              <AppText size={14} style={styles.menuItemTexto}>
+                {bloqueado ? 'Desbloquear a esta persona' : 'Bloquear a esta persona'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {mostrarMotivos && !otroEliminado ? (
+          <View style={styles.reasonList}>
+            <AppText muted size={13} style={styles.reasonTitle}>
+              ¿Por qué quieres denunciar esta conversación?
             </AppText>
-            <Ionicons name="chevron-forward" size={14} color={colors.brand} />
-          </TouchableOpacity>
+            {MOTIVOS_DENUNCIA.map((motivo) => (
+              <Button
+                key={motivo}
+                title={motivo}
+                variant="secondary"
+                loading={enviandoDenuncia}
+                disabled={enviandoDenuncia}
+                onPress={() => denunciar(motivo)}
+                style={styles.reasonButton}
+              />
+            ))}
+          </View>
         ) : null}
         <View style={styles.aviso}>
           <AvisoEstafa variante="chat" />
@@ -138,6 +270,12 @@ export default function ChatScreen({ route, navigation }: any) {
           <View style={styles.inputRow}>
             <AppText muted style={styles.cerrado}>
               Esta persona borró su cuenta. La conversación queda como recuerdo.
+            </AppText>
+          </View>
+        ) : bloqueado ? (
+          <View style={styles.inputRow}>
+            <AppText muted style={styles.cerrado}>
+              Bloqueaste a esta persona. Podés desbloquearla desde el menú de arriba.
             </AppText>
           </View>
         ) : (
@@ -169,15 +307,56 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  headerLeft: {
+    flex: 1,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
   },
   headerNombre: {
     flexShrink: 1,
+  },
+  menuBoton: {
+    paddingLeft: spacing.md,
+  },
+  menu: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  menuItemTexto: {
+    flexShrink: 1,
+  },
+  reasonList: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  reasonTitle: {
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  reasonButton: {
+    width: '100%',
   },
   aviso: {
     paddingHorizontal: spacing.lg,
