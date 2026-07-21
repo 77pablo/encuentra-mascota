@@ -7,6 +7,8 @@ import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
 import EncontreScreen from '../screens/EncontreScreen';
+import AdopcionFeedScreen from '../screens/AdopcionFeedScreen';
+import PublicarAdopcionScreen from '../screens/PublicarAdopcionScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import AddSightingScreen from '../screens/AddSightingScreen';
 import ChatScreen from '../screens/ChatScreen';
@@ -89,6 +91,29 @@ function ComunidadStack() {
   );
 }
 
+// Feed de adopción, con su propio stack para poder abrir el chat y el perfil
+// público del publicador sin salir de la pestaña (igual que Comunidad).
+// `PublicarAdopcion` va acá adentro (no en el stack raíz) para heredar el
+// header + botón de volver nativos de este navigator, igual que EncontreScreen
+// dentro de ListStack. `AdopcionDetail` en cambio SÍ vive en el stack raíz
+// (ver RootNavigator) porque necesita linking público `adopcion/:id`; se
+// alcanza por burbujeo, igual que `GuiaPerdida` desde InicioStack.
+const AdopcionStackNav = createNativeStackNavigator();
+function AdopcionStack() {
+  return (
+    <AdopcionStackNav.Navigator>
+      <AdopcionStackNav.Screen name="Adopcion" component={AdopcionFeedScreen} options={{ headerShown: false }} />
+      <AdopcionStackNav.Screen
+        name="PublicarAdopcion"
+        component={PublicarAdopcionScreen}
+        options={{ title: 'Publicar en adopción' }}
+      />
+      <AdopcionStackNav.Screen name="Chat" component={ChatScreen} />
+      <AdopcionStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
+    </AdopcionStackNav.Navigator>
+  );
+}
+
 const MsgStackNav = createNativeStackNavigator();
 function MsgStack() {
   return (
@@ -143,6 +168,7 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Mapa: 'map',
   Lista: 'list',
   Comunidad: 'people',
+  Adopcion: 'paw',
   Publicar: 'add-circle',
   Mensajes: 'chatbubble-ellipses',
   Perfil: 'person',
@@ -196,6 +222,11 @@ export default function TabNavigator() {
       <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
       <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
       <Tab.Screen name="Comunidad" component={ComunidadStack} options={{ headerShown: false }} />
+      <Tab.Screen
+        name="Adopcion"
+        component={AdopcionStack}
+        options={{ headerShown: false, tabBarLabel: 'Adopción' }}
+      />
       <Tab.Screen name="Publicar" component={PublishScreen} listeners={porteroDeTab('publicar')} />
       <Tab.Screen
         name="Mensajes"
