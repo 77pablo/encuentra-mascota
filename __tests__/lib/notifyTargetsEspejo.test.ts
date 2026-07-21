@@ -107,6 +107,23 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
     },
   },
+  {
+    // Escaneo de collar (Función 2): destinatario = targetUserId, sin interruptor
+    // de tipo, ruta a /mis-mascotas, nota en el cuerpo. El espejo debe resolverlo
+    // idéntico en las dos copias.
+    nombre: 'escaneo de collar con nota (destinatario dirigido)',
+    evento: {
+      id: 's1', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa', nota: 'La vi en la plaza' },
+    },
+    ctx: {
+      duenoPetId: 'otro', nombrePet: 'Pelusa', zonas: [], seguidoresComuna: [],
+      prefs: {
+        dueno: { userId: 'dueno', zona: false, avistamientos: false, pistas: false,
+                 coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    },
+  },
 ];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {

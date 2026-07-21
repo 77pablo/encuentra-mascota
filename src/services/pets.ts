@@ -23,6 +23,8 @@ export interface Pet {
   // reportes viejos (anteriores a la Tanda 3).
   comuna?: string | null;
   comunas_alcance?: string[] | null;
+  // Vínculo con la ficha "Mi mascota" que originó el reporte (Función 2), si lo hubo.
+  origen_my_pet?: string | null;
   // Final feliz (verificación de reencuentro) — ver reunions.ts / lib/reunion.ts.
   reunida_en?: string | null;
   final_feliz?: string | null;
@@ -40,14 +42,21 @@ export interface Pet {
 // llamaba nadie. Si alguna vez hace falta cachear, conviene hacerlo POR
 // CONSULTA (clave = filtros + cursor), no una lista global.
 
-export async function createPet(input: PetInput, fotos: string[], userId: string): Promise<Pet> {
+export async function createPet(
+  input: PetInput,
+  fotos: string[],
+  userId: string,
+  // Si el reporte nace desde una ficha "Mi mascota" (Función 2), guardamos el
+  // vínculo para que la RPC del collar sepa que esta mascota está perdida ahora.
+  origenMyPet?: string | null,
+): Promise<Pet> {
   // La ubicacion se difumina ACA, en el borde de escritura, para que ninguna
   // pantalla pueda saltarse el paso por olvido. La coordenada exacta no se
   // guarda en ninguna parte: lo que no se guarda no se puede filtrar.
   const { lat, lng } = difuminarUbicacion({ lat: input.lat, lng: input.lng });
   const { data, error } = await supabase
     .from('pets')
-    .insert({ ...input, lat, lng, fotos, user_id: userId })
+    .insert({ ...input, lat, lng, fotos, user_id: userId, origen_my_pet: origenMyPet ?? null })
     .select()
     .single();
   if (error) throw error;

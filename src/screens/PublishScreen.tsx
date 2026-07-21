@@ -35,14 +35,23 @@ export default function PublishScreen({ navigation, route }: any) {
   const [estado, setEstado] = useState<'perdida' | 'encontrada'>(
     params.estado === 'perdida' || params.estado === 'encontrada' ? params.estado : 'perdida',
   );
-  const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro'>('perro');
-  const [raza, setRaza] = useState('');
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
+  // Pre-carga opcional al reportar desde una ficha "Mi mascota" (Función 2).
+  const especieParam =
+    params.especie === 'perro' || params.especie === 'gato' || params.especie === 'otro'
+      ? params.especie
+      : 'perro';
+  const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro'>(especieParam);
+  const [raza, setRaza] = useState(typeof params.raza === 'string' ? params.raza : '');
+  const [nombre, setNombre] = useState(typeof params.nombre === 'string' ? params.nombre : '');
+  const [descripcion, setDescripcion] = useState(
+    typeof params.descripcion === 'string' ? params.descripcion : '',
+  );
   const [recompensa, setRecompensa] = useState('');
   const [fotoUris, setFotoUris] = useState<string[]>(
     typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
   );
+  // Vínculo con la ficha de origen, para que createPet lo guarde.
+  const origenMyPet: string | null = typeof params.origenMyPet === 'string' ? params.origenMyPet : null;
   const [coords, setCoords] = useState({ lat: -33.45, lng: -70.66 });
   const [comuna, setComuna] = useState<string | null>(null);
   const [comunasAlcance, setComunasAlcance] = useState<string[]>([]);
@@ -148,7 +157,10 @@ export default function PublishScreen({ navigation, route }: any) {
     setSaving(true);
     try {
       const urls = await uploadPetPhotos(fotoUris, user!.id);
-      await createPet(parsed.data, urls, user!.id);
+      // `origenMyPet` (Función 2): si el reporte se publicó desde una ficha de
+      // "Mi mascota", queda vinculado para que el QR del collar sepa que está
+      // perdida. Es undefined en el flujo normal.
+      await createPet(parsed.data, urls, user!.id, origenMyPet);
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
       // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.

@@ -28,9 +28,12 @@ const HEADERS = { 'Content-Type': 'application/json', 'X-Content-Type-Options': 
 
 interface EventoRow {
   id: string;
-  tipo: 'reporte_nuevo' | 'avistamiento' | 'pista';
-  pet_id: string;
+  tipo: 'reporte_nuevo' | 'avistamiento' | 'pista' | 'coincidencia' | 'escaneo_collar';
+  // pet_id es nullable desde la 0027: un 'escaneo_collar' no tiene reporte.
+  pet_id: string | null;
   actor_id: string | null;
+  // Destinatario directo (solo 'escaneo_collar'): el dueño de la ficha.
+  target_user_id: string | null;
   datos: Record<string, unknown>;
   intentos: number;
 }
@@ -148,6 +151,35 @@ async function enviarPush(
 // reporte, zonas de alerta activas (solo hacen falta para 'reporte_nuevo') y
 // las preferencias de todos los candidatos.
 async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | null> {
+  // 'escaneo_collar' NO tiene reporte (pet_id = null): el destinatario es directo
+  // (ev.target_user_id, el dueño de la ficha) y el nombre viene en datos. Este
+  // branch DEBE ir antes del `select` a pets, porque con pet_id=null esa consulta
+  // devolvería null y el aviso se perdería.
+  if (ev.tipo === 'escaneo_collar') {
+    const target = ev.target_user_id;
+    if (!target) return null; // sin destinatario no hay a quién avisarle
+    const nombrePet = typeof ev.datos.nombre_mascota === 'string' ? ev.datos.nombre_mascota : null;
+    const prefs: Record<string, Prefs> = {};
+    const { data } = await supabase
+      .from('notification_prefs')
+      .select('*')
+      .eq('user_id', target)
+      .maybeSingle();
+    if (data) {
+      const row = data as Record<string, boolean | string>;
+      prefs[target] = {
+        userId: target,
+        zona: row.zona as boolean,
+        avistamientos: row.avistamientos as boolean,
+        pistas: row.pistas as boolean,
+        coincidencias: row.coincidencias as boolean,
+        canalEmail: row.canal_email as boolean,
+        canalPush: row.canal_push as boolean,
+      };
+    }
+    return { duenoPetId: target, nombrePet, zonas: [], prefs, seguidoresComuna: [] };
+  }
+
   const { data: pet } = await supabase
     .from('pets')
     .select('user_id, nombre')
@@ -221,8 +253,9 @@ async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {
   const evento: EventoAviso = {
     id: ev.id,
     tipo: ev.tipo,
-    petId: ev.pet_id,
+    petId: ev.pet_id ?? '',
     actorId: ev.actor_id,
+    targetUserId: ev.target_user_id,
     datos: (ev.datos ?? {}) as EventoAviso['datos'],
   };
 
@@ -277,7 +310,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { data, error } = await supabase
       .from('notification_events')
-      .select('id, tipo, pet_id, actor_id, datos, intentos')
+      .select('id, tipo, pet_id, actor_id, target_user_id, datos, intentos')
       .eq('estado', 'pendiente')
       .order('creado_en', { ascending: true })
       .limit(LOTE);

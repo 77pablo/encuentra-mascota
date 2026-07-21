@@ -205,12 +205,12 @@ describe('resolverDestinatarios · seguidores de comuna (reporte_nuevo)', () => 
   });
 });
 
-// Coincidencia proactiva (func. 1): al publicarse un reporte, se avisa al dueño
+// Coincidencia proactiva (func. 1): al publicarse un reporte, se avisa al dueno
 // del reporte de referencia (pet_id del evento) sobre el reporte que calza (el
-// match). Se resuelve igual que avistamiento/pista: destinatario único = dueño,
+// match). Se resuelve igual que avistamiento/pista: destinatario unico = dueno,
 // excluye al actor, filtra por la preferencia `coincidencias` y por canales.
-describe('resolverDestinatarios · coincidencia', () => {
-  it('avisa al dueño del reporte de referencia', () => {
+describe('resolverDestinatarios - coincidencia', () => {
+  it('avisa al dueno del reporte de referencia', () => {
     const ev: EventoAviso = {
       id: 'k1', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
       datos: { match_pet_id: 'p2', match_estado: 'encontrada', match_especie: 'perro' },
@@ -243,7 +243,7 @@ describe('resolverDestinatarios · coincidencia', () => {
     expect(resolverDestinatarios(ev, ctx)).toEqual([]);
   });
 
-  it('respeta los canales del dueño', () => {
+  it('respeta los canales del dueno', () => {
     const ev: EventoAviso = {
       id: 'k4', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
       datos: { match_pet_id: 'p2', match_estado: 'perdida' },
@@ -259,7 +259,7 @@ describe('resolverDestinatarios · coincidencia', () => {
   });
 });
 
-describe('componerAviso · coincidencia', () => {
+describe('componerAviso - coincidencia', () => {
   const base = (datos: EventoAviso['datos']): EventoAviso => ({
     id: 'k', tipo: 'coincidencia', petId: 'p1', actorId: 'x', datos,
   });
@@ -269,13 +269,13 @@ describe('componerAviso · coincidencia', () => {
     expect(aviso.ruta).toBe('/mascota/otro-999');
   });
 
-  it('cuando el match es un encontrado, el título habla de un encontrado', () => {
+  it('cuando el match es un encontrado, el titulo habla de un encontrado', () => {
     const aviso = componerAviso(base({ match_pet_id: 'p2', match_estado: 'encontrada' }), ctxBase);
     expect(aviso.titulo).toContain('encontrado');
     expect(aviso.titulo).toContain('Pelusa');
   });
 
-  it('cuando el match es un perdido, el título habla de un perdido', () => {
+  it('cuando el match es un perdido, el titulo habla de un perdido', () => {
     const aviso = componerAviso(base({ match_pet_id: 'p2', match_estado: 'perdida' }), ctxBase);
     expect(aviso.titulo).toContain('perdido');
     expect(aviso.titulo).not.toContain('encontrado');
@@ -286,6 +286,95 @@ describe('componerAviso · coincidencia', () => {
                                 { ...ctxBase, nombrePet: null });
     expect(aviso.titulo).not.toContain('null');
     expect(aviso.titulo.toLowerCase()).toContain('tu mascota');
+  });
+});
+
+// Escaneo de collar (Funcion 2): aviso dirigido a UNA persona (el dueno de la
+// ficha), no a un reporte. El destinatario sale de evento.targetUserId, no del
+// dueno del reporte, porque puede no haber reporte activo.
+describe('resolverDestinatarios - escaneo_collar', () => {
+  const evEscaneo: EventoAviso = {
+    id: 's1', tipo: 'escaneo_collar', petId: '', actorId: null,
+    targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+  };
+
+  it('avisa al dueno de la ficha (targetUserId), no al dueno del reporte', () => {
+    const ctx: Contexto = { ...ctxBase, duenoPetId: 'otro' };
+    expect(resolverDestinatarios(evEscaneo, ctx)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('siempre envia: no hay interruptor de tipo dedicado para escaneo', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: false, avistamientos: false, pistas: false,
+                 coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evEscaneo, ctx)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('respeta el filtro de canales del dueno', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evEscaneo, ctx)[0].canales).toEqual(['push']);
+  });
+
+  it('no envia si el dueno apago los dos canales', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: false },
+      },
+    };
+    expect(resolverDestinatarios(evEscaneo, ctx)).toEqual([]);
+  });
+
+  it('sin targetUserId no hay a quien avisar (defensivo)', () => {
+    const sinTarget: EventoAviso = { ...evEscaneo, targetUserId: null };
+    expect(resolverDestinatarios(sinTarget, ctxBase)).toEqual([]);
+  });
+});
+
+describe('componerAviso - escaneo_collar', () => {
+  it('titulo con el nombre de la mascota y ruta a /mis-mascotas', () => {
+    const ev: EventoAviso = {
+      id: 's2', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+    };
+    const aviso = componerAviso(ev, { ...ctxBase, nombrePet: 'Pelusa' });
+    expect(aviso.titulo).toContain('la placa de Pelusa');
+    expect(aviso.ruta).toBe('/mis-mascotas');
+  });
+
+  it('incluye la nota en el cuerpo cuando viene', () => {
+    const ev: EventoAviso = {
+      id: 's3', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa', nota: 'La vi en la plaza' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo).toContain('La vi en la plaza');
+  });
+
+  it('funciona sin nota (cuerpo generico, sin huecos)', () => {
+    const ev: EventoAviso = {
+      id: 's4', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo.length).toBeGreaterThan(0);
+    expect(aviso.cuerpo).not.toContain('undefined');
+    expect(aviso.cuerpo).not.toContain('null');
   });
 });
 
