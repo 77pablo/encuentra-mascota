@@ -48,15 +48,24 @@ genera ni recibe coincidencias (filtro de vigencia en `enqueue_coincidencias` y
   idéntico, privacidad del collar, `pet_id` nullable sin romper triggers, `createPet`/guía,
   0029) quedaron **correctos**.
 
-**⚠️ PENDIENTE del usuario para que funcione de verdad:**
-1. **Aplicar migraciones `0026`→`0027`→`0028`→`0029`** (en ese orden) a Supabase. Método
-   habitual: API de administración con Personal Access Token (`POST /v1/projects/<ref>/database/query`).
-   Sin esto, func.1/2/3 degradan a propósito pero no operan.
-2. **Redesplegar la Edge Function `send-notifications`** (cambió `notifyTargets.ts` + branch
-   de `escaneo_collar`): `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`.
-3. **Subir la web** (`npx expo export --platform web` → Cloudflare → arrastrar `dist`).
-4. Verificación end-to-end de func.1/2/3 (necesita la base aplicada): solo se pudo probar
-   visualmente la func.4 (guía), que no depende de la base.
+**✅ DESPLEGADO (21-jul):**
+1. **Migraciones `0026`→`0027`→`0028`→`0029` APLICADAS y VERIFICADAS** contra la base real
+   (API admin con PAT): CHECK de `tipo` con los 5 valores; `my_pets` con RLS solo-dueño +
+   `origen_my_pet` + token 128-bit del servidor; `pet_id` nullable + `target_user_id`; 2 RPCs
+   del collar; `renovado_en` + backfill (0 filas sin renovar); `buscar_reportes` recreada con
+   14 params (comuna+cursor) devolviendo `renovado_en`; filtro de vigencia en las 2 funciones
+   de coincidencia. **Ataque de privacidad del collar PASADO:** como `anon`, leer `my_pets`
+   directo → 0 filas y chip secreto no sale (RLS); `mascota_por_collar` → solo nombre/especie/
+   foto, nunca chip/señas/contacto. Fila de prueba borrada.
+2. **Edge Function `send-notifications` REDESPLEGADA y verificada:** `OPTIONS` → 204 (guardián
+   de método cerrado), `GET` → 401 (gateway pide auth).
+
+**⚠️ PENDIENTE del usuario:**
+3. **Subir la web** (`npx expo export --platform web` → Cloudflare → arrastrar `dist`) — es
+   manual (drag-and-drop). Hasta entonces la web en producción tiene el bundle viejo.
+4. Verificación end-to-end de func.1/2/3 en la app real (ya con base + función listas): solo
+   se probó visualmente la func.4 (guía). Recordar: Brevo/Resend en modo prueba, así que los
+   avisos por correo solo llegan a `pdanielespinozavega@gmail.com` hasta verificar un dominio.
 
 ## 🗓️ SESIÓN 2026-07-21 — Bloqueos de tienda (3 de 3 construidos)
 
