@@ -183,6 +183,23 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         </Card>
 
+        {/* Entrada a la guía "recién se me perdió" (func. 4). Sección propia y
+            autocontenida para mergear sin choque con el nudge de vigencia. */}
+        <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('GuiaPerdida')}>
+          <Card style={styles.guiaCard}>
+            <Ionicons name="footsteps" size={20} color={colors.brand} />
+            <View style={styles.guiaTextWrap}>
+              <AppText weight="bold" size={14}>
+                ¿Se te perdió tu mascota?
+              </AppText>
+              <AppText muted size={12}>
+                Guía calmada de qué hacer en la primera hora
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Card>
+        </TouchableOpacity>
+
         {/* En tu comuna → pestaña Comunidad */}
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (
           <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Comunidad')}>
@@ -427,6 +444,16 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
     backgroundColor: colors.sky,
+  },
+  guiaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  guiaTextWrap: {
+    flex: 1,
+    gap: 2,
   },
   comunaTextWrap: {
     flex: 1,

@@ -10,6 +10,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import PublicPetScreen from '../screens/PublicPetScreen';
+import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -59,6 +60,14 @@ export default function RootNavigator() {
       >
         <Stack.Screen name="App" component={TabNavigator} />
         <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ title: 'Reporte' }} />
+        {/* Guía "recién se me perdió": se abre desde Inicio y tras publicar una
+            perdida. Va en el stack raíz para ser alcanzable por nombre desde
+            cualquier pestaña; con header propio para tener botón de volver. */}
+        <Stack.Screen
+          name="GuiaPerdida"
+          component={GuiaPerdidaScreen}
+          options={{ headerShown: true, title: 'Primeros pasos' }}
+        />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

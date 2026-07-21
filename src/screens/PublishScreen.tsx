@@ -10,7 +10,7 @@ import { uploadPetPhotos } from '../services/storage';
 import { createPet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
-import { notify } from '../lib/notify';
+import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
@@ -149,8 +149,19 @@ export default function PublishScreen({ navigation, route }: any) {
     try {
       const urls = await uploadPetPhotos(fotoUris, user!.id);
       await createPet(parsed.data, urls, user!.id);
-      notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
-      navigation.navigate('Mapa');
+      // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
+      // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
+      // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.
+      if (estado === 'perdida') {
+        const quiereGuia = await confirmAction(
+          '¡Publicado!',
+          'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
+        );
+        navigation.navigate(quiereGuia ? 'GuiaPerdida' : 'Mapa');
+      } else {
+        notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
+        navigation.navigate('Mapa');
+      }
     } catch (e: any) {
       notify('No se pudo publicar', mensajeDeErrorDb(e));
     } finally {
