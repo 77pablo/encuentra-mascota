@@ -1,5 +1,48 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-21 — Bloqueos de tienda (3 de 3 construidos)
+
+De los requisitos que **impiden publicar** en App Store / Play, se resolvieron los tres
+que **no dependen de datos del usuario** (correo, nombre legal, dominio quedan fuera).
+Spec en `docs/superpowers/specs/2026-07-21-bloqueos-tienda-design.md`. Commit `db3b9e8`.
+`tsc` limpio, **375 tests** (+11), verificado en navegador.
+
+1. **Filtro proactivo al publicar** (Apple 1.2). `src/lib/moderarTexto.ts` — función pura
+   con **11 tests**, **conservadora a propósito**: bloquea odio/discriminación, sexual
+   explícito y **venta de animales** (co-ocurrencia verbo-de-venta + término-de-animal).
+   Anti-falso-positivo por diseño: **NO** filtra el coloquial chileno (weón, etc. — no es
+   "objetable" para Apple y frenaría gente de buena fe), match por **palabra completa**
+   (evita Scunthorpe), y `sexo`/`sexual` a secas **excluidos** porque un reporte legítimo
+   dice "sexo: macho". Enganchado en `PublishScreen.onSubmit` (antes de subir fotos) **y**
+   en `EditPetScreen.onSubmit` (editar era el bypass obvio).
+2. **Control de imagen SIN IA** (decisión del usuario): **casilla de confirmación** sin
+   premarcar en Publicar ("la foto es de la mascota y respeta las reglas de la comunidad",
+   enlaza a Legal). El control real de imagen sigue siendo denunciar+bloquear (Tanda B) +
+   retiro. Cero costo, ninguna API externa, nada que declarar (Ley 21.719).
+3. **Página web de borrado** `public/borrar-cuenta/index.html` — pública, **sin login**
+   (la exige Google, no Apple). HTML autocontenido con estilo de marca; espejo de
+   `DeleteAccountScreen` (qué se borra / qué queda) + método in-app + método por correo +
+   plazo 30 días. Se sirve en `/borrar-cuenta/` (Cloudflare sirve estáticos antes del
+   catch-all SPA).
+4. **`app.config.ts`**: `POST_NOTIFICATIONS` (sin esto no llega push en Android 13+),
+   `blockedPermissions: [ACCESS_BACKGROUND_LOCATION]`, `NSPhotoLibraryUsageDescription`, y
+   los 3 purpose strings alargados (fórmula que Apple acepta: qué + para qué + beneficio).
+   Validado con `npx expo config --type public`.
+
+**Verificación visual (Playwright, 21-jul):** la página de borrado renderiza bien con el
+marcador `[[CORREO_CONTACTO]]` resaltado; login OK; la casilla renderiza sobre Publicar;
+publicar con texto ofensivo → **bloqueado** con el diálogo exacto *"Revisá el texto — El
+texto tiene términos ofensivos o discriminatorios."* (sin subir foto ni escribir en la base).
+
+**⚠️ Pendientes de estos bloqueos (dependen del usuario, NO son bugs):**
+- **La página de borrado NO es subible** hasta reemplazar `[[CORREO_CONTACTO]]` por el
+  correo real (mismo bloqueo que los 36 `[[PENDIENTE]]` legales, no uno nuevo).
+- Los cambios de `app.config.ts` recién aplican **al armar el build nativo (EAS)**; la web
+  no los usa.
+- **Bloqueos de tienda que siguen abiertos:** filtro proactivo de **imagen** más fuerte (se
+  eligió no hacerlo), y el **correo de contacto** visible in-app (`LegalScreen`, ya
+  parametrizado con `CORREO_CONTACTO = null`).
+
 ## 🗓️ SESIÓN 2026-07-20 — Tandas 1, 2 y 3
 
 Plan de **3 tandas** (1 → 2 → 3): **las tres construidas** esta sesión.
