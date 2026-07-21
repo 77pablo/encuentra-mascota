@@ -205,6 +205,97 @@ describe('resolverDestinatarios · seguidores de comuna (reporte_nuevo)', () => 
   });
 });
 
+// Escaneo de collar (Función 2): aviso dirigido a UNA persona (el dueño de la
+// ficha), no a un reporte. El destinatario sale de evento.targetUserId, no del
+// dueño del reporte, porque puede no haber reporte activo.
+describe('resolverDestinatarios · escaneo_collar', () => {
+  const evEscaneo: EventoAviso = {
+    id: 's1', tipo: 'escaneo_collar', petId: '', actorId: null,
+    targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+  };
+
+  it('avisa al dueño de la ficha (targetUserId), no al dueño del reporte', () => {
+    const ctx: Contexto = { ...ctxBase, duenoPetId: 'otro' };
+    expect(resolverDestinatarios(evEscaneo, ctx)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('siempre envía: no hay interruptor de tipo dedicado para escaneo', () => {
+    // El dueño tiene TODOS los interruptores de tipo apagados: igual recibe el
+    // escaneo (puso la placa justamente para esto).
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: false, avistamientos: false, pistas: false,
+                 coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evEscaneo, ctx)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('respeta el filtro de canales del dueño', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evEscaneo, ctx)[0].canales).toEqual(['push']);
+  });
+
+  it('no envía si el dueño apagó los dos canales', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: false },
+      },
+    };
+    expect(resolverDestinatarios(evEscaneo, ctx)).toEqual([]);
+  });
+
+  it('sin targetUserId no hay a quién avisar (defensivo)', () => {
+    const sinTarget: EventoAviso = { ...evEscaneo, targetUserId: null };
+    expect(resolverDestinatarios(sinTarget, ctxBase)).toEqual([]);
+  });
+});
+
+describe('componerAviso · escaneo_collar', () => {
+  it('título con el nombre de la mascota y ruta a /mis-mascotas', () => {
+    const ev: EventoAviso = {
+      id: 's2', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+    };
+    const aviso = componerAviso(ev, { ...ctxBase, nombrePet: 'Pelusa' });
+    expect(aviso.titulo).toBe('Alguien escaneó la placa de Pelusa');
+    expect(aviso.ruta).toBe('/mis-mascotas');
+  });
+
+  it('incluye la nota en el cuerpo cuando viene', () => {
+    const ev: EventoAviso = {
+      id: 's3', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa', nota: 'La vi en la plaza' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo).toContain('La vi en la plaza');
+  });
+
+  it('funciona sin nota (cuerpo genérico, sin huecos)', () => {
+    const ev: EventoAviso = {
+      id: 's4', tipo: 'escaneo_collar', petId: '', actorId: null,
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo.length).toBeGreaterThan(0);
+    expect(aviso.cuerpo).not.toContain('undefined');
+    expect(aviso.cuerpo).not.toContain('null');
+  });
+});
+
 describe('componerAviso', () => {
   it('usa el nombre de la mascota cuando lo hay', () => {
     const ev: EventoAviso = { id: 'e8', tipo: 'avistamiento', petId: 'p1', actorId: 'v', datos: {} };

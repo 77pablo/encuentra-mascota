@@ -10,14 +10,20 @@
 //   2. supabase/functions/send-notifications/notifyTargets.ts  (este archivo)
 // Los tests que cubren estas reglas viven solo en el lado de la app.
 
-export type TipoEvento = 'reporte_nuevo' | 'avistamiento' | 'pista';
+export type TipoEvento = 'reporte_nuevo' | 'avistamiento' | 'pista' | 'escaneo_collar';
 
 export type EventoAviso = {
   id: string;
   tipo: TipoEvento;
   petId: string;
   actorId: string | null;
-  datos: { lat?: number; lng?: number; especie?: string; extracto?: string; estado_pet?: string; comuna?: string };
+  // Destinatario directo (solo 'escaneo_collar'): el dueño de la ficha del
+  // collar. En el resto de los tipos el destinatario se deriva del reporte.
+  targetUserId?: string | null;
+  datos: {
+    lat?: number; lng?: number; especie?: string; extracto?: string;
+    estado_pet?: string; comuna?: string; nombre_mascota?: string; nota?: string;
+  };
 };
 
 export type Prefs = {
@@ -89,6 +95,17 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 // - 'avistamiento' y 'pista' van solo al dueño del reporte.
 // - Nunca al actor; se deduplica por userId; se respeta el filtro de canales.
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
+  // 'escaneo_collar': destinatario único y directo = el dueño de la ficha
+  // (evento.targetUserId), NO el dueño de un reporte (puede no haber reporte
+  // activo). No pasa por ningún interruptor de tipo: el dueño puso la placa
+  // justamente para esto (alta prioridad). Solo se respeta el filtro de canales.
+  if (evento.tipo === 'escaneo_collar') {
+    const target = evento.targetUserId ?? null;
+    if (!target || target === evento.actorId) return [];
+    const canales = canalesDe(prefsDe(ctx, target));
+    return canales.length === 0 ? [] : [{ userId: target, canales }];
+  }
+
   // Los seguidores de comuna son opt-in explícito: entran sí o sí (salvo el actor y
   // los canales). Guardamos el conjunto para saltarles el filtro de preferencia `zona`.
   const seguidores = evento.tipo === 'reporte_nuevo' ? ctx.seguidoresComuna ?? [] : [];
@@ -134,9 +151,26 @@ export function componerAviso(
   evento: EventoAviso,
   ctx: Contexto,
 ): { titulo: string; cuerpo: string; ruta: string } {
-  const ruta = `/mascota/${evento.petId}`;
   const nombre = ctx.nombrePet?.trim() ? ctx.nombrePet.trim() : null;
   const suya = nombre ?? 'tu mascota';
+
+  // 'escaneo_collar' lleva su propia ruta (la vista del dueño), no /mascota/:id
+  // (puede no haber reporte). El nombre viene en datos.nombre_mascota; la nota,
+  // si viene, se muestra como texto (el escape a HTML del correo lo hace
+  // send-notifications/index.ts, común a todos los tipos).
+  if (evento.tipo === 'escaneo_collar') {
+    const nombreMascota = evento.datos.nombre_mascota?.trim() || nombre || 'tu mascota';
+    const nota = evento.datos.nota?.trim();
+    return {
+      titulo: `Alguien escaneó la placa de ${nombreMascota}`,
+      cuerpo: nota
+        ? `"${nota}" · Entrá para ver dónde.`
+        : `Alguien encontró a ${nombreMascota} y quiere avisarte. Entrá para ver dónde.`,
+      ruta: '/mis-mascotas',
+    };
+  }
+
+  const ruta = `/mascota/${evento.petId}`;
 
   if (evento.tipo === 'reporte_nuevo') {
     const especie =
