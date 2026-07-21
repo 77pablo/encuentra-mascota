@@ -112,3 +112,48 @@ export async function deleteMyPet(id: string, userId: string): Promise<void> {
   const { error } = await supabase.from('my_pets').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ------------------------------------------------------------
+// LECTURA PÚBLICA POR COLLAR (RPCs de la 0027)
+//
+// Estas dos funciones son la ÚNICA vía pública para tocar una ficha, y pasan por
+// las RPCs `security definer` que filtran columnas. Nunca leen la tabla directo.
+// ------------------------------------------------------------
+
+// Lo que la página pública del collar puede ver. Nunca trae user_id, contacto,
+// chip ni señas: la RPC no los devuelve.
+export interface MascotaCollar {
+  nombre: string;
+  especie: 'perro' | 'gato' | 'otro';
+  foto: string | null;
+  // id del reporte perdido activo vinculado, o null si la mascota no está
+  // reportada como perdida ahora mismo.
+  reporte_perdida_id: string | null;
+}
+
+// Resuelve una ficha por su token de collar. `null` si el token no existe
+// (indistinguible de "no existe", a propósito).
+export async function mascotaPorCollar(token: string): Promise<MascotaCollar | null> {
+  const { data, error } = await supabase.rpc('mascota_por_collar', { p_token: token });
+  if (error) throw error;
+  const filas = (data ?? []) as MascotaCollar[];
+  return filas.length > 0 ? filas[0] : null;
+}
+
+// Encola un aviso al dueño de la ficha ("alguien vio a tu mascota"). El que
+// escanea puede ser anónimo. La RPC no devuelve nada y aplica su propio
+// rate-limit; un token inexistente no da error (no se filtra existencia).
+export async function avisarEscaneoCollar(
+  token: string,
+  nota: string | null,
+  lat: number | null,
+  lng: number | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('avisar_escaneo_collar', {
+    p_token: token,
+    p_nota: nota,
+    p_lat: lat,
+    p_lng: lng,
+  });
+  if (error) throw error;
+}

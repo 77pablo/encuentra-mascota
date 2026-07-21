@@ -1,7 +1,9 @@
 import {
+  avisarEscaneoCollar,
   createMyPet,
   deleteMyPet,
   listMyPets,
+  mascotaPorCollar,
   updateMyPet,
 } from '../../src/services/myPets';
 
@@ -27,10 +29,12 @@ const BASE = 'https://ywlrcfaybnikaurxsgtj.supabase.co/storage/v1/object/public/
 
 const mockFrom = jest.fn();
 const mockRemove = jest.fn();
+const mockRpc = jest.fn();
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
     from: (...args: any[]) => mockFrom(...args),
+    rpc: (...args: any[]) => mockRpc(...args),
     storage: {
       from: () => ({ remove: (...rargs: any[]) => mockRemove(...rargs) }),
     },
@@ -40,6 +44,7 @@ jest.mock('../../src/lib/supabase', () => ({
 beforeEach(() => {
   mockFrom.mockReset();
   mockRemove.mockReset();
+  mockRpc.mockReset();
   mockRemove.mockResolvedValue({ data: [], error: null });
 });
 
@@ -193,5 +198,67 @@ describe('deleteMyPet', () => {
       .mockReturnValueOnce(makeQueryBuilder({ data: null, error: { message: 'boom' } }));
 
     await expect(deleteMyPet('mp-1', UID)).rejects.toEqual({ message: 'boom' });
+  });
+});
+
+describe('mascotaPorCollar', () => {
+  it('llama a la RPC con el token y devuelve la primera fila', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ nombre: 'Pelusa', especie: 'perro', foto: 'f.jpg', reporte_perdida_id: null }],
+      error: null,
+    });
+
+    const m = await mascotaPorCollar('tok9');
+
+    expect(mockRpc).toHaveBeenCalledWith('mascota_por_collar', { p_token: 'tok9' });
+    expect(m).toEqual({ nombre: 'Pelusa', especie: 'perro', foto: 'f.jpg', reporte_perdida_id: null });
+  });
+
+  it('devuelve null cuando el token no existe (0 filas)', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    expect(await mascotaPorCollar('nope')).toBeNull();
+  });
+
+  it('la RPC NO expone contacto: solo campos públicos en el tipo de retorno', async () => {
+    // Contrato de privacidad: aunque el backend devolviera de más, el servicio
+    // solo promete los 4 campos públicos. Verificamos que reporte_perdida_id
+    // viaja para poder enlazar al reporte, y que no dependemos de user_id.
+    mockRpc.mockResolvedValue({
+      data: [{ nombre: 'Sol', especie: 'gato', foto: null, reporte_perdida_id: 'rep-1' }],
+      error: null,
+    });
+    const m = await mascotaPorCollar('tok');
+    expect(m?.reporte_perdida_id).toBe('rep-1');
+    expect(m).not.toHaveProperty('user_id');
+  });
+
+  it('propaga el error de la RPC', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+    await expect(mascotaPorCollar('tok')).rejects.toEqual({ message: 'boom' });
+  });
+});
+
+describe('avisarEscaneoCollar', () => {
+  it('llama a la RPC con token, nota y coordenadas', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await avisarEscaneoCollar('tok9', 'La vi en la plaza', -33.45, -70.66);
+
+    expect(mockRpc).toHaveBeenCalledWith('avisar_escaneo_collar', {
+      p_token: 'tok9', p_nota: 'La vi en la plaza', p_lat: -33.45, p_lng: -70.66,
+    });
+  });
+
+  it('acepta nota y coordenadas nulas', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    await avisarEscaneoCollar('tok', null, null, null);
+    expect(mockRpc).toHaveBeenCalledWith('avisar_escaneo_collar', {
+      p_token: 'tok', p_nota: null, p_lat: null, p_lng: null,
+    });
+  });
+
+  it('propaga el error de la RPC', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+    await expect(avisarEscaneoCollar('tok', null, null, null)).rejects.toEqual({ message: 'boom' });
   });
 });
