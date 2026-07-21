@@ -20,11 +20,29 @@ export default function RegisterScreen({ navigation, route }: any) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [dia, setDia] = useState('');
+  const [mes, setMes] = useState('');
+  const [anio, setAnio] = useState('');
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Se arma en 'YYYY-MM-DD' para que el schema calcule la edad. El año NO se
+  // rellena con ceros a proposito: si el usuario escribe solo dos digitos, la
+  // cadena no cuadra con \d{4} y el schema la rechaza como fecha invalida en
+  // vez de aceptar un año absurdo como 0005.
+  const fechaNacimiento =
+    dia.trim() && mes.trim() && anio.trim()
+      ? `${anio.trim()}-${mes.trim().padStart(2, '0')}-${dia.trim().padStart(2, '0')}`
+      : '';
+
   const onSubmit = async () => {
-    const parsed = registerSchema.safeParse({ nombre, email, password, aceptaTerminos });
+    const parsed = registerSchema.safeParse({
+      nombre,
+      email,
+      password,
+      fechaNacimiento,
+      aceptaTerminos,
+    });
     if (!parsed.success) {
       notify('Revisa los datos', parsed.error.issues[0].message);
       return;
@@ -34,7 +52,13 @@ export default function RegisterScreen({ navigation, route }: any) {
       const { data, error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
-        options: { data: { nombre: parsed.data.nombre } },
+        // La fecha viaja en la metadata para que el trigger `handle_new_user`
+        // la guarde en `profiles.fecha_nacimiento` (columna privada, migracion
+        // 0024). Si el registro no supera el corte de edad, nunca llegamos aca:
+        // no se guarda nada del intento.
+        options: {
+          data: { nombre: parsed.data.nombre, fecha_nacimiento: parsed.data.fechaNacimiento },
+        },
       });
       if (error) {
         notify('No se pudo registrar', mensajeDeErrorAuth(error));
@@ -103,6 +127,42 @@ export default function RegisterScreen({ navigation, route }: any) {
                 value={password}
                 onChangeText={setPassword}
               />
+              {/* Fecha de nacimiento real y obligatoria, no una casilla "soy
+                  mayor de 14". Se pide ANTES de crear la cuenta: si es menor de
+                  14 no se crea nada. La edad se valida en el schema. */}
+              <AppText weight="semi" muted size={13} style={styles.fechaLabel}>
+                Fecha de nacimiento
+              </AppText>
+              <View style={styles.fechaFila}>
+                <View style={styles.fechaDia}>
+                  <Input
+                    placeholder="Día"
+                    keyboardType="number-pad"
+                    value={dia}
+                    onChangeText={setDia}
+                  />
+                </View>
+                <View style={styles.fechaMes}>
+                  <Input
+                    placeholder="Mes"
+                    keyboardType="number-pad"
+                    value={mes}
+                    onChangeText={setMes}
+                  />
+                </View>
+                <View style={styles.fechaAnio}>
+                  <Input
+                    placeholder="Año"
+                    keyboardType="number-pad"
+                    value={anio}
+                    onChangeText={setAnio}
+                  />
+                </View>
+              </View>
+              <AppText muted size={12} style={styles.fechaAyuda}>
+                Necesitas tener al menos 14 años para crear una cuenta. Sin cuenta igual puedes
+                ver los reportes, el mapa y las fotos.
+              </AppText>
               <Button
                 title={loading ? 'Creando…' : 'Registrarme'}
                 onPress={onSubmit}
@@ -185,6 +245,27 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  fechaLabel: {
+    marginBottom: spacing.xs,
+  },
+  fechaFila: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  fechaDia: {
+    flex: 1,
+  },
+  fechaMes: {
+    flex: 1,
+  },
+  fechaAnio: {
+    flex: 1.4,
+  },
+  fechaAyuda: {
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+    lineHeight: 17,
   },
   terminosFila: {
     flexDirection: 'row',
