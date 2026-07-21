@@ -1,5 +1,63 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-21 (tarde) — Tanda de 4 funciones nuevas en paralelo
+
+Cuatro funciones construidas **en paralelo con 4 agentes** (una rama/worktree cada una),
+fusionadas con revisión final de rama. Specs en `docs/superpowers/specs/2026-07-21-*` (uno
+por función + nota de coordinación); plan en `docs/superpowers/plans/2026-07-21-tanda-4funciones.md`.
+**`tsc` limpio, 455 tests (49 suites)**, todo en `feat/mvp-encuentra-mascota`.
+
+1. **Aviso proactivo de coincidencias** (mig `0026`): al publicarse un reporte, un trigger
+   `enqueue_coincidencias` encola avisos `tipo='coincidencia'` para el dueño de cada reporte
+   opuesto que calza (misma lógica que `buscar_coincidencias`) y uno al que recién publicó.
+   Reusa la cola + dispatcher + cron ya desplegados. Preferencia `coincidencias` (ya existía
+   en 0011) por fin cableada. Texto en `notifyTargets.ts` (+ espejo).
+2. **Ficha "Mi mascota" + collar con QR** (mig `0027`): tabla `my_pets` (RLS solo-dueño,
+   `collar_token` de 128 bits del servidor); pantalla "Mis mascotas" en Perfil; "Reportar
+   como perdida" pre-carga Publicar (col nueva `pets.origen_my_pet`); etiqueta de collar
+   imprimible con QR; pantalla pública `/collar/:token` (RPC `mascota_por_collar` que **nunca
+   filtra contacto/chip/señas**, guardrail de privacidad con test) + "avisar que la vi" (RPC
+   `avisar_escaneo_collar` → aviso `tipo='escaneo_collar'` al dueño; la cola sumó `pet_id`
+   nullable + `target_user_id`).
+3. **Ciclo de vida del reporte** (mig `0028`): col `renovado_en`; **auto-archivado perezoso
+   sin cron** — `buscar_reportes` (recreada desde la **0021**, conservando el arreglo del
+   cursor de la 0015 + `p_comuna`) excluye lo no renovado en 45 días; nudge in-app a los
+   14/30 días ("¿ya volvió?") en el detalle propio y realce de vencidos en "Mis reportes";
+   `renovarReporte`/`archivarReporte`.
+4. **Guía "recién se me perdió"** (sin migración): `GuiaPerdidaScreen` con checklist (estado
+   local, degrada si falla), entrada desde Inicio y ofrecida tras publicar una perdida.
+
+**Reconciliación en el merge** (lo que se cae ENTRE tareas): unión de `'coincidencia'` +
+`'escaneo_collar'` en las 2 copias de `notifyTargets.ts` (test-espejo verde) y en el CHECK de
+`notification_events.tipo`; navegación (`GuiaPerdida` + `Collar`); `PublishScreen`
+(`origenMyPet` + oferta de guía). **Mig `0029`** de reconciliación: un reporte vencido no
+genera ni recibe coincidencias (filtro de vigencia en `enqueue_coincidencias` y
+`buscar_coincidencias`; va después de la 0028 porque `renovado_en` nace ahí).
+
+**Revisión final de rama (adversarial) — 2 hallazgos, ambos arreglados:**
+- 🟠 **ALTO-1**: los botones de la guía navegaban a los tabs por **nombre pelado** desde el
+  stack raíz → React Navigation burbujea hacia arriba y no los encontraba (**CTAs muertos**);
+  el test que lo "cubría" era **tautológico** (whitelist local). Fix: `navigate('App',
+  {screen, params})`, el patrón de `PublicPetScreen`. **Verificado en vivo con Playwright**:
+  Inicio → Guía → "Publicar mi reporte" abre el tab Publicar con "Perdida" pre-seleccionada.
+- 🟠 **MEDIO-1**: `PublishScreen` leía `route.params` solo en los inicializadores de
+  `useState`, así que reportar desde una ficha con el tab Publicar ya montado **perdía la
+  pre-carga y `origenMyPet`** (el vínculo ficha↔reporte). Fix: `origenMyPet` pasa a estado +
+  `useEffect` que re-aplica la pre-carga con params nuevos.
+- Los 7 puntos SQL/lógica (buscar_reportes conserva cursor+comuna, CHECK unión, espejo
+  idéntico, privacidad del collar, `pet_id` nullable sin romper triggers, `createPet`/guía,
+  0029) quedaron **correctos**.
+
+**⚠️ PENDIENTE del usuario para que funcione de verdad:**
+1. **Aplicar migraciones `0026`→`0027`→`0028`→`0029`** (en ese orden) a Supabase. Método
+   habitual: API de administración con Personal Access Token (`POST /v1/projects/<ref>/database/query`).
+   Sin esto, func.1/2/3 degradan a propósito pero no operan.
+2. **Redesplegar la Edge Function `send-notifications`** (cambió `notifyTargets.ts` + branch
+   de `escaneo_collar`): `npx supabase functions deploy send-notifications --project-ref ywlrcfaybnikaurxsgtj`.
+3. **Subir la web** (`npx expo export --platform web` → Cloudflare → arrastrar `dist`).
+4. Verificación end-to-end de func.1/2/3 (necesita la base aplicada): solo se pudo probar
+   visualmente la func.4 (guía), que no depende de la base.
+
 ## 🗓️ SESIÓN 2026-07-21 — Bloqueos de tienda (3 de 3 construidos)
 
 De los requisitos que **impiden publicar** en App Store / Play, se resolvieron los tres
