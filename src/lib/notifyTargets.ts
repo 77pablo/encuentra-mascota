@@ -10,14 +10,26 @@ import { distanceKm } from './geo';
 // dentro de la carpeta de la función y no puede importar desde `src/`.
 // SI CAMBIÁS UNA REGLA DE TARGETING, CAMBIALA EN LOS DOS ARCHIVOS.
 
-export type TipoEvento = 'reporte_nuevo' | 'avistamiento' | 'pista';
+export type TipoEvento = 'reporte_nuevo' | 'avistamiento' | 'pista' | 'coincidencia';
 
 export type EventoAviso = {
   id: string;
   tipo: TipoEvento;
   petId: string;
   actorId: string | null;
-  datos: { lat?: number; lng?: number; especie?: string; extracto?: string; estado_pet?: string; comuna?: string };
+  datos: {
+    lat?: number;
+    lng?: number;
+    especie?: string;
+    extracto?: string;
+    estado_pet?: string;
+    comuna?: string;
+    // 'coincidencia': el reporte que calza (el "otro"). match_pet_id es a dónde
+    // lleva la ruta; match_estado decide si hablamos de un perdido o un encontrado.
+    match_pet_id?: string;
+    match_estado?: string;
+    match_especie?: string;
+  };
 };
 
 export type Prefs = {
@@ -64,6 +76,7 @@ function prefsDe(ctx: Contexto, userId: string): Omit<Prefs, 'userId'> {
 function quiereEsteTipo(p: Omit<Prefs, 'userId'>, tipo: TipoEvento): boolean {
   if (tipo === 'reporte_nuevo') return p.zona;
   if (tipo === 'avistamiento') return p.avistamientos;
+  if (tipo === 'coincidencia') return p.coincidencias;
   return p.pistas;
 }
 
@@ -80,7 +93,8 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 //         preferencia `zona` del usuario, como siempre), y
 //     (b) quienes siguen la comuna del reporte (ctx.seguidoresComuna): como es un
 //         opt-in EXPLÍCITO, a estos NO se los filtra por la preferencia `zona`.
-// - 'avistamiento' y 'pista' van solo al dueño del reporte.
+// - 'avistamiento', 'pista' y 'coincidencia' van solo al dueño del reporte de
+//   referencia (ctx.duenoPetId).
 // - Nunca se le avisa al actor de su propio evento.
 // - Se deduplica por userId (una persona, un aviso): quien está en los dos caminos
 //   recibe uno solo.
@@ -148,6 +162,18 @@ export function componerAviso(
       titulo: 'Hay una mascota perdida cerca tuyo',
       cuerpo: `Alguien reportó ${especie} por tu zona. Si lo viste, cualquier dato suma.`,
       ruta,
+    };
+  }
+
+  if (evento.tipo === 'coincidencia') {
+    // La ruta lleva al OTRO reporte (el que calza), que es lo que la persona
+    // quiere ver, no el suyo. match_estado es el estado del reporte que apareció:
+    // si es 'encontrada' apareció un encontrado (y el de referencia es un perdido).
+    const otro = evento.datos.match_estado === 'encontrada' ? 'un encontrado' : 'un perdido';
+    return {
+      titulo: `Apareció ${otro} que podría ser ${suya}`,
+      cuerpo: 'Alguien reportó una mascota que podría ser la tuya, cerca. Entrá a verla.',
+      ruta: `/mascota/${evento.datos.match_pet_id ?? evento.petId}`,
     };
   }
 
