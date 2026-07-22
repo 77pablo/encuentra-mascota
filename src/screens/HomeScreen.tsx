@@ -16,6 +16,7 @@ import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
+import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
 import MensajesButton from '../components/MensajesButton';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -220,6 +221,13 @@ export default function HomeScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </Card>
         </TouchableOpacity>
+
+        {/* Banner de recordatorios del carnet "Mi mascota" (Función 6): solo
+            aparece con sesión y si alguna dosis vence pronto o ya venció.
+            Degrada en silencio si `my_pets` falla (ver RecordatoriosBanner). */}
+        {user ? (
+          <RecordatoriosBanner onPress={() => navigation.navigate('Perfil', { screen: 'MyPets' })} />
+        ) : null}
 
         {/* En tu comuna → pestaña Comunidad */}
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (

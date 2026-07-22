@@ -18,6 +18,15 @@ export interface MyPet {
   // pública del QR: nunca se fija desde el cliente.
   collar_token: string;
   creado_en: string;
+  // Carnet "Mi mascota" (Función 6, migración 0034): edad + próximas dosis.
+  // Todas opcionales; `null` cuando el dueño no las cargó. `select('*')` ya se
+  // usaba antes de la 0034, así que estas columnas nuevas no rompen la
+  // consulta si la migración todavía no está aplicada (PostgREST simplemente
+  // no las devuelve).
+  fecha_nacimiento: string | null;
+  vacuna_proxima: string | null;
+  antiparasitario_interno_proximo: string | null;
+  antiparasitario_externo_proximo: string | null;
 }
 
 // Los opcionales vacíos se guardan como null, no como cadena vacía: una seña
@@ -37,10 +46,21 @@ export async function listMyPets(userId: string): Promise<MyPet[]> {
   return (data ?? []) as MyPet[];
 }
 
+// Fechas del carnet (Función 6): camelCase en el lado JS, mapeadas a las
+// columnas snake_case de la migración 0034. Todas opcionales; `null`/`undefined`
+// se guardan como `null` (nada cargado).
+export interface CarnetInput {
+  fechaNacimiento?: string | null;
+  vacunaProxima?: string | null;
+  antiparasitarioInternoProximo?: string | null;
+  antiparasitarioExternoProximo?: string | null;
+}
+
 export async function createMyPet(
   input: MyPetInput,
   foto: string | null,
   userId: string,
+  carnet: CarnetInput = {},
 ): Promise<MyPet> {
   // NO se envía `collar_token`: lo genera el servidor con su default (128 bits),
   // para que el cliente no pueda fijarlo.
@@ -54,6 +74,10 @@ export async function createMyPet(
       senas: limpio(input.senas),
       chip: limpio(input.chip),
       foto: limpio(foto),
+      fecha_nacimiento: carnet.fechaNacimiento ?? null,
+      vacuna_proxima: carnet.vacunaProxima ?? null,
+      antiparasitario_interno_proximo: carnet.antiparasitarioInternoProximo ?? null,
+      antiparasitario_externo_proximo: carnet.antiparasitarioExternoProximo ?? null,
     })
     .select()
     .single();
@@ -70,6 +94,10 @@ export interface MyPetUpdate {
   senas?: string | null;
   chip?: string | null;
   foto?: string | null;
+  fechaNacimiento?: string | null;
+  vacunaProxima?: string | null;
+  antiparasitarioInternoProximo?: string | null;
+  antiparasitarioExternoProximo?: string | null;
 }
 
 export async function updateMyPet(id: string, fields: MyPetUpdate): Promise<void> {
@@ -81,6 +109,14 @@ export async function updateMyPet(id: string, fields: MyPetUpdate): Promise<void
   if (fields.senas !== undefined) payload.senas = limpio(fields.senas);
   if (fields.chip !== undefined) payload.chip = limpio(fields.chip);
   if (fields.foto !== undefined) payload.foto = limpio(fields.foto);
+  if (fields.fechaNacimiento !== undefined) payload.fecha_nacimiento = fields.fechaNacimiento;
+  if (fields.vacunaProxima !== undefined) payload.vacuna_proxima = fields.vacunaProxima;
+  if (fields.antiparasitarioInternoProximo !== undefined) {
+    payload.antiparasitario_interno_proximo = fields.antiparasitarioInternoProximo;
+  }
+  if (fields.antiparasitarioExternoProximo !== undefined) {
+    payload.antiparasitario_externo_proximo = fields.antiparasitarioExternoProximo;
+  }
 
   const { error } = await supabase.from('my_pets').update(payload).eq('id', id);
   if (error) throw error;
