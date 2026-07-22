@@ -20,8 +20,15 @@ Con la 8ª pestaña (Adopción) el tab bar quedó apretado. Se pasó a **5 pesta
   `HomeScreen` (con la comuna preseteada desde "En tu comuna"), y la guía (`guiaPerdida`).
 - **Sin migración ni cambios de datos.** Verificado en el navegador: barra de 5 con aire, el
   ícono de Mensajes arriba, Explorar abre en Lista, el toggle a Mapa conserva los filtros.
-- ⚠️ **Falta subir la web** para que salga a producción (drag-and-drop de `dist` a Cloudflare,
-  manual). El `dist` de la sesión anterior es viejo; regenerar con `npx expo export --platform web`.
+- **Ajustes post-feedback (22-jul):** (1) **botón de volver** en las pantallas empujadas al
+  stack raíz que no eran tab y quedaban sin volver — `MascotaPublica`/`Collar`/`AdopcionDetail`
+  activan el header nativo (ya tenían title), y `ConversationsScreen` (Mensajes) suma una flecha
+  de volver en su encabezado propio (`goBack`); (2) **filtros colapsables en Explorar** — botón
+  "⚙ Filtros" (con contador de activos) que despliega/oculta el panel de chips, cerrado por
+  defecto, así la lista/mapa se ve enseguida (antes eran 6 filas de chips siempre visibles).
+  Verificado visual: colapsado limpio + abierto con todos los chips. 547 tests, tsc limpio.
+- ⚠️ **Falta subir la web** para que salgan a producción (drag-and-drop de `dist` a Cloudflare).
+  El `dist` ya está regenerado con los dos ajustes (bundle `index-c83d98ba…`).
 
 ## 🗓️ SESIÓN 2026-07-21 (noche) — Apartado de Adopción (feed tipo Instagram)
 
