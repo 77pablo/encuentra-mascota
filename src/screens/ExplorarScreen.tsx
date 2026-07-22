@@ -1,52 +1,56 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Pet } from '../services/pets';
-import PetCard from '../components/PetCard';
 import ComunaPickerModal from '../components/ComunaPickerModal';
-import { AppText, Card, Chip, EmptyState, ErrorState, Input, Loading, Screen, Title } from '../ui';
+import ReportesLista from '../components/ReportesLista';
+import ReportesMapa from '../components/ReportesMapa';
+import SeguirComunaButton from '../components/SeguirComunaButton';
+import MensajesButton from '../components/MensajesButton';
+import { Pet } from '../services/pets';
+import { AppText, Card, Chip, Input, Screen, Title } from '../ui';
 import { colors, radius, spacing } from '../theme';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { desdeDeRango, RangoTiempo } from '../lib/petFilters';
-import { useBusquedaReportes } from '../hooks/useBusquedaReportes';
 import { FiltrosBusqueda } from '../services/busqueda';
+
+// EXPLORAR: unifica las viejas pestañas Mapa + Lista + Comunidad en una sola.
+// Dueña de TODOS los filtros y del toggle Lista/Mapa; baja el mismo objeto
+// `filtros` a los dos cuerpos (`ReportesLista`/`ReportesMapa`), así alternar de
+// vista conserva la búsqueda. "Seguir comuna" (lo que hacía Comunidad) aparece
+// cuando hay un filtro de comuna puesto.
 
 type Filtro = 'todas' | 'perdida' | 'encontrada';
 type EspecieFiltro = 'todas' | Pet['especie'];
-type Radio = 5 | 20 | 50 | null; // null = Todo Chile (sin límite)
+type Radio = 5 | 20 | 50 | null;
+type Vista = 'lista' | 'mapa';
 
 const filtros: { key: Filtro; label: string }[] = [
   { key: 'todas', label: 'Todas' },
   { key: 'perdida', label: 'Perdidas' },
   { key: 'encontrada', label: 'Encontradas' },
 ];
-
 const especieFiltros: { key: EspecieFiltro; label: string }[] = [
   { key: 'todas', label: 'Todas' },
   { key: 'perro', label: 'Perro' },
   { key: 'gato', label: 'Gato' },
   { key: 'otro', label: 'Otro' },
 ];
-
 const radios: { key: Radio; label: string }[] = [
   { key: 5, label: '5 km' },
   { key: 20, label: '20 km' },
   { key: 50, label: '50 km' },
   { key: null, label: 'Todo Chile' },
 ];
-
 const rangos: { key: RangoTiempo; label: string }[] = [
   { key: 'todo', label: 'Todo' },
   { key: 'hoy', label: 'Hoy' },
   { key: 'semana', label: 'Última semana' },
 ];
 
-// Esperamos a que el usuario deje de escribir antes de consultar: sin esto,
-// "pelusa" dispararía seis búsquedas al servidor.
 const ESPERA_TIPEO_MS = 400;
 
-export default function ListScreen({ navigation }: any) {
+export default function ExplorarScreen({ navigation, route }: any) {
   const [estado, setEstado] = useState<Filtro>('todas');
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [cercaDeMi, setCercaDeMi] = useState(false);
@@ -57,15 +61,20 @@ export default function ListScreen({ navigation }: any) {
   const [rango, setRango] = useState<RangoTiempo>('todo');
   const [comunaFiltro, setComunaFiltro] = useState<string | null>(null);
   const [comunaPickerOpen, setComunaPickerOpen] = useState(false);
+  const [vista, setVista] = useState<Vista>('lista');
   const location = useMyLocation();
+
+  // Pre-cargar la comuna cuando se llega desde "En tu comuna" de Inicio.
+  useEffect(() => {
+    const c = route?.params?.comuna;
+    if (typeof c === 'string' && c) setComunaFiltro(c);
+  }, [route?.params?.comuna]);
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDiferida(busqueda), ESPERA_TIPEO_MS);
     return () => clearTimeout(t);
   }, [busqueda]);
 
-  // Si el usuario negó el permiso mientras "Cerca de mí" estaba activo,
-  // avisamos y volvemos a mostrar todo (sin filtrar por distancia).
   useEffect(() => {
     if (cercaDeMi && location.status === 'denied') {
       notify(
@@ -85,8 +94,6 @@ export default function ListScreen({ navigation }: any) {
     location.request();
   };
 
-  // Todo el filtrado viaja al servidor. Antes esto se hacía en memoria sobre
-  // TODOS los reportes; con la app en serio eso no escala.
   const cerca = cercaDeMi && location.coords !== null;
   const filtrosBusqueda: FiltrosBusqueda = useMemo(
     () => ({
@@ -104,35 +111,12 @@ export default function ListScreen({ navigation }: any) {
     [cerca, location.coords, radioKm, estado, especie, busquedaDiferida, conRecompensa, rango, comunaFiltro],
   );
 
-  const { reportes, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
-    useBusquedaReportes(filtrosBusqueda);
-
-  const hayFiltrosPuestos =
-    busquedaDiferida.trim() !== '' ||
-    conRecompensa ||
-    rango !== 'todo' ||
-    estado !== 'todas' ||
-    especie !== 'todas' ||
-    comunaFiltro !== null ||
-    cerca;
-
-  if (cargando) {
-    return <Loading />;
-  }
-
-  if (error) {
-    return (
-      <Screen padded>
-        <ErrorState message={error} onRetry={recargar} />
-      </Screen>
-    );
-  }
-
   return (
     <Screen padded>
-      <Title size={22} style={styles.screenTitle}>
-        Todas las mascotas
-      </Title>
+      <View style={styles.headerRow}>
+        <Title size={22}>Explorar</Title>
+        <MensajesButton />
+      </View>
 
       <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Encontre')}>
         <Card style={styles.findCard}>
@@ -167,12 +151,7 @@ export default function ListScreen({ navigation }: any) {
       </View>
       <View style={styles.chipsRow}>
         {especieFiltros.map((f) => (
-          <Chip
-            key={f.key}
-            label={f.label}
-            active={especie === f.key}
-            onPress={() => setEspecie(f.key)}
-          />
+          <Chip key={f.key} label={f.label} active={especie === f.key} onPress={() => setEspecie(f.key)} />
         ))}
       </View>
       <View style={styles.chipsRow}>
@@ -181,11 +160,7 @@ export default function ListScreen({ navigation }: any) {
         ))}
       </View>
       <View style={styles.chipsRow}>
-        <Chip
-          label="Con recompensa"
-          active={conRecompensa}
-          onPress={() => setConRecompensa((v) => !v)}
-        />
+        <Chip label="Con recompensa" active={conRecompensa} onPress={() => setConRecompensa((v) => !v)} />
         <Chip
           label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
           active={cercaDeMi}
@@ -208,43 +183,21 @@ export default function ListScreen({ navigation }: any) {
         </View>
       ) : null}
 
-      <FlatList
-        data={reportes}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        onEndReached={hayMas ? cargarMas : undefined}
-        onEndReachedThreshold={0.4}
-        ListFooterComponent={
-          cargandoMas ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color={colors.brand} />
-            </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          hayFiltrosPuestos ? (
-            <EmptyState
-              illustration
-              title="No encontramos nada así"
-              subtitle="Prueba con otra palabra, amplía el rango o suelta algún filtro."
-            />
-          ) : (
-            <EmptyState
-              illustration
-              title="Por ahora, nada por acá"
-              subtitle="Ojalá siga así. Si viste algo, cuéntale al barrio."
-            />
-          )
-        }
-        renderItem={({ item }) => (
-          <PetCard
-            pet={item}
-            distanceKm={item.distancia_km ?? undefined}
-            onPress={() => navigation.navigate('PetDetail', { id: item.id })}
-          />
+      {comunaFiltro ? <SeguirComunaButton comuna={comunaFiltro} /> : null}
+
+      {/* Toggle Lista / Mapa: las dos vistas de la misma búsqueda. */}
+      <View style={styles.toggleRow}>
+        <Chip label="☰ Lista" active={vista === 'lista'} onPress={() => setVista('lista')} />
+        <Chip label="🗺 Mapa" active={vista === 'mapa'} onPress={() => setVista('mapa')} />
+      </View>
+
+      <View style={styles.body}>
+        {vista === 'lista' ? (
+          <ReportesLista filtros={filtrosBusqueda} navigation={navigation} />
+        ) : (
+          <ReportesMapa filtros={filtrosBusqueda} navigation={navigation} />
         )}
-      />
+      </View>
 
       <ComunaPickerModal
         visible={comunaPickerOpen}
@@ -257,7 +210,10 @@ export default function ListScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  screenTitle: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
@@ -289,15 +245,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.md,
   },
-  list: {
+  toggleRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
-    flexGrow: 1,
+    paddingBottom: spacing.sm,
   },
-  separator: {
-    height: spacing.md,
-  },
-  footer: {
-    paddingVertical: spacing.lg,
+  body: {
+    flex: 1,
   },
 });

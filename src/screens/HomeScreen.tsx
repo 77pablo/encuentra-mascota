@@ -16,6 +16,7 @@ import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
+import MensajesButton from '../components/MensajesButton';
 import { colors, radius, spacing } from '../theme';
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -141,6 +142,7 @@ export default function HomeScreen({ navigation }: any) {
                 {hasCoords ? 'Tu zona' : 'Tu barrio'}
               </AppText>
             </View>
+            <MensajesButton />
             <View style={styles.avatar}>
               {user ? (
                 <AppText weight="bold" color={colors.white} size={15}>
@@ -202,7 +204,10 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* En tu comuna → pestaña Comunidad */}
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (
-          <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('Comunidad')}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Explorar', { comuna: comunaInicio })}
+          >
             <Card style={styles.comunaCard}>
               <Ionicons name="business" size={20} color={colors.brand} />
               <View style={styles.comunaTextWrap}>
@@ -229,7 +234,7 @@ export default function HomeScreen({ navigation }: any) {
               key={label}
               label={label}
               active={i === 0}
-              onPress={() => navigation.navigate('Lista')}
+              onPress={() => navigation.navigate('Explorar')}
               style={i > 0 ? styles.chipSpacing : undefined}
             />
           ))}
@@ -241,7 +246,7 @@ export default function HomeScreen({ navigation }: any) {
           </AppText>
         ) : null}
 
-        <ZoneAlertBanner pets={pets} onPress={() => navigation.navigate('Lista')} />
+        <ZoneAlertBanner pets={pets} onPress={() => navigation.navigate('Explorar')} />
 
         {/* Tira de finales felices */}
         {finales.length > 0 ? (
@@ -289,7 +294,7 @@ export default function HomeScreen({ navigation }: any) {
         {/* Sección "cerca de ti" */}
         <View style={styles.sectionHeader}>
           <Title size={17}>Cerca de ti</Title>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Lista')}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Explorar')}>
             <AppText weight="semi" color={colors.brand} size={13}>
               Ver todo
             </AppText>

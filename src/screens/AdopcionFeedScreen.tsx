@@ -20,6 +20,7 @@ import { AdopcionConDistancia, FiltrosAdopcion } from '../services/busquedaAdopc
 import { Adoption } from '../services/adoptions';
 import { useAdoptionSaves } from '../context/AdoptionSavesProvider';
 import { useRequireAuth } from '../hooks/useRequireAuth';
+import MensajesButton from '../components/MensajesButton';
 import { useAuth } from '../hooks/useAuth';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
@@ -286,9 +287,10 @@ export default function AdopcionFeedScreen({ navigation }: any) {
 
   return (
     <Screen padded>
-      <Title size={22} style={styles.screenTitle}>
-        En adopción
-      </Title>
+      <View style={styles.headerRow}>
+        <Title size={22}>En adopción</Title>
+        <MensajesButton />
+      </View>
       <AppText muted size={13} style={styles.subtitle}>
         Vecinos del barrio buscándoles un hogar. Guárdalas o escríbele a quien las tiene.
       </AppText>
@@ -369,7 +371,10 @@ export default function AdopcionFeedScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  screenTitle: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: spacing.sm,
   },
   subtitle: {

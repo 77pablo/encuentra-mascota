@@ -4,8 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import PublishScreen from '../screens/PublishScreen';
 import HomeScreen from '../screens/HomeScreen';
-import MapScreen from '../screens/MapScreen';
-import ListScreen from '../screens/ListScreen';
+import ExplorarScreen from '../screens/ExplorarScreen';
 import EncontreScreen from '../screens/EncontreScreen';
 import AdopcionFeedScreen from '../screens/AdopcionFeedScreen';
 import PublicarAdopcionScreen from '../screens/PublicarAdopcionScreen';
@@ -15,7 +14,6 @@ import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MyPetsScreen from '../screens/MyPetsScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
-import ComunidadScreen from '../screens/ComunidadScreen';
 import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
@@ -23,7 +21,6 @@ import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
 import DeleteAccountScreen from '../screens/DeleteAccountScreen';
-import { useUnread } from '../hooks/useUnread';
 import { useAuth } from '../hooks/useAuth';
 import { AccionProtegida, mensajeDe } from '../lib/requireAuth';
 import { notify } from '../lib/notify';
@@ -47,47 +44,24 @@ function InicioStack() {
   );
 }
 
-const MapStackNav = createNativeStackNavigator();
-function MapStack() {
+// EXPLORAR: unifica las viejas pestañas Mapa + Lista + Comunidad. Trae las mismas
+// sub-pantallas que tenían esos tres stacks (PetDetail, AddSighting, Chat,
+// PublicProfile) más Encontre (que venía de ListStack).
+const ExplorarStackNav = createNativeStackNavigator();
+function ExplorarStack() {
   return (
-    <MapStackNav.Navigator>
-      <MapStackNav.Screen name="Mapa" component={MapScreen} options={{ headerShown: false }} />
-      <MapStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
-      <MapStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
-      <MapStackNav.Screen name="Chat" component={ChatScreen} />
-      <MapStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
-    </MapStackNav.Navigator>
-  );
-}
-
-const ListStackNav = createNativeStackNavigator();
-function ListStack() {
-  return (
-    <ListStackNav.Navigator>
-      <ListStackNav.Screen name="Lista" component={ListScreen} options={{ headerShown: false }} />
-      <ListStackNav.Screen
+    <ExplorarStackNav.Navigator>
+      <ExplorarStackNav.Screen name="Explorar" component={ExplorarScreen} options={{ headerShown: false }} />
+      <ExplorarStackNav.Screen
         name="Encontre"
         component={EncontreScreen}
         options={{ title: 'Encontré una mascota' }}
       />
-      <ListStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
-      <ListStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
-      <ListStackNav.Screen name="Chat" component={ChatScreen} />
-      <ListStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
-    </ListStackNav.Navigator>
-  );
-}
-
-const ComunidadStackNav = createNativeStackNavigator();
-function ComunidadStack() {
-  return (
-    <ComunidadStackNav.Navigator>
-      <ComunidadStackNav.Screen name="Comunidad" component={ComunidadScreen} options={{ headerShown: false }} />
-      <ComunidadStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
-      <ComunidadStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
-      <ComunidadStackNav.Screen name="Chat" component={ChatScreen} />
-      <ComunidadStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
-    </ComunidadStackNav.Navigator>
+      <ExplorarStackNav.Screen name="PetDetail" component={PetDetailScreen} options={{ title: 'Detalle' }} />
+      <ExplorarStackNav.Screen name="AddSighting" component={AddSightingScreen} options={{ title: 'Lo vi por acá' }} />
+      <ExplorarStackNav.Screen name="Chat" component={ChatScreen} />
+      <ExplorarStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
+    </ExplorarStackNav.Navigator>
   );
 }
 
@@ -114,8 +88,11 @@ function AdopcionStack() {
   );
 }
 
+// La bandeja de Mensajes dejó de ser pestaña: ahora se abre desde el ícono de
+// `MensajesButton` en el encabezado de Inicio/Explorar/Adopción, y este stack se
+// registra en el stack RAÍZ (ver RootNavigator) como `Mensajes`.
 const MsgStackNav = createNativeStackNavigator();
-function MsgStack() {
+export function MsgStack() {
   return (
     <MsgStackNav.Navigator>
       <MsgStackNav.Screen name="Conversaciones" component={ConversationsScreen} options={{ headerShown: false }} />
@@ -165,17 +142,13 @@ function ProfileStack() {
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Inicio: 'home',
-  Mapa: 'map',
-  Lista: 'list',
-  Comunidad: 'people',
-  Adopcion: 'paw',
+  Explorar: 'search',
   Publicar: 'add-circle',
-  Mensajes: 'chatbubble-ellipses',
+  Adopcion: 'paw',
   Perfil: 'person',
 };
 
 export default function TabNavigator() {
-  const { count } = useUnread();
   const { session } = useAuth();
 
   // MODO INVITADO: Publicar y Mensajes siguen VISIBLES sin sesión — esconderlos
@@ -219,24 +192,12 @@ export default function TabNavigator() {
       })}
     >
       <Tab.Screen name="Inicio" component={InicioStack} options={{ headerShown: false }} />
-      <Tab.Screen name="Mapa" component={MapStack} options={{ headerShown: false }} />
-      <Tab.Screen name="Lista" component={ListStack} options={{ headerShown: false }} />
-      <Tab.Screen name="Comunidad" component={ComunidadStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Explorar" component={ExplorarStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Publicar" component={PublishScreen} listeners={porteroDeTab('publicar')} />
       <Tab.Screen
         name="Adopcion"
         component={AdopcionStack}
         options={{ headerShown: false, tabBarLabel: 'Adopción' }}
-      />
-      <Tab.Screen name="Publicar" component={PublishScreen} listeners={porteroDeTab('publicar')} />
-      <Tab.Screen
-        name="Mensajes"
-        component={MsgStack}
-        listeners={porteroDeTab('contactar')}
-        options={{
-          headerShown: false,
-          tabBarBadge: count > 0 ? count : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.lost, color: colors.white },
-        }}
       />
       <Tab.Screen name="Perfil" component={ProfileStack} options={{ headerShown: false }} />
     </Tab.Navigator>
