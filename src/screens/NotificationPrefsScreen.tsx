@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Prefs } from '../lib/notifyTargets';
 import { getMisPrefs, guardarMisPrefs } from '../services/notificationPrefs';
 import { notify } from '../lib/notify';
+import { activarWebPush, desactivarWebPush, estadoWebPush, EstadoWebPush } from '../lib/webPush';
+import { useAuth } from '../hooks/useAuth';
 import { AppText, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { Colors, spacing } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -64,10 +66,22 @@ const CANALES: Interruptor[] = [
 export default function NotificationPrefsScreen() {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
+  const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [guardando, setGuardando] = useState<ClavePref | null>(null);
+
+  // Solo-web: en la app instalada el push va por Expo (arriba, "Notificación
+  // al teléfono"), y ahí no existe `PushManager`. `null` mientras se consulta
+  // el estado real, para no mostrar el botón equivocado un instante.
+  const [webPushEstado, setWebPushEstado] = useState<EstadoWebPush | null>(null);
+  const [webPushCargando, setWebPushCargando] = useState(false);
+
+  const cargarWebPush = useCallback(() => {
+    if (Platform.OS !== 'web') return;
+    estadoWebPush().then(setWebPushEstado);
+  }, []);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -81,6 +95,30 @@ export default function NotificationPrefsScreen() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    cargarWebPush();
+  }, [cargarWebPush]);
+
+  const alternarWebPush = async () => {
+    if (webPushCargando || !webPushEstado) return;
+    setWebPushCargando(true);
+    try {
+      if (webPushEstado === 'activada') {
+        await desactivarWebPush();
+      } else if (webPushEstado === 'inactiva') {
+        if (!user) return;
+        await activarWebPush(user.id);
+      }
+    } catch {
+      // Igual que en `alternar()` arriba: nada de jerga de Postgres/DOM en
+      // pantalla, y refrescamos el estado real en vez de asumir que se aplicó.
+      notify('No se pudo activar', 'No pudimos activar las notificaciones en este dispositivo. Probá de nuevo.');
+    } finally {
+      cargarWebPush();
+      setWebPushCargando(false);
+    }
+  };
 
   // Guardado optimista: movemos el interruptor de inmediato y, si el guardado
   // falla, lo devolvemos a donde estaba y avisamos. Se siente más rápido y no
@@ -135,6 +173,62 @@ export default function NotificationPrefsScreen() {
           Elegí qué te avisamos y por dónde. Podés cambiarlo cuando quieras.
         </AppText>
 
+        {Platform.OS === 'web' && webPushEstado && webPushEstado !== 'no_soportado' && (
+          <Card style={styles.card}>
+            <View style={styles.webPushBloque}>
+              <Ionicons name="notifications-outline" size={20} color={colors.brand} />
+              <View style={styles.switchText}>
+                <AppText weight="bold" size={15}>
+                  Notificaciones en este dispositivo
+                </AppText>
+                <AppText muted size={12}>
+                  Recibí avisos aunque tengas la pestaña cerrada, en este navegador.
+                </AppText>
+
+                {webPushEstado === 'denegada' && (
+                  <AppText muted size={12} style={styles.webPushNota}>
+                    Están bloqueadas en el navegador. Actívalas desde el candado de la barra de
+                    direcciones.
+                  </AppText>
+                )}
+
+                {(webPushEstado === 'activada' || webPushEstado === 'inactiva') && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={alternarWebPush}
+                    disabled={webPushCargando}
+                    style={[
+                      styles.webPushBoton,
+                      webPushEstado === 'activada' ? styles.webPushBotonSecundario : styles.webPushBotonPrimario,
+                    ]}
+                  >
+                    {webPushCargando ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={webPushEstado === 'activada' ? colors.brand : colors.white}
+                      />
+                    ) : (
+                      <AppText
+                        weight="bold"
+                        size={13}
+                        style={
+                          webPushEstado === 'activada'
+                            ? styles.webPushBotonTextoSecundario
+                            : styles.webPushBotonTextoPrimario
+                        }
+                      >
+                        {webPushEstado === 'activada'
+                          ? 'Desactivar en este dispositivo'
+                          : 'Activar notificaciones en este dispositivo'}
+                      </AppText>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </Card>
+        )}
+
         <Title size={16} style={styles.sectionTitle}>
           Qué quiero que me avisen
         </Title>
@@ -182,6 +276,38 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   switchText: {
     flex: 1,
     gap: 2,
+  },
+  webPushBloque: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  webPushNota: {
+    marginTop: spacing.xs,
+  },
+  webPushBoton: {
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 999,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  webPushBotonPrimario: {
+    backgroundColor: colors.brand,
+  },
+  webPushBotonSecundario: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  webPushBotonTextoPrimario: {
+    color: colors.white,
+  },
+  webPushBotonTextoSecundario: {
+    color: colors.brand,
   },
   notaRow: {
     flexDirection: 'row',
