@@ -15,7 +15,10 @@
 //   - Sin push, sin background sync: no corresponde en esta tanda.
 //
 // IMPORTANTE — subir VERSION en cada cambio de este archivo (invalida las
-// cachés viejas en el próximo activate de cada usuario).
+// cachés viejas en el próximo activate de cada usuario). Los bundles de
+// /_expo/static/* son hasheados (si cambian, cambian de nombre), pero se
+// cachean al vuelo en cache-first; se recorta a un tope de 60 entradas
+// por caché para acotar la cuota (ver cacheFirst()).
 const VERSION = 'v1';
 const CACHE_NAME = `emp-pwa-${VERSION}`;
 
@@ -63,7 +66,17 @@ async function cacheFirst(request) {
   if (enCache) return enCache;
   const resp = await fetch(request);
   // Solo guardamos respuestas OK; una 404/500 no se cachea.
-  if (resp && resp.ok) cache.put(request, resp.clone());
+  if (resp && resp.ok) {
+    cache.put(request, resp.clone());
+    // Recorte LRU: keys() devuelve orden de inserción en la práctica, así que
+    // recortamos al principio (aproximadamente FIFO) si superamos el tope.
+    // Suficiente para acotar cuota de IndexedDB sin acoplarse al pipeline de
+    // build (los bundles cambian de hash en cada deploy pero VERSION no).
+    const keys = await cache.keys();
+    if (keys.length > 60) {
+      await Promise.all(keys.slice(0, keys.length - 60).map(k => cache.delete(k)));
+    }
+  }
   return resp;
 }
 

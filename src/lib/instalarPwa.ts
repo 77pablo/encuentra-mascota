@@ -11,18 +11,35 @@ import { Platform } from 'react-native';
 // nuestra propia tarjeta en vez del mini-infobar del navegador.
 let promptGuardado: any = null;
 
+// Flag para hacer idempotente capturarPromptInstalacion(): evita agregar
+// listeners múltiples cuando se llama varias veces.
+let capturado = false;
+
+// Handler nombrado para 'beforeinstallprompt', usado por capturarPromptInstalacion.
+function manejarBeforeInstallPrompt(evento: any): void {
+  // Sin esto el navegador muestra su propio mini-infobar de instalación;
+  // preferimos ofrecerlo nosotros, en nuestra propia tarjeta/momento.
+  evento.preventDefault?.();
+  promptGuardado = evento;
+}
+
 // Engancha el listener de 'beforeinstallprompt'. Se llama una sola vez, lo
 // antes posible (p. ej. al montar la navegación raíz). No-op fuera de web o
 // si el navegador no dispara el evento (iOS/Safari: nunca lo dispara).
+// Idempotente: llamadas repetidas no agregan listeners duplicados.
 export function capturarPromptInstalacion(): void {
   if (Platform.OS !== 'web') return;
   if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
-  window.addEventListener('beforeinstallprompt', (evento: any) => {
-    // Sin esto el navegador muestra su propio mini-infobar de instalación;
-    // preferimos ofrecerlo nosotros, en nuestra propia tarjeta/momento.
-    evento.preventDefault?.();
-    promptGuardado = evento;
-  });
+  if (capturado) return; // Ya se registró el listener.
+  capturado = true;
+  window.addEventListener('beforeinstallprompt', manejarBeforeInstallPrompt);
+}
+
+// (interno) Reset para tests: permite limpiar el estado de captura entre
+// ejecuciones de suite sin forzar a resetModules.
+export function _resetParaTests(): void {
+  promptGuardado = null;
+  capturado = false;
 }
 
 // true si hay un prompt de instalación listo para mostrarse (Android/Chrome

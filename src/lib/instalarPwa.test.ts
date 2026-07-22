@@ -46,6 +46,20 @@ describe('instalarPwa en web', () => {
   });
 
   describe('capturarPromptInstalacion / puedeInstalar / pedirInstalacion', () => {
+    it('capturarPromptInstalacion() es idempotente: llamadas repetidas no agregan listeners duplicados', () => {
+      (window as any).addEventListener = jest.fn();
+      const mod = require('./instalarPwa');
+      mod.capturarPromptInstalacion();
+      mod.capturarPromptInstalacion();
+      mod.capturarPromptInstalacion();
+      // addEventListener se debe haber llamado UNA SOLA VEZ para 'beforeinstallprompt'.
+      const llamadas = ((window as any).addEventListener as jest.Mock).mock.calls;
+      const llamadasBeforeInstallPrompt = llamadas.filter((call) => call[0] === 'beforeinstallprompt');
+      expect(llamadasBeforeInstallPrompt).toHaveLength(1);
+      // Limpia para no afectar otros tests.
+      mod._resetParaTests?.();
+    });
+
     it('sin que el navegador dispare beforeinstallprompt, no se puede instalar', () => {
       (window as any).addEventListener = jest.fn();
       const mod = require('./instalarPwa');
