@@ -87,6 +87,14 @@ describe('armarMetaTags', () => {
     expect(html).not.toContain('og:image');
     expect(html).not.toContain('twitter:image');
   });
+
+  it('sin descripción no emite og:description ni twitter:description (en vez de content="")', () => {
+    const html = armarMetaTags({ titulo: 'Luna', descripcion: '', imagen: null, url: 'https://x.cl' });
+    expect(html).not.toContain('og:description');
+    expect(html).not.toContain('twitter:description');
+    // El resto de las tags fijas se siguen emitiendo igual.
+    expect(html).toContain('og:title" content="Luna"');
+  });
 });
 
 describe('tituloDeReporte', () => {
@@ -237,6 +245,35 @@ describe('worker fetch handler', () => {
     const res = await worker.fetch(req, env);
     const html = await res.text();
     expect(html).toBe('<html>borrar-cuenta estático</html>');
+  });
+
+  it('las respuestas HTML llevan Cache-Control: no-cache (que un intermediario no retenga OG viejas)', async () => {
+    const env = envAssetsFalso();
+    const req = new Request('https://x.cl/alguna-ruta');
+    const res = await worker.fetch(req, env);
+    expect(res.headers.get('Cache-Control')).toBe('no-cache');
+  });
+
+  it('/_expo/static/* reemite la respuesta de ASSETS con Cache-Control inmutable de 1 año', async () => {
+    const env = {
+      ASSETS: {
+        fetch: jest.fn(async () => new Response('contenido-del-bundle', {
+          headers: { 'content-type': 'application/javascript' },
+        })),
+      },
+    };
+    const req = new Request('https://x.cl/_expo/static/js/web/entry-abc123.js');
+    const res = await worker.fetch(req, env);
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable');
+    expect(res.headers.get('content-type')).toBe('application/javascript');
+    expect(await res.text()).toBe('contenido-del-bundle');
+  });
+
+  it('un asset fuera de /_expo/static/ (p. ej. /assets/logo.png) NO recibe el Cache-Control inmutable agregado', async () => {
+    const env = envAssetsFalso();
+    const req = new Request('https://x.cl/assets/logo.png');
+    const res = await worker.fetch(req, env);
+    expect(res.headers.get('Cache-Control')).toBeNull();
   });
 
   it('/mascota/:uuid con Supabase colgado falla abierto: index pelado en <3s', async () => {

@@ -100,15 +100,19 @@ function armarMetaTags(datos) {
   const imagenTags = imagen
     ? `<meta property="og:image" content="${imagen}">\n<meta name="twitter:image" content="${imagen}">\n`
     : '';
+  // Igual que con la imagen: si no hay descripción, se OMITEN las tags en vez
+  // de emitirlas con content="" (un content vacío es peor que ausente para
+  // quien arma la preview del link).
+  const descripcionTags = descripcion
+    ? `<meta property="og:description" content="${descripcion}">\n<meta name="twitter:description" content="${descripcion}">\n`
+    : '';
   return `
 <meta property="og:title" content="${titulo}">
-<meta property="og:description" content="${descripcion}">
-${imagenTags}<meta property="og:url" content="${url}">
+${descripcionTags}${imagenTags}<meta property="og:url" content="${url}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Encuentra tu Mascota">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titulo}">
-<meta name="twitter:description" content="${descripcion}">
 `;
 }
 
@@ -139,6 +143,10 @@ const CABECERAS_HTML = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Permissions-Policy': 'geolocation=(self), camera=(self), microphone=(), payment=()',
+  // Este HTML lleva OG dinámico por :uuid (título/estado/foto de una mascota
+  // puntual): que ningún intermediario (proxy, CDN de un tercero) lo retenga
+  // y sirva una preview vieja (p. ej. "PERDIDA" después de reunida_en).
+  'Cache-Control': 'no-cache',
 };
 
 // ---------------------------------------------------------------------------
@@ -198,7 +206,16 @@ async function manejarFetch(request, env) {
     url.pathname === '/borrar-cuenta' ||
     url.pathname.startsWith('/borrar-cuenta/')
   ) {
-    return env.ASSETS.fetch(request);
+    const respAsset = await env.ASSETS.fetch(request);
+    if (url.pathname.startsWith('/_expo/static/')) {
+      // Rol que cumplía public/_headers (deja de aplicar solo en advanced
+      // mode): assets con hash en el nombre no cambian nunca, se cachean para
+      // siempre. Cloudflare no lo agrega solo.
+      const headers = new Headers(respAsset.headers);
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      return new Response(respAsset.body, { status: respAsset.status, statusText: respAsset.statusText, headers });
+    }
+    return respAsset;
   }
 
   // 2) SPA: index.html como base de TODA ruta sin extensión.
