@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { listConversations, Conversation, paramsDeCtx } from '../services/messages';
 import { useAuth } from '../hooks/useAuth';
@@ -46,9 +47,17 @@ export default function ConversationsScreen({ navigation }: any) {
 
   return (
     <Screen padded>
-      <Title size={22} style={styles.screenTitle}>
-        Mensajes
-      </Title>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.ink} />
+        </TouchableOpacity>
+        <Title size={22}>Mensajes</Title>
+      </View>
       <FlatList
         data={convs}
         keyExtractor={(c) => `${c.ctx.tipo}:${c.ctx.tipo === 'pet_borrado' ? '' : c.ctx.id}:${c.otherUser}`}
@@ -99,9 +108,19 @@ export default function ConversationsScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  screenTitle: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.sm,
     marginBottom: spacing.md,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -4,
   },
   list: {
     paddingBottom: spacing.xxl,

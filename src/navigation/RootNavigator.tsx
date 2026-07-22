@@ -71,7 +71,7 @@ export default function RootNavigator() {
             (Inicio/Explorar/Adopción). Vive en el stack raíz para ser alcanzable
             por nombre desde cualquier pestaña, igual que GuiaPerdida. */}
         <Stack.Screen name="Mensajes" component={MsgStack} />
-        <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ title: 'Reporte' }} />
+        <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ headerShown: true, title: 'Reporte' }} />
         {/* Guía "recién se me perdió": se abre desde Inicio y tras publicar una
             perdida. Va en el stack raíz para ser alcanzable por nombre desde
             cualquier pestaña; con header propio para tener botón de volver. */}
@@ -82,11 +82,11 @@ export default function RootNavigator() {
         />
         {/* Página pública del collar (Función 2): la abre el QR de la placa, en
             modo invitado, igual que MascotaPublica. */}
-        <Stack.Screen name="Collar" component={CollarScreen} options={{ title: 'Mascota con collar' }} />
+        <Stack.Screen name="Collar" component={CollarScreen} options={{ headerShown: true, title: 'Mascota con collar' }} />
         {/* Detalle público de una publicación de adopción: se abre por el link
             compartido (`adopcion/:id`) o desde la pestaña Adopción, en modo
             invitado, igual que MascotaPublica/Collar. */}
-        <Stack.Screen name="AdopcionDetail" component={AdopcionDetailScreen} options={{ title: 'Adopción' }} />
+        <Stack.Screen name="AdopcionDetail" component={AdopcionDetailScreen} options={{ headerShown: true, title: 'Adopción' }} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
