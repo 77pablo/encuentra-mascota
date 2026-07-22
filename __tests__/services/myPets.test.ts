@@ -183,7 +183,7 @@ describe('createMyPet', () => {
     expect(guardado.antiparasitario_externo_proximo).toBeNull();
   });
 
-  it('no incluye los campos del carnet cuando no se pasan', async () => {
+  it('envía los campos del carnet como null cuando no se pasan', async () => {
     const builder = makeQueryBuilder({ data: { id: 'mp-1' }, error: null });
     mockFrom.mockReturnValue(builder);
 
