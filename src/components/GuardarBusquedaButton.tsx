@@ -44,7 +44,6 @@ export default function GuardarBusquedaButton({
     <Button
       title="🔔 Avisarme de esta búsqueda"
       variant="secondary"
-      icon="notifications-outline"
       onPress={guardar}
       loading={guardando}
       disabled={guardando}
