@@ -1,5 +1,28 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-21 (noche 2) — Navegación de 5 pestañas (tab bar apretado)
+
+Con la 8ª pestaña (Adopción) el tab bar quedó apretado. Se pasó a **5 pestañas**
+(`Inicio · Explorar · Publicar(+) · Adopción · Perfil`). Ejecutado **inline** (executing-plans),
+7 tareas, `tsc` limpio, **547 tests**, verificado visual con Playwright. Spec/plan en
+`docs/superpowers/*/2026-07-21-navegacion-5-pestanas*`. Fusionado (`cbb3d1c`).
+
+- **`ExplorarScreen`** unifica las viejas Mapa + Lista + Comunidad: dueña de los filtros +
+  un **toggle Lista/Mapa** (abre en Lista); ambos cuerpos comparten el mismo `filtros`, así
+  alternar de vista conserva la búsqueda. Se extrajeron `ReportesLista`, `ReportesMapa` (ahora
+  **respeta los filtros**, antes traía todo) y `SeguirComunaButton` (el "Avisarme de [comuna]"
+  de Comunidad, aparece cuando hay filtro de comuna). Se **borraron** `ListScreen`, `MapScreen`,
+  `ComunidadScreen`.
+- **Mensajes** dejó de ser pestaña: `MensajesButton` (ícono chat + badge de no leídos) en el
+  encabezado de Inicio/Explorar/Adopción; abre la bandeja `MsgStack`, ahora registrada en el
+  **stack raíz** como `Mensajes`. Portero para invitados mantenido.
+- **Destinos reapuntados** (`'Mapa'`/`'Lista'`/`'Comunidad'` → `'Explorar'`): `PublishScreen`,
+  `HomeScreen` (con la comuna preseteada desde "En tu comuna"), y la guía (`guiaPerdida`).
+- **Sin migración ni cambios de datos.** Verificado en el navegador: barra de 5 con aire, el
+  ícono de Mensajes arriba, Explorar abre en Lista, el toggle a Mapa conserva los filtros.
+- ⚠️ **Falta subir la web** para que salga a producción (drag-and-drop de `dist` a Cloudflare,
+  manual). El `dist` de la sesión anterior es viejo; regenerar con `npx expo export --platform web`.
+
 ## 🗓️ SESIÓN 2026-07-21 (noche) — Apartado de Adopción (feed tipo Instagram)
 
 Construido **subagent-driven** (12 tareas: implementer + revisión por tarea + revisión
