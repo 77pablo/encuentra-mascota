@@ -7,6 +7,7 @@ import {
   HankenGrotesk_700Bold,
   HankenGrotesk_800ExtraBold,
 } from '@expo-google-fonts/hanken-grotesk';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/hooks/useAuth';
 import { UnreadProvider } from './src/hooks/useUnread';
 import { FavoritesProvider } from './src/hooks/useFavorites';
@@ -32,14 +33,19 @@ export default function App() {
   }
 
   return (
-    <AuthProvider>
-      <UnreadProvider>
-        <FavoritesProvider>
-          <AdoptionSavesProvider>
-            <RootNavigator />
-          </AdoptionSavesProvider>
-        </FavoritesProvider>
-      </UnreadProvider>
-    </AuthProvider>
+    // SafeAreaProvider en la RAÍZ: el onboarding se renderiza antes/fuera del
+    // NavigationContainer (que trae su propio provider), así que sin esto
+    // cualquier pantalla montada en el gate revienta con "No safe area value".
+    <SafeAreaProvider>
+      <AuthProvider>
+        <UnreadProvider>
+          <FavoritesProvider>
+            <AdoptionSavesProvider>
+              <RootNavigator />
+            </AdoptionSavesProvider>
+          </FavoritesProvider>
+        </UnreadProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
