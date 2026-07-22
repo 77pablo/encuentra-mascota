@@ -28,6 +28,8 @@ const POR_RESTRICCION: Record<string, string> = {
   sightings_lat_rango: 'El punto que marcaste no parece válido.',
   sightings_lng_rango: 'El punto que marcaste no parece válido.',
   messages_texto_largo: 'El mensaje es muy largo (máximo 2.000 caracteres).',
+  // Reemplaza a `messages_texto_largo` desde la 0038 (mensajes solo-foto).
+  messages_texto_o_imagen: 'El mensaje es muy largo, o le falta texto y foto.',
   profiles_nombre_largo: 'El nombre es muy largo (máximo 60 caracteres).',
   profiles_telefono_largo: 'El teléfono es muy largo.',
   profiles_red_social_largo: 'El enlace de tu red social es muy largo.',
