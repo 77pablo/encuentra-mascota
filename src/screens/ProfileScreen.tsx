@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Image, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,9 @@ import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, Confetti, EmptyState, Input, Mascota, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors, useTheme } from '../theme/ThemeProvider';
 import {
   construirUrlRedSocial,
   iconoRedSocial,
@@ -40,6 +42,9 @@ function etiquetaRed(tipo: RedSocialTipo): string {
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
+  const colors = useColors();
+  const { modo, setModo } = useTheme();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mis, setMis] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState<Pet[]>([]);
@@ -547,6 +552,16 @@ export default function ProfileScreen({ navigation }: any) {
           icon="help-buoy-outline"
           onPress={() => navigation.navigate('Ayuda')}
         />
+
+        <AppText weight="bold" size={14} style={styles.apparienceLabel}>
+          Apariencia
+        </AppText>
+        <View style={styles.apparienceRow}>
+          <Chip label="Automático" active={modo === 'auto'} onPress={() => setModo('auto')} />
+          <Chip label="Claro" active={modo === 'claro'} onPress={() => setModo('claro')} />
+          <Chip label="Oscuro" active={modo === 'oscuro'} onPress={() => setModo('oscuro')} />
+        </View>
+
         <Button
           title="Privacidad y términos"
           variant="ghost"
@@ -567,7 +582,7 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingVertical: spacing.lg,
@@ -709,6 +724,16 @@ const styles = StyleSheet.create({
   },
   legalButton: {
     marginTop: spacing.lg,
+  },
+  apparienceLabel: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  apparienceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   signOutButton: {
     marginTop: spacing.sm,
