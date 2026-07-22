@@ -655,7 +655,15 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
                     {!p.autorEliminadoEn && (p.autorNombre ?? '').trim() ? (
                       <TouchableOpacity
                         activeOpacity={0.7}
-                        onPress={() => navigation.navigate('PublicProfile', { userId: p.userId })}
+                        onPress={() =>
+                          // AdopcionDetail vive en el stack RAÍZ (link público `adopcion/:id`);
+                          // PublicProfile solo existe dentro de los stacks de pestaña. Navegación
+                          // anidada absoluta, mismo patrón que `contactar`/`editar` arriba.
+                          navigation.navigate('App', {
+                            screen: 'Adopcion',
+                            params: { screen: 'PublicProfile', params: { userId: p.userId } },
+                          })
+                        }
                       >
                         <AppText weight="semi" size={13} color={colors.brand} style={styles.preguntaFirma}>
                           {firmaAutor(p.autorNombre ?? null, p.autorEliminadoEn ?? null)}
