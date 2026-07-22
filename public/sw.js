@@ -19,7 +19,7 @@
 // /_expo/static/* son hasheados (si cambian, cambian de nombre), pero se
 // cachean al vuelo en cache-first; se recorta a un tope de 60 entradas
 // por caché para acotar la cuota (ver cacheFirst()).
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE_NAME = `emp-pwa-${VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -67,7 +67,7 @@ async function cacheFirst(request) {
   const resp = await fetch(request);
   // Solo guardamos respuestas OK; una 404/500 no se cachea.
   if (resp && resp.ok) {
-    cache.put(request, resp.clone());
+    await cache.put(request, resp.clone());
     // Recorte LRU: keys() devuelve orden de inserción en la práctica, así que
     // recortamos al principio (aproximadamente FIFO) si superamos el tope.
     // Suficiente para acotar cuota de IndexedDB sin acoplarse al pipeline de
@@ -84,8 +84,22 @@ async function redConFallback(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
     const resp = await fetch(request);
-    if (resp && resp.ok) cache.put('/', resp.clone());
+    // Guardamos el fallback offline SOLO para '/': cualquier otra navegación
+    // (p. ej. /mascota/:uuid) trae OG/estado de UNA mascota puntual, y si
+    // quedara cacheada como "el" fallback de '/' se serviría offline a
+    // cualquier ruta con el título/foto de esa mascota, no un fallback
+    // genérico. request.url ya viene resuelta (absoluta) por el navegador.
+    // .catch(): la cuota de Cache Storage puede estar llena; que un put
+    // fallido no deje un unhandled rejection ni tumbe la respuesta ya lista.
+    if (resp && resp.ok && new URL(request.url).pathname === '/') {
+      cache.put('/', resp.clone()).catch(() => {});
+    }
     return resp;
+    // Nota a propósito: NUNCA se cae a la caché ante una respuesta 4xx/5xx de
+    // la red (solo ante un fetch que directamente falla, ver catch abajo).
+    // Si cayéramos a caché con la red arriba pero respondiendo error, un
+    // outage real del backend/hosting quedaría enmascarado por una versión
+    // vieja de '/' en vez de mostrarse — preferible ver el error real.
   } catch {
     // Sin red: primero el fallback de '/' cacheado, y si tampoco existe (nunca
     // se guardó, p. ej. primera visita offline), dejamos que el error suba tal
