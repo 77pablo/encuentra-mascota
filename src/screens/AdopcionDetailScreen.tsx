@@ -3,7 +3,16 @@ import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Scro
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { Adoption, deleteAdoption, getAdoption, marcarAdoptada } from '../services/adoptions';
-import { denunciarAdopcion, MOTIVOS_DENUNCIA } from '../services/moderation';
+import { denunciarAdopcion, denunciarPregunta, MOTIVOS_DENUNCIA } from '../services/moderation';
+import {
+  AdoptionQuestion,
+  answerQuestion,
+  askQuestion,
+  deleteQuestion,
+  listQuestions,
+} from '../services/adoptionQuestions';
+import { firmaAutor } from '../lib/tips';
+import { getNombrePublico } from '../services/profile';
 import { useAuth } from '../hooks/useAuth';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAdoptionSaves } from '../context/AdoptionSavesProvider';
@@ -75,6 +84,19 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
   const [notaFeliz, setNotaFeliz] = useState('');
   const [guardandoCelebracion, setGuardandoCelebracion] = useState(false);
   const [mostrarConfetti, setMostrarConfetti] = useState(false);
+  // Preguntas públicas (F3): la voz de quien quiere adoptar, respondida por
+  // el dueño de la publicación. Mismo patrón que las pistas del barrio en
+  // PetDetailScreen (composer + lista + firma + denunciar/borrar).
+  const [duenoNombre, setDuenoNombre] = useState<string | null>(null);
+  const [preguntas, setPreguntas] = useState<AdoptionQuestion[]>([]);
+  const [nuevaPregunta, setNuevaPregunta] = useState('');
+  const [enviandoPregunta, setEnviandoPregunta] = useState(false);
+  const [respondiendoId, setRespondiendoId] = useState<string | null>(null);
+  const [respuestaBorrador, setRespuestaBorrador] = useState<Record<string, string>>({});
+  const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
+  const [borrandoPreguntaId, setBorrandoPreguntaId] = useState<string | null>(null);
+  const [denunciaPreguntaId, setDenunciaPreguntaId] = useState<string | null>(null);
+  const [enviandoDenunciaPregunta, setEnviandoDenunciaPregunta] = useState(false);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -88,6 +110,136 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Nombre público de quien publicó, para la firma "Responde …" de las
+  // preguntas contestadas. Silencioso: si no se puede leer, no se muestra.
+  useEffect(() => {
+    if (!adoption) {
+      setDuenoNombre(null);
+      return;
+    }
+    let vivo = true;
+    getNombrePublico(adoption.user_id)
+      .then((n) => {
+        if (vivo) setDuenoNombre(n);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [adoption]);
+
+  // Carga las preguntas públicas. Se refresca al recuperar el foco, igual que
+  // las pistas del barrio en PetDetailScreen.
+  const cargarPreguntas = useCallback(() => {
+    listQuestions(id)
+      .then(setPreguntas)
+      .catch(() => setPreguntas([]));
+  }, [id]);
+
+  useEffect(() => {
+    cargarPreguntas();
+    const off = navigation.addListener('focus', cargarPreguntas);
+    return off;
+  }, [navigation, cargarPreguntas]);
+
+  const preguntar = async () => {
+    if (!requireAuth('preguntar_adopcion')) return;
+    const texto = nuevaPregunta.trim();
+    if (!texto) return;
+    setEnviandoPregunta(true);
+    try {
+      await askQuestion(id, texto);
+      setNuevaPregunta('');
+      cargarPreguntas();
+    } catch (e: any) {
+      notify('No se pudo preguntar', mensajeDeErrorDb(e));
+    } finally {
+      setEnviandoPregunta(false);
+    }
+  };
+
+  const pedirCuentaParaPreguntar = () => {
+    requireAuth('preguntar_adopcion');
+  };
+
+  const abrirRespuesta = (preguntaId: string) => {
+    setRespondiendoId((actual) => (actual === preguntaId ? null : preguntaId));
+  };
+
+  const responder = async (preguntaId: string) => {
+    const texto = (respuestaBorrador[preguntaId] ?? '').trim();
+    if (!texto) return;
+    setEnviandoRespuesta(true);
+    try {
+      await answerQuestion(preguntaId, texto);
+      setRespuestaBorrador((b) => ({ ...b, [preguntaId]: '' }));
+      setRespondiendoId(null);
+      cargarPreguntas();
+    } catch (e: any) {
+      notify('No se pudo responder', mensajeDeErrorDb(e));
+    } finally {
+      setEnviandoRespuesta(false);
+    }
+  };
+
+  const eliminarPregunta = async (preguntaId: string) => {
+    const ok = await confirmAction('¿Borrar esta pregunta?', 'Se va a eliminar para todos.');
+    if (!ok) return;
+    setBorrandoPreguntaId(preguntaId);
+    try {
+      await deleteQuestion(preguntaId);
+      setPreguntas((actuales) => actuales.filter((p) => p.id !== preguntaId));
+    } catch (e: any) {
+      notify('No se pudo borrar', mensajeDeErrorDb(e));
+    } finally {
+      setBorrandoPreguntaId(null);
+    }
+  };
+
+  const abrirDenunciaPregunta = (preguntaId: string) => {
+    if (!requireAuth('denunciar')) return;
+    setDenunciaPreguntaId((actual) => (actual === preguntaId ? null : preguntaId));
+  };
+
+  const denunciarPreguntaSeleccionada = async (motivo: string) => {
+    if (!user || !denunciaPreguntaId) return;
+    const pregunta = preguntas.find((p) => p.id === denunciaPreguntaId);
+    if (!pregunta) return;
+    setEnviandoDenunciaPregunta(true);
+    try {
+      await denunciarPregunta(pregunta.id, pregunta.userId, user.id, motivo);
+      setDenunciaPreguntaId(null);
+      notify('Gracias', 'Recibimos tu denuncia y la revisaremos dentro de las próximas 24 horas.');
+    } catch (e: any) {
+      setDenunciaPreguntaId(null);
+      notify('Aviso', mensajeDeErrorDb(e));
+    } finally {
+      setEnviandoDenunciaPregunta(false);
+    }
+  };
+
+  const renderMotivosPregunta = (preguntaId: string) => {
+    if (denunciaPreguntaId !== preguntaId) return null;
+    return (
+      <View style={styles.reasonList}>
+        <AppText muted size={13} style={styles.reasonTitle}>
+          ¿Por qué querés denunciar?
+        </AppText>
+        {MOTIVOS_DENUNCIA.map((motivo) => (
+          <Button
+            key={motivo}
+            title={motivo}
+            variant="secondary"
+            loading={enviandoDenunciaPregunta}
+            disabled={enviandoDenunciaPregunta}
+            onPress={() => denunciarPreguntaSeleccionada(motivo)}
+            style={styles.reasonButton}
+          />
+        ))}
+      </View>
+    );
+  };
 
   const onCarouselLayout = (e: LayoutChangeEvent) => {
     setCarouselWidth(e.nativeEvent.layout.width);
@@ -420,6 +572,151 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
           />
         )}
 
+        {/* Preguntas públicas: dudas de quien quiere adoptar, visibles para
+            todos (como los comentarios de una red social), respondidas
+            inline por el dueño. Molde: la sección de pistas del barrio de
+            PetDetailScreen. */}
+        <View style={styles.preguntasSection}>
+          <View style={styles.preguntasHeader}>
+            <Ionicons name="help-circle-outline" size={18} color={colors.brand} />
+            <Title size={17} style={styles.preguntasTitle}>
+              Preguntas
+            </Title>
+          </View>
+          <AppText muted size={13} style={styles.preguntasSubtitle}>
+            Dudas de quien quiere adoptarla, respondidas por quien la publicó.
+          </AppText>
+
+          {user ? (
+            <View style={styles.preguntaComposer}>
+              <Input
+                value={nuevaPregunta}
+                onChangeText={setNuevaPregunta}
+                placeholder="¿Se lleva bien con gatos? ¿Necesita patio?…"
+                multiline
+              />
+              <Button
+                title="Preguntar"
+                icon="help-circle-outline"
+                variant="secondary"
+                loading={enviandoPregunta}
+                disabled={enviandoPregunta || !nuevaPregunta.trim()}
+                onPress={preguntar}
+                style={styles.preguntaBoton}
+              />
+            </View>
+          ) : (
+            <Button
+              title="Preguntar"
+              icon="help-circle-outline"
+              variant="secondary"
+              onPress={pedirCuentaParaPreguntar}
+              style={styles.preguntaBoton}
+            />
+          )}
+
+          {preguntas.length > 0 ? (
+            <View style={styles.preguntasList}>
+              {preguntas.map((p) => (
+                <View key={p.id} style={styles.preguntaItem}>
+                  <View style={styles.preguntaFirmaRow}>
+                    <Ionicons
+                      name="person-circle-outline"
+                      size={16}
+                      color={colors.muted}
+                      style={styles.preguntaFirmaIcono}
+                    />
+                    {!p.autorEliminadoEn && (p.autorNombre ?? '').trim() ? (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('PublicProfile', { userId: p.userId })}
+                      >
+                        <AppText weight="semi" size={13} color={colors.brand} style={styles.preguntaFirma}>
+                          {firmaAutor(p.autorNombre ?? null, p.autorEliminadoEn ?? null)}
+                        </AppText>
+                      </TouchableOpacity>
+                    ) : (
+                      <AppText weight="semi" size={13} style={styles.preguntaFirma}>
+                        {firmaAutor(p.autorNombre ?? null, p.autorEliminadoEn ?? null)}
+                      </AppText>
+                    )}
+                    <AppText muted size={12}>
+                      {' · '}
+                      {timeAgo(p.creadoEn)}
+                    </AppText>
+                    <View style={styles.preguntaSpacer} />
+                    {user && p.userId !== user.id ? (
+                      <TouchableOpacity
+                        onPress={() => abrirDenunciaPregunta(p.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.preguntaAccionIcono}
+                      >
+                        <Ionicons name="flag-outline" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {user && (user.id === p.userId || user.id === adoption.user_id) ? (
+                      <TouchableOpacity
+                        onPress={() => eliminarPregunta(p.id)}
+                        disabled={borrandoPreguntaId === p.id}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  <AppText size={14} style={styles.preguntaTexto}>
+                    {p.pregunta}
+                  </AppText>
+                  {renderMotivosPregunta(p.id)}
+
+                  {p.respuesta ? (
+                    <View style={styles.respuestaBox}>
+                      <AppText weight="semi" size={12} color={colors.brand}>
+                        Responde {duenoNombre || 'quien la publicó'}
+                      </AppText>
+                      <AppText size={14} style={styles.respuestaTexto}>
+                        {p.respuesta}
+                      </AppText>
+                    </View>
+                  ) : esMio ? (
+                    <View style={styles.respuestaComposer}>
+                      {respondiendoId === p.id ? (
+                        <>
+                          <Input
+                            value={respuestaBorrador[p.id] ?? ''}
+                            onChangeText={(t) => setRespuestaBorrador((b) => ({ ...b, [p.id]: t }))}
+                            placeholder="Escribí tu respuesta…"
+                            multiline
+                          />
+                          <Button
+                            title="Responder"
+                            variant="secondary"
+                            loading={enviandoRespuesta}
+                            disabled={enviandoRespuesta || !(respuestaBorrador[p.id] ?? '').trim()}
+                            onPress={() => responder(p.id)}
+                            style={styles.respuestaBoton}
+                          />
+                        </>
+                      ) : (
+                        <Button
+                          title="Responder"
+                          variant="ghost"
+                          onPress={() => abrirRespuesta(p.id)}
+                          style={styles.respuestaBoton}
+                        />
+                      )}
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <AppText muted size={13} style={styles.preguntasVacio}>
+              Todavía nadie preguntó nada. Si tenés dudas, sé el primero.
+            </AppText>
+          )}
+        </View>
+
         {!esMio && (
           <View style={styles.reportSection}>
             <Button
@@ -589,5 +886,76 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   reasonButton: {
     width: '100%',
+  },
+  preguntasSection: {
+    marginTop: spacing.xl,
+  },
+  preguntasHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  preguntasTitle: {
+    marginLeft: 2,
+  },
+  preguntasSubtitle: {
+    marginTop: 2,
+    marginBottom: spacing.sm,
+  },
+  preguntaComposer: {
+    gap: spacing.xs,
+  },
+  preguntaBoton: {
+    alignSelf: 'flex-start',
+  },
+  preguntasList: {
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  preguntaItem: {
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingTop: spacing.sm,
+  },
+  preguntaFirmaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  preguntaFirmaIcono: {
+    marginRight: 2,
+  },
+  preguntaFirma: {},
+  preguntaSpacer: {
+    flex: 1,
+  },
+  preguntaAccionIcono: {
+    marginRight: spacing.sm,
+  },
+  preguntaTexto: {
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  preguntasVacio: {
+    marginTop: spacing.sm,
+  },
+  respuestaBox: {
+    marginTop: spacing.sm,
+    marginLeft: spacing.md,
+    paddingLeft: spacing.sm,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.brand,
+    gap: 2,
+  },
+  respuestaTexto: {
+    lineHeight: 19,
+  },
+  respuestaComposer: {
+    marginTop: spacing.sm,
+    marginLeft: spacing.md,
+    gap: spacing.xs,
+  },
+  respuestaBoton: {
+    alignSelf: 'flex-start',
   },
 });

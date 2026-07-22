@@ -11,7 +11,8 @@ export type AccionProtegida =
   | 'avistamiento'
   | 'novedad'
   | 'denunciar'
-  | 'reencuentro';
+  | 'reencuentro'
+  | 'preguntar_adopcion';
 
 export const MENSAJES: Record<AccionProtegida, string> = {
   contactar: 'Creá tu cuenta para escribirle al dueño',
@@ -22,6 +23,7 @@ export const MENSAJES: Record<AccionProtegida, string> = {
   novedad: 'Creá tu cuenta para contar una novedad',
   denunciar: 'Creá tu cuenta para denunciar este reporte',
   reencuentro: 'Creá tu cuenta para marcar el reencuentro',
+  preguntar_adopcion: 'Creá tu cuenta para preguntarle a quien la publicó',
 };
 
 export function mensajeDe(accion: AccionProtegida): string {

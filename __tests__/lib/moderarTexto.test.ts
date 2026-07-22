@@ -1,4 +1,4 @@
-import { moderarTextoReporte } from '../../src/lib/moderarTexto';
+import { moderarTextoReporte, moderarTextoUnico, moderarTextoAdopcion } from '../../src/lib/moderarTexto';
 
 // El filtro es a propósito CONSERVADOR: su trabajo es frenar lo que las tiendas
 // consideran objetable (odio, sexual explícito) y la venta de animales que los
@@ -83,5 +83,59 @@ describe('moderarTextoReporte — venta de animales (co-ocurrencia)', () => {
     expect(
       moderarTextoReporte({ recompensa: 'Recompensa: no tiene precio para nosotros' }).ok,
     ).toBe(true);
+  });
+});
+
+// F3 (preguntas públicas de adopción) y pulido (editar adopción): mismo
+// criterio conservador, aplicado a un solo campo de texto libre.
+describe('moderarTextoUnico', () => {
+  it('una pregunta legítima pasa', () => {
+    expect(moderarTextoUnico('¿Se lleva bien con gatos?').ok).toBe(true);
+  });
+
+  it('texto vacío o ausente pasa', () => {
+    expect(moderarTextoUnico('').ok).toBe(true);
+    expect(moderarTextoUnico('   ').ok).toBe(true);
+  });
+
+  it('bloquea odio', () => {
+    const r = moderarTextoUnico('ojalá se lo lleve un maricón de mierda');
+    expect(r.ok).toBe(false);
+  });
+
+  it('bloquea contenido sexual', () => {
+    expect(moderarTextoUnico('mira mi pene').ok).toBe(false);
+  });
+
+  it('bloquea venta de animales por co-ocurrencia', () => {
+    expect(moderarTextoUnico('vendo cachorros de raza pura').ok).toBe(false);
+  });
+
+  it('no cae en falsos positivos (Scunthorpe)', () => {
+    expect(moderarTextoUnico('Come concentrado todos los días').ok).toBe(true);
+  });
+});
+
+describe('moderarTextoAdopcion', () => {
+  it('deja pasar los campos editables legítimos', () => {
+    expect(
+      moderarTextoAdopcion({
+        nombre: 'Pelusa',
+        descripcion: 'Busca familia paciente',
+        requisitos: 'Casa con patio',
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('campos vacíos o ausentes pasan', () => {
+    expect(moderarTextoAdopcion({}).ok).toBe(true);
+  });
+
+  it('bloquea odio en cualquiera de los tres campos', () => {
+    expect(moderarTextoAdopcion({ requisitos: 'no aceptamos sudaca' }).ok).toBe(false);
+  });
+
+  it('bloquea venta de animales', () => {
+    expect(moderarTextoAdopcion({ descripcion: 'se venden gatitos hermosos' }).ok).toBe(false);
   });
 });
