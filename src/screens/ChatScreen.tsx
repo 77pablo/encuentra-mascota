@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { useUnread } from '../hooks/useUnread';
 import { ctxDeParams, markThreadRead, sendMessage } from '../services/messages';
+import { getAdoption } from '../services/adoptions';
 import { supabase } from '../lib/supabase';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
@@ -38,6 +39,11 @@ export default function ChatScreen({ route, navigation }: any) {
   const { refresh: refreshUnread } = useUnread();
   const [otroEliminado, setOtroEliminado] = useState(false);
   const [otroNombre, setOtroNombre] = useState<string | null>(null);
+  // Pulido: si el hilo es de una adopción, un renglón del encabezado se puede
+  // tocar para ir al detalle de esa publicación. Solo el nombre a mostrar
+  // (no hace falta la fila completa): si la adopción ya no está disponible
+  // (borrada/adoptada), se degrada a una etiqueta genérica en vez de romper.
+  const [adopcionNombre, setAdopcionNombre] = useState<string | null>(null);
   // Bloqueo/denuncia desde el propio chat.
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
@@ -97,6 +103,38 @@ export default function ChatScreen({ route, navigation }: any) {
       vivo = false;
     };
   }, [otherUserId]);
+
+  // Nombre a mostrar en el renglón tocable "Sobre: …" (solo hilos de
+  // adopción). Silencioso: si la publicación ya no está disponible o falla la
+  // consulta, se degrada a una etiqueta genérica en vez de romper el chat.
+  useEffect(() => {
+    if (ctx.tipo !== 'adopcion') {
+      setAdopcionNombre(null);
+      return;
+    }
+    let vivo = true;
+    getAdoption(ctx.id)
+      .then((a) => {
+        if (vivo) setAdopcionNombre(a.nombre || 'esta mascota');
+      })
+      .catch(() => {
+        if (vivo) setAdopcionNombre('esta publicación');
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [ctx]);
+
+  const irAAdopcion = () => {
+    if (ctx.tipo !== 'adopcion') return;
+    // ChatScreen vive dentro del stack de una pestaña (Inicio/Explorar/
+    // Adopción/Perfil/Mensajes); `AdopcionDetail` en cambio vive en el stack
+    // RAÍZ (link público `adopcion/:id`, ver RootNavigator). Un nombre pelado
+    // alcanza igual porque React Navigation burbujea `navigate` hacia el
+    // ancestro que sí tiene esa pantalla (mismo patrón que `HomeScreen` con
+    // `navigate('GuiaPerdida')`).
+    navigation.navigate('AdopcionDetail', { id: ctx.id });
+  };
 
   const onSend = async () => {
     const t = texto;
@@ -214,6 +252,22 @@ export default function ChatScreen({ route, navigation }: any) {
                   {otroNombre}
                 </AppText>
                 <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+              </TouchableOpacity>
+            ) : null}
+            {/* Pulido: encabezado del chat de adopción tocable → detalle de la
+                publicación. Renglón aparte del nombre de la otra persona (que
+                sigue yendo a su perfil público), para no pisar esa acción. */}
+            {ctx.tipo === 'adopcion' ? (
+              <TouchableOpacity
+                style={styles.headerAdopcionRow}
+                activeOpacity={0.7}
+                onPress={irAAdopcion}
+              >
+                <Ionicons name="paw" size={13} color={colors.muted} />
+                <AppText muted size={12} numberOfLines={1} style={styles.headerAdopcionTexto}>
+                  Sobre: {adopcionNombre ?? 'esta publicación'}
+                </AppText>
+                <Ionicons name="chevron-forward" size={12} color={colors.muted} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -344,6 +398,15 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     gap: spacing.xs,
   },
   headerNombre: {
+    flexShrink: 1,
+  },
+  headerAdopcionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  headerAdopcionTexto: {
     flexShrink: 1,
   },
   menuBoton: {

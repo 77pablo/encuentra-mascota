@@ -324,6 +324,16 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const editar = () => {
+    // AdopcionDetail vive en el stack RAÍZ (link público `adopcion/:id`);
+    // EditAdoption vive dentro del stack de la pestaña Adopción. Navegación
+    // anidada absoluta, mismo patrón que `contactar` arriba.
+    navigation.navigate('App', {
+      screen: 'Adopcion',
+      params: { screen: 'EditAdoption', params: { adoption } },
+    });
+  };
+
   const borrar = async () => {
     if (!user) return;
     const ok = await confirmAction(
@@ -558,6 +568,16 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
               </Card>
             )}
           </>
+        )}
+
+        {esMio && (
+          <Button
+            title="Editar publicación"
+            variant="secondary"
+            icon="create-outline"
+            onPress={editar}
+            style={styles.actionButton}
+          />
         )}
 
         {esMio && (
