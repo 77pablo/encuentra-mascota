@@ -112,6 +112,16 @@ export default function ProfileScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Legal')}
             style={styles.invitadoBoton}
           />
+          {/* El selector de apariencia también acá: un invitado puede querer
+              modo oscuro sin tener cuenta. */}
+          <AppText weight="bold" size={14} style={styles.apparienceLabel}>
+            Apariencia
+          </AppText>
+          <View style={styles.apparienceRow}>
+            <Chip label="Automático" active={modo === 'auto'} onPress={() => setModo('auto')} />
+            <Chip label="Claro" active={modo === 'claro'} onPress={() => setModo('claro')} />
+            <Chip label="Oscuro" active={modo === 'oscuro'} onPress={() => setModo('oscuro')} />
+          </View>
         </View>
       </Screen>
     );
