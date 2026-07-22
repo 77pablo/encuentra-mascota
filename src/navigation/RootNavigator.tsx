@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,6 +13,10 @@ import PublicPetScreen from '../screens/PublicPetScreen';
 import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 import CollarScreen from '../screens/CollarScreen';
 import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
+import AyudaScreen from '../screens/AyudaScreen';
+import VolvieronACasaScreen from '../screens/VolvieronACasaScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
+import { getOnboardingVisto } from '../lib/onboarding';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,12 +40,26 @@ const linking: LinkingOptions<any> = {
 
 export default function RootNavigator() {
   const { loading, recovering } = useAuth();
-  if (loading) {
+  // Onboarding de bienvenida: solo la primera vez. Cargamos el flag local;
+  // mientras no se sepa (null), mostramos el spinner junto al loading de auth.
+  const [onboardingVisto, setOnboardingVistoState] = useState<boolean | null>(null);
+  useEffect(() => {
+    getOnboardingVisto().then(setOnboardingVistoState);
+  }, []);
+
+  if (loading || onboardingVisto === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator />
       </View>
     );
+  }
+
+  // Primer arranque (y no estamos recuperando contraseña): bienvenida a pantalla
+  // completa. Al terminar/saltar, el Onboarding marca el flag y `onListo` lo
+  // desmonta para seguir a la app.
+  if (!onboardingVisto && !recovering) {
+    return <OnboardingScreen onListo={() => setOnboardingVistoState(true)} />;
   }
 
   // MODO INVITADO: el stack raíz ya NO bifurca por sesión. `App` (el
@@ -87,6 +105,15 @@ export default function RootNavigator() {
             compartido (`adopcion/:id`) o desde la pestaña Adopción, en modo
             invitado, igual que MascotaPublica/Collar. */}
         <Stack.Screen name="AdopcionDetail" component={AdopcionDetailScreen} options={{ headerShown: true, title: 'Adopción' }} />
+        {/* Ayuda rápida (vets/refugios) y galería de reencuentros: pantallas
+            empujadas al raíz con header nativo (botón de volver). Alcanzables por
+            burbujeo desde la guía/Perfil e Inicio. */}
+        <Stack.Screen name="Ayuda" component={AyudaScreen} options={{ headerShown: true, title: 'Ayuda' }} />
+        <Stack.Screen
+          name="VolvieronACasa"
+          component={VolvieronACasaScreen}
+          options={{ headerShown: true, title: 'Volvieron a casa' }}
+        />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

@@ -252,10 +252,17 @@ export default function HomeScreen({ navigation }: any) {
         {finales.length > 0 ? (
           <View style={styles.finalesSection}>
             <View style={styles.finalesHeader}>
-              <Ionicons name="heart" size={16} color={colors.found} />
-              <Title size={17} style={styles.finalesTitle}>
-                Finales felices
-              </Title>
+              <View style={styles.finalesHeaderLeft}>
+                <Ionicons name="heart" size={16} color={colors.found} />
+                <Title size={17} style={styles.finalesTitle}>
+                  Finales felices
+                </Title>
+              </View>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('VolvieronACasa')}>
+                <AppText weight="semi" color={colors.brand} size={13}>
+                  Ver todas
+                </AppText>
+              </TouchableOpacity>
             </View>
             <ScrollView
               horizontal
@@ -479,8 +486,13 @@ const styles = StyleSheet.create({
   finalesHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
     marginBottom: spacing.sm,
+  },
+  finalesHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   finalesTitle: {
     flexShrink: 1,

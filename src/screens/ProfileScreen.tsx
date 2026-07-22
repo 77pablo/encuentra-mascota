@@ -542,6 +542,12 @@ export default function ProfileScreen({ navigation }: any) {
           onPress={() => navigation.navigate('NotificationPrefs')}
         />
         <Button
+          title="Ayuda y recursos"
+          variant="ghost"
+          icon="help-buoy-outline"
+          onPress={() => navigation.navigate('Ayuda')}
+        />
+        <Button
           title="Privacidad y términos"
           variant="ghost"
           icon="document-text"
