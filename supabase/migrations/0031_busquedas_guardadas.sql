@@ -42,6 +42,14 @@ create policy "busquedas propias"
 
 create index busquedas_guardadas_user_id_idx on public.busquedas_guardadas (user_id);
 
+-- Unicidad: evita guardar la misma búsqueda dos veces (mismo user_id + tipo +
+-- especie + comuna). `coalesce(especie, '')` porque un índice único no
+-- considera iguales dos NULL (cada NULL es distinto de otro NULL en SQL), y
+-- "cualquier especie" (especie null) sí debe considerarse la misma búsqueda
+-- que otra igual con especie también null.
+create unique index busquedas_guardadas_unicas
+  on public.busquedas_guardadas (user_id, tipo, coalesce(especie, ''), comuna);
+
 -- Tope 5 por usuario: una policy de RLS no puede contar filas, asi que va en
 -- un trigger `before insert` (mismo criterio que el rate-limit de 0002/0012).
 create function public.limite_busquedas_guardadas() returns trigger
