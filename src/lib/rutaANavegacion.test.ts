@@ -47,6 +47,20 @@ describe('rutaANavegacion', () => {
       params: { id: UUID },
     });
   });
+
+  it('/mis-mascotas → destino anidado App/Perfil/MyPets (ruta de escaneo_collar)', () => {
+    expect(rutaANavegacion('/mis-mascotas')).toEqual({
+      name: 'App',
+      params: { screen: 'Perfil', params: { screen: 'MyPets' } },
+    });
+  });
+
+  it('/mis-mascotas con barra final también resuelve', () => {
+    expect(rutaANavegacion('/mis-mascotas/')).toEqual({
+      name: 'App',
+      params: { screen: 'Perfil', params: { screen: 'MyPets' } },
+    });
+  });
 });
 
 // No-tautológico: los nombres de pantalla que arma esta función deben existir
@@ -65,5 +79,17 @@ describe('rutaANavegacion — nombres reales del stack raíz', () => {
 
   it('"MascotaPublica" está registrado como Stack.Screen del stack raíz', () => {
     expect(rootSource).toMatch(/Stack\.Screen\s+name="MascotaPublica"/);
+  });
+
+  // MyPets no vive en el stack raíz: vive dentro del stack de la pestaña
+  // Perfil (TabNavigator.tsx). Mismo espíritu no-tautológico: se verifica
+  // contra el registro real, no una whitelist duplicada.
+  const tabSource = fs.readFileSync(
+    path.join(__dirname, '../navigation/TabNavigator.tsx'),
+    'utf8',
+  );
+
+  it('"MyPets" está registrado dentro del stack de la pestaña Perfil', () => {
+    expect(tabSource).toMatch(/ProfileStackNav\.Screen\s+name="MyPets"/);
   });
 });
