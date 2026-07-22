@@ -551,6 +551,12 @@ export default function ProfileScreen({ navigation }: any) {
           onPress={() => navigation.navigate('AlertZone')}
         />
         <Button
+          title="Mis búsquedas"
+          variant="ghost"
+          icon="search-outline"
+          onPress={() => navigation.navigate('MisBusquedas')}
+        />
+        <Button
           title="Avisos"
           variant="ghost"
           icon="mail-outline"

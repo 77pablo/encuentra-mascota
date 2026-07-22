@@ -16,6 +16,7 @@ import MyPetsScreen from '../screens/MyPetsScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
 import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
+import MisBusquedasScreen from '../screens/MisBusquedasScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
@@ -121,6 +122,11 @@ function ProfileStack() {
         name="AlertZone"
         component={AlertZoneScreen}
         options={{ title: 'Mi zona de alerta' }}
+      />
+      <ProfileStackNav.Screen
+        name="MisBusquedas"
+        component={MisBusquedasScreen}
+        options={{ title: 'Mis búsquedas' }}
       />
       <ProfileStackNav.Screen
         name="NotificationPrefs"
