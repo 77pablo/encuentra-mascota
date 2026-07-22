@@ -3,6 +3,11 @@ type RawEnv = Record<string, string | undefined>;
 export interface AppEnv {
   supabaseUrl: string;
   supabaseAnonKey: string;
+  // Llave pública VAPID para activar Web Push desde el navegador. A
+  // propósito NO es requerida: sin ella, `webPush.ts` degrada a
+  // `no_soportado` en vez de romper el arranque de toda la app por una
+  // función que es opcional (ver ese archivo).
+  vapidPublicKey: string;
 }
 
 const REQUIRED = ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY'] as const;
@@ -18,6 +23,7 @@ export function validateEnv(raw: RawEnv): AppEnv {
   return {
     supabaseUrl: raw.EXPO_PUBLIC_SUPABASE_URL!,
     supabaseAnonKey: raw.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+    vapidPublicKey: raw.EXPO_PUBLIC_VAPID_PUBLIC_KEY ?? '',
   };
 }
 
@@ -32,4 +38,5 @@ export function validateEnv(raw: RawEnv): AppEnv {
 export const env: AppEnv = validateEnv({
   EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  EXPO_PUBLIC_VAPID_PUBLIC_KEY: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
 });
