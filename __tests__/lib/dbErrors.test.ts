@@ -67,4 +67,42 @@ describe('mensajeDeErrorDb', () => {
     });
     expect(m).toBe('La comuna es muy larga (máximo 80 caracteres).');
   });
+
+  it('traduce la pregunta de adopción demasiado larga y dice el límite', () => {
+    const m = mensajeDeErrorDb(violacion('adoption_questions_pregunta_largo'));
+    expect(m).toContain('500');
+  });
+
+  it('traduce la respuesta de adopción demasiado larga y dice el límite', () => {
+    const m = mensajeDeErrorDb(violacion('adoption_questions_respuesta_largo'));
+    expect(m).toContain('1.000');
+  });
+
+  it('traduce la fecha de nacimiento del carnet fuera de rango', () => {
+    const m = mensajeDeErrorDb(violacion('my_pets_nacimiento_rango'));
+    expect(m).toContain('fecha de nacimiento');
+  });
+
+  it('traduce la próxima vacuna del carnet fuera de rango', () => {
+    const m = mensajeDeErrorDb(violacion('my_pets_vacuna_rango'));
+    expect(m).toContain('vacuna');
+  });
+
+  it('traduce el próximo antiparasitario interno fuera de rango', () => {
+    const m = mensajeDeErrorDb(violacion('my_pets_antiint_rango'));
+    expect(m).toContain('antiparasitario');
+  });
+
+  it('traduce el próximo antiparasitario externo fuera de rango', () => {
+    const m = mensajeDeErrorDb(violacion('my_pets_antiext_rango'));
+    expect(m).toContain('antiparasitario');
+  });
+
+  it('traduce la búsqueda guardada duplicada (índice único 0031)', () => {
+    const m = mensajeDeErrorDb({
+      message: 'duplicate key value violates unique constraint "busquedas_guardadas_unicas"',
+      code: '23505',
+    });
+    expect(m).toBe('Ya tenés guardada esa búsqueda.');
+  });
 });

@@ -37,6 +37,16 @@ const POR_RESTRICCION: Record<string, string> = {
   alert_zones_lng_rango: 'La zona no parece válida. Volvé a marcar tu ubicación.',
   // Anti-spam (migraciones 0002 y 0012): la clave única de denuncias.
   denuncias_pet_id_reporter_user_key: 'Ya denunciaste este reporte. Lo estamos revisando.',
+  // Preguntas públicas de adopción (migración 0032).
+  adoption_questions_pregunta_largo: 'La pregunta es muy larga (máximo 500 caracteres).',
+  adoption_questions_respuesta_largo: 'La respuesta es muy larga (máximo 1.000 caracteres).',
+  // Carnet de "Mi mascota" (migración 0034): fechas fuera del rango sano.
+  my_pets_nacimiento_rango: 'La fecha de nacimiento no parece válida.',
+  my_pets_vacuna_rango: 'La fecha de la próxima vacuna no parece válida.',
+  my_pets_antiint_rango: 'La fecha del próximo antiparasitario interno no parece válida.',
+  my_pets_antiext_rango: 'La fecha del próximo antiparasitario externo no parece válida.',
+  // Búsquedas guardadas repetidas (migración 0031): índice único.
+  busquedas_guardadas_unicas: 'Ya tenés guardada esa búsqueda.',
 };
 
 // Fragmentos que aparecen en el mensaje, para lo que no tiene nombre de
