@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleProp, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
-import { colors, font, radius, shadow, spacing } from '../theme';
+import { font, radius, shadow, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { AppText } from './AppText';
 
 export interface ChipProps {
@@ -11,6 +13,8 @@ export interface ChipProps {
 }
 
 export function Chip({ label, active = false, onPress, style }: ChipProps) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -27,22 +31,23 @@ export function Chip({ label, active = false, onPress, style }: ChipProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  active: {
-    backgroundColor: colors.ink,
-  },
-  inactive: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.line,
-    ...shadow.card,
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-});
+const crearEstilos = (colors: Colors) =>
+  StyleSheet.create({
+    base: {
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    active: {
+      backgroundColor: colors.ink,
+    },
+    inactive: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.line,
+      ...shadow.card,
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 1,
+    },
+  });

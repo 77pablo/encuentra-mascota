@@ -19,9 +19,12 @@ import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { AppText, AvisoEstafa, Button, Screen } from '../ui';
-import { colors, font, radius, spacing } from '../theme';
+import { font, radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 export default function ChatScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   // Params generalizados (0030): un chat puede ser sobre un reporte (`petId`),
   // una adopcion (`adoptionId`) o un reporte ya borrado (ninguno de los dos).
   // Se reconstruye el `HiloCtx` explicito con `ctxDeParams`. Va en `useMemo`
@@ -322,7 +325,7 @@ export default function ChatScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   flex: {
     flex: 1,
   },

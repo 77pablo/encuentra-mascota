@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, TextProps, TextStyle } from 'react-native';
-import { colors, font } from '../theme';
+import { font } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 type Weight = 'regular' | 'semi' | 'bold';
 
@@ -28,6 +29,7 @@ export function AppText({
   children,
   ...rest
 }: AppTextProps) {
+  const colors = useColors();
   return (
     <Text
       {...rest}
@@ -54,6 +56,7 @@ export interface TitleProps extends TextProps {
 }
 
 export function Title({ size = 24, color, align, bold, style, children, ...rest }: TitleProps) {
+  const colors = useColors();
   return (
     <Text
       {...rest}

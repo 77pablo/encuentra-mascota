@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../theme/ThemeProvider';
 import TabNavigator, { MsgStack } from './TabNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -40,6 +41,7 @@ const linking: LinkingOptions<any> = {
 
 export default function RootNavigator() {
   const { loading, recovering } = useAuth();
+  const { colors, esquema } = useTheme();
   // Onboarding de bienvenida: solo la primera vez. Cargamos el flag local;
   // mientras no se sepa (null), mostramos el spinner junto al loading de auth.
   const [onboardingVisto, setOnboardingVistoState] = useState<boolean | null>(null);
@@ -77,11 +79,29 @@ export default function RootNavigator() {
   // arranca en ResetPassword y no en la app. El `key` fuerza el remonte al
   // entrar y al salir de esa rama, que es el único caso donde hace falta.
   const initialRouteName = recovering ? 'ResetPassword' : 'App';
+  // Tema de navegación (fondo entre pantallas + headers nativos siguen el esquema).
+  const base = esquema === 'dark' ? DarkTheme : DefaultTheme;
+  const navTheme: Theme = {
+    ...base,
+    colors: {
+      ...base.colors,
+      background: colors.bg,
+      card: colors.card,
+      text: colors.ink,
+      border: colors.line,
+      primary: colors.brand,
+    },
+  };
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer linking={linking} theme={navTheme}>
       <Stack.Navigator
         key={recovering ? 'recuperando' : 'normal'}
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false,
+          headerStyle: { backgroundColor: colors.card },
+          headerTintColor: colors.ink,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
         initialRouteName={initialRouteName}
       >
         <Stack.Screen name="App" component={TabNavigator} />

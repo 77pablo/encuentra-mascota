@@ -1,4 +1,8 @@
-export const colors = {
+// PALETAS. Mismas claves en ambas; el ThemeProvider elige según el esquema.
+// La paleta clara es la identidad de siempre (pino + arena). La oscura es cálida
+// (no negro puro): fondo casi-negro cálido, superficies grises cálidas, texto
+// arena claro, y verdes/coral/dorado ajustados para contraste sobre oscuro.
+export const lightColors = {
   brand: '#17654B', // pino cálido — acciones primarias, nav activo
   brandDark: '#0F4E39',
   sun: '#EFB13C', // dorado cálido — destacados
@@ -10,8 +14,26 @@ export const colors = {
   bg: '#FBF6EC', // fondo de la app (arena cálida)
   card: '#FFFFFF', // blanco de tarjetas
   sky: '#EAF1EC', // superficie con tinte verde suave
+  white: '#FFFFFF', // texto sobre botones de color (fijo en ambos temas)
+};
+
+export const darkColors: typeof lightColors = {
+  brand: '#2FA07A',
+  brandDark: '#25795D',
+  sun: '#F0B84A',
+  lost: '#EE7350',
+  found: '#3FB98C',
+  ink: '#F2EEE3',
+  muted: '#A29C8C',
+  line: '#332F26',
+  bg: '#16150F',
+  card: '#242119',
+  sky: '#1E2A24',
   white: '#FFFFFF',
 };
+
+export type Colors = typeof lightColors;
+
 
 export const radius = { sm: 12, md: 16, lg: 20, pill: 999 };
 

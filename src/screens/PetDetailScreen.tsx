@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -34,7 +34,8 @@ import AficheGenerator from '../components/AficheGenerator';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -48,13 +49,18 @@ const timelineIcono: Record<TimelineTipo, keyof typeof Ionicons.glyphMap> = {
   avistamiento: 'location',
   reunido: 'heart',
 };
-const timelineColor: Record<TimelineTipo, string> = {
-  publicado: colors.brand,
-  avistamiento: colors.sun,
-  reunido: colors.found,
-};
+function timelineColorDe(colors: Colors): Record<TimelineTipo, string> {
+  return {
+    publicado: colors.brand,
+    avistamiento: colors.sun,
+    reunido: colors.found,
+  };
+}
 
 export default function PetDetailScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
+  const timelineColor = useMemo(() => timelineColorDe(colors), [colors]);
   const { id } = route.params;
   const { user } = useAuth();
   // Portero del modo invitado: primera línea de cada acción protegida.
@@ -975,7 +981,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.sm,

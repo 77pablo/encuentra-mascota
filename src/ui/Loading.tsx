@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { AppText } from './AppText';
 
 export interface LoadingProps {
@@ -8,6 +10,8 @@ export interface LoadingProps {
 }
 
 export function Loading({ label = 'Cargando…' }: LoadingProps) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.brand} />
@@ -20,15 +24,16 @@ export function Loading({ label = 'Cargando…' }: LoadingProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-    paddingHorizontal: spacing.xxl,
-  },
-  label: {
-    marginTop: spacing.md,
-  },
-});
+const crearEstilos = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.bg,
+      paddingHorizontal: spacing.xxl,
+    },
+    label: {
+      marginTop: spacing.md,
+    },
+  });

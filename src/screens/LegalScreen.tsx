@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { AppText, Screen, Title } from '../ui';
-import { colors, spacing } from '../theme';
+import { Colors, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Texto base de privacidad y términos. Redactado en lenguaje simple para que
 // cualquier usuario lo entienda; conviene revisarlo con un profesional antes
@@ -16,6 +17,11 @@ const ULTIMA_ACTUALIZACION = '16 de julio de 2026';
 const CORREO_CONTACTO: string | null = null;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  // Subcomponente a nivel de módulo: no puede leer el `styles` de
+  // LegalScreen (es local a ese componente), así que resuelve sus propios
+  // colores y estilos con el mismo `crearEstilos`.
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <View style={styles.section}>
       <Title size={18} style={styles.sectionTitle}>
@@ -27,6 +33,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Item({ children }: { children: React.ReactNode }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <AppText style={styles.item} size={14}>
       {'•  '}
@@ -36,6 +44,8 @@ function Item({ children }: { children: React.ReactNode }) {
 }
 
 export default function LegalScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <Screen padded>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -132,7 +142,7 @@ export default function LegalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.sm,
     paddingVertical: spacing.lg,

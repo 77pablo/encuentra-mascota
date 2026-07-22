@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Pet } from '../services/pets';
 import { useZoneAlert } from '../hooks/useZoneAlert';
 import { zoneAlertMessage } from '../lib/alerts';
 import { AppText } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 interface ZoneAlertBannerProps {
   pets: Pet[];
@@ -16,6 +18,8 @@ interface ZoneAlertBannerProps {
 // activa y hay reportes nuevos dentro de ella, muestra una tarjeta con campana.
 // Si no hay nada que avisar, no renderiza nada (degrada sin ocupar espacio).
 export function ZoneAlertBanner({ pets, onPress }: ZoneAlertBannerProps) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { count, dismiss } = useZoneAlert(pets);
   const message = zoneAlertMessage(count);
   if (!message) return null;
@@ -49,7 +53,7 @@ export function ZoneAlertBanner({ pets, onPress }: ZoneAlertBannerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',

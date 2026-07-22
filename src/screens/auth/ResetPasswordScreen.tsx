@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { resetPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
@@ -6,9 +6,12 @@ import { notify } from '../../lib/notify';
 import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { useAuth } from '../../hooks/useAuth';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
-import { colors, radius, spacing } from '../../theme';
+import { Colors, radius, spacing } from '../../theme';
+import { useColors } from '../../theme/ThemeProvider';
 
 export default function ResetPasswordScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { clearRecovering } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -88,7 +91,7 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   flex: {
     flex: 1,
   },

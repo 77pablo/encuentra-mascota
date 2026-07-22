@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import MapView, { Marker } from './PlatformMap';
@@ -7,7 +7,9 @@ import { Pet } from '../services/pets';
 import { buscarReportes, FiltrosBusqueda } from '../services/busqueda';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { AppText, Button } from '../ui';
-import { colors, radius, shadow, spacing } from '../theme';
+import { radius, shadow, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Cuerpo de MAPA de reportes: extraído de la vieja `MapScreen`. Cambio clave: en
 // vez de traer TODO (`buscarReportes({}, ...)`), respeta los `filtros` que le
@@ -24,6 +26,8 @@ export default function ReportesMapa({
   filtros: FiltrosBusqueda;
   navigation: any;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +103,7 @@ export default function ReportesMapa({
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   mapWrap: {
     flex: 1,
   },

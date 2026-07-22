@@ -24,7 +24,8 @@ import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 import { useAuth } from '../hooks/useAuth';
 import { AccionProtegida, mensajeDe } from '../lib/requireAuth';
 import { notify } from '../lib/notify';
-import { colors, font } from '../theme';
+import { font } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const Tab = createBottomTabNavigator();
 
@@ -150,6 +151,7 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export default function TabNavigator() {
   const { session } = useAuth();
+  const colors = useColors();
 
   // MODO INVITADO: Publicar y Mensajes siguen VISIBLES sin sesión — esconderlos
   // le ocultaría al invitado que la app hace más de lo que está viendo. Al

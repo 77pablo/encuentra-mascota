@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Mascota, Screen, Title } from '../ui';
-import { colors, spacing } from '../theme';
+import { Colors, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { setOnboardingVisto } from '../lib/onboarding';
 
 // Bienvenida que se muestra SOLO en el primer arranque (el gate está en
@@ -48,6 +49,8 @@ const SLIDES: Slide[] = [
 ];
 
 export default function OnboardingScreen({ onListo }: { onListo: () => void }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -124,7 +127,7 @@ export default function OnboardingScreen({ onListo }: { onListo: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   top: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

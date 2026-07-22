@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,8 @@ import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
 import MensajesButton from '../components/MensajesButton';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -30,6 +31,8 @@ const RECIENTES_LIMIT = 4;
 const CHIPS = ['Cerca de ti', 'Perros', 'Gatos', 'Perdidos'];
 
 export default function HomeScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState(0);
   const [finales, setFinales] = useState<Pet[]>([]);
@@ -373,7 +376,7 @@ export default function HomeScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.md,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
@@ -7,12 +7,16 @@ import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { Button } from '../ui';
 import { spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Botón "Avisarme de [comuna]" / "Siguiendo [comuna]". Extraído de la vieja
 // `ComunidadScreen` para reusarlo en `ExplorarScreen` cuando hay un filtro de
 // comuna puesto. Encapsula su propio estado `sigue`/`guardando` y el portero
 // para invitados. La suscripción vive en `services/comunasSeguidas`.
 export default function SeguirComunaButton({ comuna }: { comuna: string }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [sigue, setSigue] = useState(false);
@@ -71,7 +75,7 @@ export default function SeguirComunaButton({ comuna }: { comuna: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   button: {
     marginTop: spacing.md,
   },

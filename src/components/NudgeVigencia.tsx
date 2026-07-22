@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Pet } from '../services/pets';
 import { debeNudgear, diasDesdeRenovacion } from '../lib/cicloVida';
 import { AppText, Button, Card, Title } from '../ui';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'tu perro',
@@ -36,6 +38,8 @@ export function NudgeVigencia({
   guardando = false,
   now,
 }: NudgeVigenciaProps) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   if (!debeNudgear(pet, now)) return null;
 
   const dias = diasDesdeRenovacion(pet, now);
@@ -80,7 +84,7 @@ export function NudgeVigencia({
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   card: {
     marginTop: spacing.md,
     backgroundColor: colors.sky,

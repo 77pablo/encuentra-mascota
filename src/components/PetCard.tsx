@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Badge, Card } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
@@ -24,6 +26,8 @@ export default function PetCard({
   onPress: () => void;
   distanceKm?: number;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { isFavorite, toggle } = useFavorites();
   const requireAuth = useRequireAuth();
   const guardada = isFavorite(pet.id);
@@ -94,7 +98,7 @@ export default function PetCard({
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   card: {
     padding: spacing.md,
   },

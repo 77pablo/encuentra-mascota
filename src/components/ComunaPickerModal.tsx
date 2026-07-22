@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { buscarComunas } from '../lib/comunas';
 import { AppText, Input, Screen, Title } from '../ui';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 interface Props {
   visible: boolean;
@@ -15,6 +17,8 @@ interface Props {
 // Modal buscable para elegir una comuna de las 345. Reusado al publicar, en el
 // feed de Comunidad y en el filtro de la Lista.
 export default function ComunaPickerModal({ visible, onClose, onSelect, titulo = 'Elegí la comuna' }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [q, setQ] = useState('');
 
   const elegir = (nombre: string) => {
@@ -62,7 +66,7 @@ export default function ComunaPickerModal({ visible, onClose, onSelect, titulo =
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

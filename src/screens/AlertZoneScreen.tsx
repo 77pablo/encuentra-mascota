@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -7,13 +7,16 @@ import { useMyLocation } from '../hooks/useMyLocation';
 import { AlertZone, getMyZone, upsertMyZone } from '../services/alertZones';
 import { notify } from '../lib/notify';
 import { AppText, Button, Card, Chip, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Radios disponibles para la zona de alerta.
 const RADIOS = [2, 5, 10] as const;
 type Radio = (typeof RADIOS)[number];
 
 export default function AlertZoneScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const location = useMyLocation();
 
@@ -197,7 +200,7 @@ export default function AlertZoneScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingVertical: spacing.lg,

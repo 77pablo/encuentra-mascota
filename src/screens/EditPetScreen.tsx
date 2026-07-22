@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { petSchema } from '../schemas/pet';
@@ -6,12 +6,15 @@ import { Pet, updatePet } from '../services/pets';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import { notify } from '../lib/notify';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
-const estadoOptions: { key: Pet['estado']; label: string; color: string }[] = [
-  { key: 'perdida', label: 'Perdida', color: colors.lost },
-  { key: 'encontrada', label: 'Encontrada', color: colors.found },
-];
+function estadoOptionsDe(colors: Colors): { key: Pet['estado']; label: string; color: string }[] {
+  return [
+    { key: 'perdida', label: 'Perdida', color: colors.lost },
+    { key: 'encontrada', label: 'Encontrada', color: colors.found },
+  ];
+}
 
 const especieOptions: { key: Pet['especie']; label: string }[] = [
   { key: 'perro', label: 'Perro' },
@@ -23,6 +26,9 @@ const especieOptions: { key: Pet['especie']; label: string }[] = [
 // nombre, descripción, recompensa). Fotos y ubicación no se editan en esta
 // versión: para cambiarlas hay que cerrar el reporte y publicar uno nuevo.
 export default function EditPetScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
+  const estadoOptions = useMemo(() => estadoOptionsDe(colors), [colors]);
   const pet: Pet = route.params.pet;
   const [estado, setEstado] = useState<Pet['estado']>(pet.estado);
   const [especie, setEspecie] = useState<Pet['especie']>(pet.especie);
@@ -141,7 +147,7 @@ export default function EditPetScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingVertical: spacing.lg,

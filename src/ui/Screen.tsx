@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 export interface ScreenProps {
   padded?: boolean;
@@ -10,6 +12,8 @@ export interface ScreenProps {
 }
 
 export function Screen({ padded = false, style, children }: ScreenProps) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <SafeAreaView
       style={[styles.base, padded && styles.padded, style]}
@@ -20,12 +24,13 @@ export function Screen({ padded = false, style, children }: ScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  padded: {
-    paddingHorizontal: spacing.xl,
-  },
-});
+const crearEstilos = (colors: Colors) =>
+  StyleSheet.create({
+    base: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    padded: {
+      paddingHorizontal: spacing.xl,
+    },
+  });

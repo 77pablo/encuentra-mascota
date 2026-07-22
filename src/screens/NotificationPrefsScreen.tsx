@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Prefs } from '../lib/notifyTargets';
 import { getMisPrefs, guardarMisPrefs } from '../services/notificationPrefs';
 import { notify } from '../lib/notify';
 import { AppText, Card, ErrorState, Loading, Screen, Title } from '../ui';
-import { colors, spacing } from '../theme';
+import { Colors, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Los seis interruptores de la pantalla, agrupados por bloque. La clave es la
 // misma que en `Prefs`, así el guardado es directo.
@@ -61,6 +62,8 @@ const CANALES: Interruptor[] = [
 ];
 
 export default function NotificationPrefsScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -153,7 +156,7 @@ export default function NotificationPrefsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingVertical: spacing.lg,

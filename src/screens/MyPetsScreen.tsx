@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,8 @@ import {
 import { collarUrl } from '../lib/collarTag';
 import CollarTag from '../components/CollarTag';
 import { AppText, Button, Card, EmptyState, Input, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<MyPet['especie'], string> = {
   perro: 'Perro',
@@ -40,6 +41,8 @@ function esRemota(uri: string | null): boolean {
 }
 
 export default function MyPetsScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const [fichas, setFichas] = useState<MyPet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -371,7 +374,7 @@ export default function MyPetsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: { padding: spacing.xl, gap: spacing.md, paddingBottom: spacing.xxxl },
   pageTitle: { marginBottom: spacing.xs },
   pageSubtitle: { marginBottom: spacing.sm },

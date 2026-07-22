@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,12 +14,15 @@ import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
-const estadoOptions: { key: 'perdida' | 'encontrada'; label: string; color: string }[] = [
-  { key: 'perdida', label: 'Perdida', color: colors.lost },
-  { key: 'encontrada', label: 'Encontrada', color: colors.found },
-];
+function estadoOptionsDe(colors: Colors): { key: 'perdida' | 'encontrada'; label: string; color: string }[] {
+  return [
+    { key: 'perdida', label: 'Perdida', color: colors.lost },
+    { key: 'encontrada', label: 'Encontrada', color: colors.found },
+  ];
+}
 
 const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
   { key: 'perro', label: 'Perro' },
@@ -30,6 +33,9 @@ const especieOptions: { key: 'perro' | 'gato' | 'otro'; label: string }[] = [
 const MAX_FOTOS = 4;
 
 export default function PublishScreen({ navigation, route }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
+  const estadoOptions = useMemo(() => estadoOptionsDe(colors), [colors]);
   const { user } = useAuth();
   const params = route?.params ?? {};
   const [estado, setEstado] = useState<'perdida' | 'encontrada'>(
@@ -435,7 +441,7 @@ export default function PublishScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.md,

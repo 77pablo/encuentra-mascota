@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { borrarMiCuenta } from '../services/account';
@@ -6,7 +6,8 @@ import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { useAuth } from '../hooks/useAuth';
 import { AppText, Button, Card, Screen } from '../ui';
-import { colors, spacing } from '../theme';
+import { Colors, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Borrar la cuenta no tiene vuelta atrás, así que la pantalla dice con todas
 // las letras qué se destruye y qué sobrevive ANTES de ofrecer el botón. Que las
@@ -27,6 +28,8 @@ const QUEDA = [
 ];
 
 export default function DeleteAccountScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { signOut } = useAuth();
   const [borrando, setBorrando] = useState(false);
 
@@ -109,7 +112,7 @@ export default function DeleteAccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingVertical: spacing.lg,

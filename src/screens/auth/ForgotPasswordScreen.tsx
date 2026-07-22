@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { forgotPasswordSchema } from '../../schemas/auth';
 import { supabase } from '../../lib/supabase';
 import { notify } from '../../lib/notify';
 import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { AppText, Button, Card, Input, Screen, Title } from '../../ui';
-import { colors, radius, spacing } from '../../theme';
+import { Colors, radius, spacing } from '../../theme';
+import { useColors } from '../../theme/ThemeProvider';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -89,7 +92,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
