@@ -395,6 +395,7 @@ describe('refactor a HiloCtx (reportes + adopciones)', () => {
       from_user: 'yo',
       to_user: 'otherU',
       texto: 'hola',
+      imagen_url: null,
     });
   });
 
@@ -413,6 +414,7 @@ describe('refactor a HiloCtx (reportes + adopciones)', () => {
       from_user: 'yo',
       to_user: 'otherU',
       texto: 'hola',
+      imagen_url: null,
     });
   });
 
