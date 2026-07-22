@@ -12,6 +12,8 @@ import {
   listQuestions,
 } from '../services/adoptionQuestions';
 import { firmaAutor } from '../lib/tips';
+import TarjetaGenerador from '../components/TarjetaGenerador';
+import { datosDeAdopcion } from '../lib/tarjeta';
 import { getNombrePublico } from '../services/profile';
 import { useAuth } from '../hooks/useAuth';
 import { useRequireAuth } from '../hooks/useRequireAuth';
@@ -78,6 +80,10 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
   const [denunciaAbierta, setDenunciaAbierta] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  // "Compartir tarjeta" (F3): para CUALQUIERA que vea la publicación, no solo
+  // quien la publicó — mismo patrón (TarjetaGenerador off-screen) que
+  // PetDetailScreen.
+  const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
   // Panel del final feliz ("¡Ya encontró familia!"), espeja el de reencuentro
   // de PetDetailScreen pero sin foto obligatoria (acá es más simple).
   const [mostrarCelebracion, setMostrarCelebracion] = useState(false);
@@ -579,6 +585,20 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
           </>
         )}
 
+        {/* "Compartir tarjeta" (F3): para cualquiera, no solo quien publicó —
+            mientras la mascota siga buscando hogar (una vez adoptada, la
+            tarjeta "BUSCA HOGAR" ya no aplica). */}
+        {!adoptada && (
+          <Button
+            title="Compartir tarjeta"
+            variant="secondary"
+            icon="image"
+            loading={compartiendoTarjeta}
+            onPress={() => setCompartiendoTarjeta(true)}
+            style={styles.actionButton}
+          />
+        )}
+
         {esMio && (
           <Button
             title="Editar publicación"
@@ -766,6 +786,13 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
             />
             {renderMotivos()}
           </View>
+        )}
+
+        {compartiendoTarjeta && (
+          <TarjetaGenerador
+            datos={datosDeAdopcion(adoption)}
+            onFin={() => setCompartiendoTarjeta(false)}
+          />
         )}
       </ScrollView>
       <Confetti visible={mostrarConfetti} onDone={() => setMostrarConfetti(false)} />

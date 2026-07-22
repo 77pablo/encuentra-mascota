@@ -2,6 +2,7 @@ import React from 'react';
 import { act, create } from 'react-test-renderer';
 import TarjetaCompartir from './TarjetaCompartir';
 import { Pet } from '../services/pets';
+import { datosDeReporte } from '../lib/tarjeta';
 import { ThemeProvider } from '../theme/ThemeProvider';
 
 // TarjetaCompartir usa `lightColors` fijo (regla de assets compartibles), pero
@@ -69,7 +70,7 @@ test('renderiza banda, título y subtítulo del reporte perdido', async () => {
   await act(async () => {
     tree = create(
       <ThemeProvider>
-        <TarjetaCompartir pet={pet} />
+        <TarjetaCompartir datos={datosDeReporte(pet)} />
       </ThemeProvider>,
     );
   });
@@ -97,7 +98,7 @@ test('avisa onListo cuando la tarjeta queda lista', async () => {
   await act(async () => {
     tree = create(
       <ThemeProvider>
-        <TarjetaCompartir pet={{ ...pet, fotos: [] }} onListo={onListo} />
+        <TarjetaCompartir datos={datosDeReporte({ ...pet, fotos: [] })} onListo={onListo} />
       </ThemeProvider>,
     );
   });

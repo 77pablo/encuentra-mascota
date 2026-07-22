@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,10 +7,14 @@ import ComunaPickerModal from '../components/ComunaPickerModal';
 import { adoptionSchema } from '../schemas/adoption';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import { uploadPetPhotos } from '../services/storage';
-import { createAdoption, AdoptionCreateInput } from '../services/adoptions';
+import { Adoption, createAdoption, AdoptionCreateInput } from '../services/adoptions';
 import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
-import { notify } from '../lib/notify';
+import { confirmAction, notify } from '../lib/notify';
+// F3 — oferta de "Compartir tarjeta" tras publicar en adopción (mismo patrón
+// que PublishScreen tras publicar un reporte).
+import TarjetaGenerador from '../components/TarjetaGenerador';
+import { datosDeAdopcion } from '../lib/tarjeta';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords } from '../lib/comunas';
 import { AppText, Button, Card, Chip, Input, Screen, Title } from '../ui';
@@ -114,6 +118,29 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
   const [confirmado, setConfirmado] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // --- F3: "Compartir tarjeta" tras publicar (mismo patrón que PublishScreen) ---
+  const [tarjetaAdopcion, setTarjetaAdopcion] = useState<Adoption | null>(null);
+  const tarjetaResolver = useRef<(() => void) | null>(null);
+
+  const ofrecerTarjeta = async (adopcion: Adoption) => {
+    const quiere = await confirmAction(
+      'Compartir tarjeta',
+      '¿Quieres compartir una tarjeta con la foto de esta mascota (para WhatsApp o redes)?',
+    );
+    if (!quiere) return;
+    await new Promise<void>((resolve) => {
+      tarjetaResolver.current = resolve;
+      setTarjetaAdopcion(adopcion);
+    });
+  };
+
+  const onTarjetaFin = () => {
+    setTarjetaAdopcion(null);
+    tarjetaResolver.current?.();
+    tarjetaResolver.current = null;
+  };
+  // --- fin bloque F3 ---
+
   // Auto-sugerir la comuna desde el punto del mapa, igual que PublishScreen.
   // Se recalcula al mover el pin salvo que el usuario ya la haya fijado a mano.
   useEffect(() => {
@@ -206,8 +233,9 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
     try {
       const urls = await uploadPetPhotos(fotoUris, user!.id);
       const input: AdoptionCreateInput = { ...parsed.data, lat: coords.lat, lng: coords.lng, comuna };
-      await createAdoption(input, urls, user!.id);
+      const nuevaAdopcion = await createAdoption(input, urls, user!.id);
       notify('¡Publicado!', 'Tu mascota ya aparece en el feed de adopción.');
+      await ofrecerTarjeta(nuevaAdopcion);
       navigation.goBack();
     } catch (e: any) {
       notify('No se pudo publicar', mensajeDeErrorDb(e));
@@ -425,6 +453,10 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
         onClose={() => setSelectorOpen(false)}
         onSelect={elegirComuna}
       />
+
+      {tarjetaAdopcion && (
+        <TarjetaGenerador datos={datosDeAdopcion(tarjetaAdopcion)} onFin={onTarjetaFin} />
+      )}
     </Screen>
   );
 }

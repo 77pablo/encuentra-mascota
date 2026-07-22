@@ -16,6 +16,7 @@ import { confirmAction, notify } from '../lib/notify';
 // autocontenido: el orquestador reconcilia si choca con la oferta de guía
 // "encontrada" de otro agente en esta misma pantalla.
 import TarjetaGenerador from '../components/TarjetaGenerador';
+import { datosDeReporte } from '../lib/tarjeta';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
@@ -492,7 +493,7 @@ export default function PublishScreen({ navigation, route }: any) {
         onSelect={elegirComuna}
       />
 
-      {tarjetaPet && <TarjetaGenerador pet={tarjetaPet} onFin={onTarjetaFin} />}
+      {tarjetaPet && <TarjetaGenerador datos={datosDeReporte(tarjetaPet)} onFin={onTarjetaFin} />}
     </Screen>
   );
 }

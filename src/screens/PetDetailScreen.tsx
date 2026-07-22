@@ -32,6 +32,7 @@ import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
 import AficheGenerator from '../components/AficheGenerator';
 import TarjetaGenerador from '../components/TarjetaGenerador';
+import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
@@ -92,6 +93,11 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // "Compartir tarjeta" (F1): monta TarjetaGenerador off-screen, que se
   // encarga de capturar y compartir (mismo patrón que el afiche, ver abajo).
   const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
+  // "Compartir tarjeta" de FINAL FELIZ (F4): flujo aparte del de arriba (banda
+  // y color distintos, "¡VOLVIÓ A CASA!" en vez de PERDIDA/ENCONTRADA). Se
+  // ofrece una vez tras el confetti del reencuentro, y queda disponible
+  // siempre que el reporte propio esté reunido.
+  const [compartiendoTarjetaFinal, setCompartiendoTarjetaFinal] = useState(false);
   // Flujo "¡Volvió a casa!" (final feliz)
   const [mostrarReunion, setMostrarReunion] = useState(false);
   const [notaFeliz, setNotaFeliz] = useState('');
@@ -341,6 +347,18 @@ export default function PetDetailScreen({ route, navigation }: any) {
     }
   };
 
+  // Tras el confetti del reencuentro (F4), ofrecemos UNA vez la tarjeta de
+  // final feliz. Silencioso ante "no": el botón permanente de la tarjeta del
+  // reencuentro (más abajo, en la finalCard) queda disponible para siempre.
+  const onConfettiDone = async () => {
+    setMostrarConfetti(false);
+    const quiere = await confirmAction(
+      'Compartir tarjeta',
+      '¿Quieres compartir una tarjeta de este reencuentro (para WhatsApp o redes)?',
+    );
+    if (quiere) setCompartiendoTarjetaFinal(true);
+  };
+
   // "Sigue perdida": renueva el reporte (reinicia el reloj de 45 días) para que
   // siga apareciendo en las búsquedas. Reflejamos el cambio sin volver a la base.
   const renovarVigencia = async () => {
@@ -578,6 +596,16 @@ export default function PetDetailScreen({ route, navigation }: any) {
             ) : null}
             {pet.final_foto ? (
               <Image source={{ uri: pet.final_foto }} style={styles.finalFoto} />
+            ) : null}
+            {esMio ? (
+              <Button
+                title="Compartir tarjeta del reencuentro"
+                variant="secondary"
+                icon="image"
+                loading={compartiendoTarjetaFinal}
+                onPress={() => setCompartiendoTarjetaFinal(true)}
+                style={styles.reunionAction}
+              />
             ) : null}
           </Card>
         ) : (
@@ -990,10 +1018,17 @@ export default function PetDetailScreen({ route, navigation }: any) {
         )}
 
         {compartiendoTarjeta && (
-          <TarjetaGenerador pet={pet} onFin={() => setCompartiendoTarjeta(false)} />
+          <TarjetaGenerador datos={datosDeReporte(pet)} onFin={() => setCompartiendoTarjeta(false)} />
+        )}
+
+        {compartiendoTarjetaFinal && (
+          <TarjetaGenerador
+            datos={datosDeFinalFeliz(pet)}
+            onFin={() => setCompartiendoTarjetaFinal(false)}
+          />
         )}
       </ScrollView>
-      <Confetti visible={mostrarConfetti} onDone={() => setMostrarConfetti(false)} />
+      <Confetti visible={mostrarConfetti} onDone={onConfettiDone} />
     </Screen>
   );
 }

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { Pet } from '../services/pets';
+import { DatosTarjeta } from './tarjeta';
 import { capturarAfiche } from './aficheImage';
 import { notify } from './notify';
 
@@ -18,10 +18,6 @@ export function dataUriAFile(dataUri: string, nombre: string): File {
   return new File([bytes], nombre, { type: mime });
 }
 
-export function nombreArchivo(pet: Pick<Pet, 'id'>): string {
-  return `mascota-${pet.id}.png`;
-}
-
 // El usuario cerró la hoja de compartir sin elegir nada: no es un error, así
 // que hay que quedarse en silencio (nada de "No se pudo compartir"). La Web
 // Share API rechaza con un `DOMException` de nombre `AbortError` cuando se
@@ -36,11 +32,13 @@ function esCancelacion(e: unknown): boolean {
 // aficheImage.ts) y la comparte. Wa.me no acepta imágenes, así que este es un
 // camino aparte del `shareReport` de texto: en web intenta la Web Share API
 // con el archivo (WhatsApp/Instagram lo reciben nativo); si el navegador no
-// la soporta, descarga el PNG. En nativo usa expo-sharing.
-export async function compartirTarjeta(ref: unknown, pet: Pet): Promise<ResultadoCompartir> {
+// la soporta, descarga el PNG. En nativo usa expo-sharing. Genérico (F3+F4):
+// el nombre de archivo ya viene armado en `datos.nombreArchivo` (ver
+// `datosDeReporte`/`datosDeAdopcion`/`datosDeFinalFeliz` en `./tarjeta.ts`).
+export async function compartirTarjeta(ref: unknown, datos: DatosTarjeta): Promise<ResultadoCompartir> {
   try {
     const png = await capturarAfiche(ref);
-    const nombre = nombreArchivo(pet);
+    const nombre = datos.nombreArchivo;
 
     if (Platform.OS === 'web') {
       const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
