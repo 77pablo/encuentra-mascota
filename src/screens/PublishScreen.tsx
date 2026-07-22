@@ -9,6 +9,7 @@ import { moderarTextoReporte } from '../lib/moderarTexto';
 import { uploadPetPhotos } from '../services/storage';
 import { createPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { confirmAction, notify } from '../lib/notify';
 // F1 — oferta de "Compartir tarjeta" tras publicar (agente A). Bloque
@@ -41,6 +42,7 @@ export default function PublishScreen({ navigation, route }: any) {
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const estadoOptions = useMemo(() => estadoOptionsDe(colors), [colors]);
   const { user } = useAuth();
+  const requireAuth = useRequireAuth();
   const params = route?.params ?? {};
   const [estado, setEstado] = useState<'perdida' | 'encontrada'>(
     params.estado === 'perdida' || params.estado === 'encontrada' ? params.estado : 'perdida',
@@ -184,6 +186,12 @@ export default function PublishScreen({ navigation, route }: any) {
   };
 
   const onSubmit = async () => {
+    // Portero (pulido): la pestaña Publicar ya bloquea la entrada a un
+    // invitado (`porteroDeTab` en TabNavigator), pero esta pantalla también
+    // se alcanza por los CTA de las guías (GuiaPerdidaScreen/GuiaEncontrada),
+    // que esquivan ese portero de tab. Sin esto, un invitado que llegara por
+    // ahí reventaba más abajo en `user!.id` con un error genérico.
+    if (!requireAuth('publicar')) return;
     const parsed = petSchema.safeParse({
       estado,
       especie,
