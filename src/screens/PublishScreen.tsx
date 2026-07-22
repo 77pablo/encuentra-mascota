@@ -14,8 +14,7 @@ import { confirmAction, notify } from '../lib/notify';
 // F1 — oferta de "Compartir tarjeta" tras publicar (agente A). Bloque
 // autocontenido: el orquestador reconcilia si choca con la oferta de guía
 // "encontrada" de otro agente en esta misma pantalla.
-import TarjetaCompartir from '../components/TarjetaCompartir';
-import { compartirTarjeta } from '../lib/compartirTarjeta';
+import TarjetaGenerador from '../components/TarjetaGenerador';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
@@ -79,7 +78,6 @@ export default function PublishScreen({ navigation, route }: any) {
   const [saving, setSaving] = useState(false);
 
   // --- F1: "Compartir tarjeta" tras publicar (bloque autocontenido, agente A) ---
-  const tarjetaRef = useRef<View>(null);
   const [tarjetaPet, setTarjetaPet] = useState<Pet | null>(null); // dispara el montaje off-screen
   const tarjetaResolver = useRef<(() => void) | null>(null);
 
@@ -95,8 +93,7 @@ export default function PublishScreen({ navigation, route }: any) {
     });
   };
 
-  const onTarjetaLista = async () => {
-    if (tarjetaPet) await compartirTarjeta(tarjetaRef.current, tarjetaPet);
+  const onTarjetaFin = () => {
     setTarjetaPet(null);
     tarjetaResolver.current?.();
     tarjetaResolver.current = null;
@@ -234,20 +231,26 @@ export default function PublishScreen({ navigation, route }: any) {
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
       // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.
+      let destino: string;
+      // [tanda6-A] Si se ofrece la tarjeta al terminar: en "perdida" solo
+      // cuando el usuario NO se va a la guía (ya tiene bastante ahí, no
+      // encadenamos dos confirms de más); en "encontrada", siempre.
+      let ofrecerAlTerminar = true;
       if (estado === 'perdida') {
         const quiereGuia = await confirmAction(
           '¡Publicado!',
           'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
         );
-        // Si va a la guía ya tiene bastante ahí; la tarjeta se ofrece solo
-        // cuando no la pidió, para no encadenar dos confirms de más.
-        if (!quiereGuia) await ofrecerTarjeta(nuevoPet);
-        navigation.navigate(quiereGuia ? 'GuiaPerdida' : 'Mapa');
+        ofrecerAlTerminar = !quiereGuia;
+        destino = quiereGuia ? 'GuiaPerdida' : 'Mapa';
       } else {
         notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
-        await ofrecerTarjeta(nuevoPet);
-        navigation.navigate('Explorar');
+        destino = 'Explorar';
       }
+      // [tanda6-A] Oferta de "Compartir tarjeta" (agente A): único punto de
+      // llamada, para no repetirla trenzada en cada rama de arriba.
+      if (ofrecerAlTerminar) await ofrecerTarjeta(nuevoPet);
+      navigation.navigate(destino);
     } catch (e: any) {
       notify('No se pudo publicar', mensajeDeErrorDb(e));
     } finally {
@@ -472,13 +475,7 @@ export default function PublishScreen({ navigation, route }: any) {
         onSelect={elegirComuna}
       />
 
-      {tarjetaPet && (
-        <View style={styles.offscreenTarjeta} pointerEvents="none">
-          <View ref={tarjetaRef} collapsable={false}>
-            <TarjetaCompartir pet={tarjetaPet} onListo={onTarjetaLista} />
-          </View>
-        </View>
-      )}
+      {tarjetaPet && <TarjetaGenerador pet={tarjetaPet} onFin={onTarjetaFin} />}
     </Screen>
   );
 }
@@ -597,11 +594,5 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   submitButton: {
     alignSelf: 'stretch',
     marginTop: spacing.sm,
-  },
-  offscreenTarjeta: {
-    position: 'absolute',
-    left: -10000,
-    top: 0,
-    opacity: 0,
   },
 });
