@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,10 +7,14 @@ import ComunaPickerModal from '../components/ComunaPickerModal';
 import { petSchema } from '../schemas/pet';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import { uploadPetPhotos } from '../services/storage';
-import { createPet } from '../services/pets';
+import { createPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { confirmAction, notify } from '../lib/notify';
+// F1 — oferta de "Compartir tarjeta" tras publicar (agente A). Bloque
+// autocontenido: el orquestador reconcilia si choca con la oferta de guía
+// "encontrada" de otro agente en esta misma pantalla.
+import TarjetaGenerador from '../components/TarjetaGenerador';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
@@ -72,6 +76,29 @@ export default function PublishScreen({ navigation, route }: any) {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // --- F1: "Compartir tarjeta" tras publicar (bloque autocontenido, agente A) ---
+  const [tarjetaPet, setTarjetaPet] = useState<Pet | null>(null); // dispara el montaje off-screen
+  const tarjetaResolver = useRef<(() => void) | null>(null);
+
+  const ofrecerTarjeta = async (pet: Pet) => {
+    const quiere = await confirmAction(
+      'Compartir tarjeta',
+      '¿Quieres compartir una tarjeta con la foto de tu reporte (para WhatsApp o redes)?',
+    );
+    if (!quiere) return;
+    await new Promise<void>((resolve) => {
+      tarjetaResolver.current = resolve;
+      setTarjetaPet(pet);
+    });
+  };
+
+  const onTarjetaFin = () => {
+    setTarjetaPet(null);
+    tarjetaResolver.current?.();
+    tarjetaResolver.current = null;
+  };
+  // --- fin bloque F1 ---
 
   // Re-aplicar la pre-carga cuando se navega a Publicar desde una ficha "Mi
   // mascota" (Función 2) estando el tab YA montado: en ese caso los
@@ -200,26 +227,39 @@ export default function PublishScreen({ navigation, route }: any) {
       // `origenMyPet` (Función 2): si el reporte se publicó desde una ficha de
       // "Mi mascota", queda vinculado para que el QR del collar sepa que está
       // perdida. Es undefined en el flujo normal.
-      await createPet(parsed.data, urls, user!.id, origenMyPet);
+      const nuevoPet = await createPet(parsed.data, urls, user!.id, origenMyPet);
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
       // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.
+      let destino: string;
+      // [tanda6-A] La tarjeta se ofrece al terminar SOLO si el usuario no se
+      // va a una guía (ya tiene bastante ahí; no encadenamos dos confirms).
+      // Vale para las dos guías: perdida (func. previa) y encontrada (func. 4).
+      let ofrecerAlTerminar = true;
       if (estado === 'perdida') {
         const quiereGuia = await confirmAction(
           '¡Publicado!',
           'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
         );
-        navigation.navigate(quiereGuia ? 'GuiaPerdida' : 'Mapa');
+        ofrecerAlTerminar = !quiereGuia;
+        // 'Mapa' ya no existe desde las 5 pestañas (bug latente preexistente,
+        // arreglado en la reconciliación del merge): el que no va a la guía
+        // vuelve a Explorar, que es donde vive el mapa hoy.
+        destino = quiereGuia ? 'GuiaPerdida' : 'Explorar';
       } else {
         // Simétrico al flujo de "perdida": ofrecemos la guía de "encontré una
-        // mascota" (func. 4) en vez de solo confirmar. Bloque autocontenido:
-        // no toca el resto del flujo de publicar.
+        // mascota" (func. 4) en vez de solo confirmar.
         const quiereGuia = await confirmAction(
           '¡Publicado!',
           'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
         );
-        navigation.navigate(quiereGuia ? 'GuiaEncontrada' : 'Explorar');
+        ofrecerAlTerminar = !quiereGuia;
+        destino = quiereGuia ? 'GuiaEncontrada' : 'Explorar';
       }
+      // [tanda6-A] Oferta de "Compartir tarjeta" (agente A): único punto de
+      // llamada, para no repetirla trenzada en cada rama de arriba.
+      if (ofrecerAlTerminar) await ofrecerTarjeta(nuevoPet);
+      navigation.navigate(destino);
     } catch (e: any) {
       notify('No se pudo publicar', mensajeDeErrorDb(e));
     } finally {
@@ -443,6 +483,8 @@ export default function PublishScreen({ navigation, route }: any) {
         onClose={() => setSelectorOpen(false)}
         onSelect={elegirComuna}
       />
+
+      {tarjetaPet && <TarjetaGenerador pet={tarjetaPet} onFin={onTarjetaFin} />}
     </Screen>
   );
 }
