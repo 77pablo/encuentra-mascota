@@ -62,16 +62,34 @@ zona" con match solo por alcance; "Responde quien la publicó" vs "Un vecino"; 2
 en AdopcionDetail; el dueño puede preguntar en su propia adopción; mensaje del tope-5 cuando el
 duplicado también choca con el índice único.
 
-**⚠️ PENDIENTE (deploy, en ESTE orden):**
-1. Redesplegar `send-notifications` (ANTES de la 0031 — ver regla arriba). También conviene
-   redesplegar `send-push` (pendiente desde adopción: manda `data.ruta`).
-2. Aplicar migraciones `0031` → `0032` → `0033` → `0034` (API admin con PAT) + verificación
-   contra la base (ataques anon a preguntas/búsquedas, CHECK 6 tipos, firma de buscar_adopciones,
-   columnas carnet).
-3. Pase visual E2E post-migración (búsqueda guardada completa, preguntas, filtro comuna, carnet).
-4. Regenerar `dist` (`npx expo export --platform web`, borrar `dist/borrar-cuenta`) y
-   **drag-and-drop a Cloudflare (manual de Pablo)** — sube TODO lo acumulado: adopción, 5
-   pestañas, modo oscuro y esta tanda.
+**✅ DESPLEGADO (22-jul, con el PAT de Pablo):**
+1. **Edge Functions redesplegadas** `send-notifications` + `send-push` (ANTES de la 0031, según
+   la regla nueva). Guardianes verificados: OPTIONS→204, GET sin token→401.
+2. **Migraciones `0031`→`0034` aplicadas** (HTTP 201 ×4) **+ `0035`** (revoca escrituras de
+   `anon` en las 2 tablas nuevas, defensivo — la RLS ya bloqueaba: PATCH masivo como anon con
+   `return=representation` → `[]`). Verificado contra la base: CHECK cola 6 tipos, índice único,
+   1 sola firma de `buscar_adopciones` con `p_comuna`, 4 columnas carnet, RLS+triggers (el del
+   tope se llama `trg_limite_busquedas_guardadas`), grant columnar OK, ataques anon rechazados.
+3. **E2E visual post-migración: 5/5 PASA** (Playwright contra la base real, datos de prueba
+   creados y borrados): búsqueda guardada guardar/duplicado-409-amable/borrar; feed adopción
+   con chip comuna; pregunta+respuesta+borrar; carnet con edad "2 años y 4 meses" + estados
+   vencida/vence-pronto + banner en Inicio; editar adopción refrescado y sin zombi.
+4. **`dist` regenerado** (bundle `index-084db396…js` + chunk de code-splitting del
+   `import()` de expo-sharing — los DOS archivos en `_expo/static/js/web/` son correctos),
+   `borrar-cuenta` quitado, `_headers`/`_redirects` presentes.
+
+**⚠️ LO ÚNICO PENDIENTE: subir la web** — drag-and-drop de `dist` a Cloudflare (manual de
+Pablo): Deployments → Create new deployment → rama `main` → arrastrar la carpeta `dist`.
+Sube TODO lo acumulado: adopción, 5 pestañas, modo oscuro y esta tanda.
+**Tras subir, probar en el navegador de verdad:** que la TARJETA salga con la FOTO (en headless
+no rasterizaba — mismo motor del afiche que anda en prod, pero confirmarlo).
+
+**Observaciones menores nuevas del E2E (diferidas):** el feed de adopción no invalida su caché
+justo después de publicar (aparece tras reload); la URL de EditAdoption muestra
+`?adoption=%5Bobject%20Object%5D` (cosmético, los datos viajan por navigation state); un
+textarea huérfano invisible persiste en el DOM al navegar del detalle a Editar. Sigue en la
+base el reporte de prueba viejo de Pablo ("REPORTE DE PRUEBA (Playwright)", pre-tanda, se dejó
+a propósito como huella — borrable desde Perfil).
 
 **Infra/aprendizajes de la sesión:** los subagentes ya NO pueden escribir archivos de informe
 (política del harness) → los informes vuelven inline y el orquestador los persiste él mismo;
