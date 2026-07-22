@@ -7,6 +7,7 @@ export interface Profile {
   telefono: string | null;
   red_social: string | null;
   creado_en: string;
+  es_admin?: boolean;
   // true solo cuando este perfil vino del escalon de respaldo de
   // getMyProfile (mi_perfil() todavia no existe). En ese caso telefono y
   // red_social son null porque no se pudieron leer, NO porque el usuario los
@@ -49,7 +50,13 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
     // true` marca que ese null es "no se pudo leer", no "el usuario lo
     // borro" — sin esto, editar y guardar el perfil en este escalon borraria
     // el contacto real (ver camposDeContactoParaGuardar).
-    return { ...res.data, telefono: null, red_social: null, contactoNoDisponible: true } as Profile;
+    return {
+      ...res.data,
+      telefono: null,
+      red_social: null,
+      es_admin: false,
+      contactoNoDisponible: true,
+    } as Profile;
   }
 
   const filas = (data ?? []) as Profile[];
