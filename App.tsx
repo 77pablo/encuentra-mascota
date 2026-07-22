@@ -17,9 +17,16 @@ import { AdoptionSavesProvider } from './src/context/AdoptionSavesProvider';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initMonitoring } from './src/lib/monitoring';
 import { setupPushNotifications } from './src/lib/pushSetup';
+import { capturarPromptInstalacion } from './src/lib/instalarPwa';
 
 initMonitoring();
 setupPushNotifications();
+// Web-only (no-op en nativo, ver instalarPwa.ts): engancha el listener de
+// 'beforeinstallprompt' lo antes posible. Si se esperara a que
+// InstalarAppCard se monte, un beforeinstallprompt disparado antes de ese
+// montaje (Chrome no lo re-emite) se perdería. Idempotente: el montaje de
+// InstalarAppCard sigue llamándola también, sin efecto duplicado.
+capturarPromptInstalacion();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
