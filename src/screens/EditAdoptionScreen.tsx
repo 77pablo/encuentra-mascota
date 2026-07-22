@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { adoptionSchema } from '../schemas/adoption';
 import { Adoption, updateAdoption } from '../services/adoptions';
@@ -100,6 +102,45 @@ export default function EditAdoptionScreen({ route, navigation }: any) {
   const [requisitos, setRequisitos] = useState(adoption.requisitos ?? '');
   const [saving, setSaving] = useState(false);
 
+  // Volver al detalle (no al feed) — ni al guardar ni al cancelar.
+  // EditAdoption se llega con navegación anidada absoluta desde
+  // AdopcionDetail (que vive en el stack RAÍZ, ver AdopcionDetailScreen); esa
+  // navegación deja a EditAdoption apilada arriba del feed DENTRO del stack
+  // de la pestaña Adopción. Un `goBack()` a secas caería en el feed, y encima
+  // dejaría a EditAdoption como pantalla zombi si se reingresara a la pestaña
+  // por otro lado. Por eso: primero se saca del stack de la pestaña
+  // (`goBack()`, "dentro" de este stack), y recién después se navega
+  // explícito de vuelta al detalle (push nuevo en el stack raíz, mismo
+  // patrón que `contactar`/`editar` en AdopcionDetailScreen).
+  const volverAlDetalle = useCallback(() => {
+    navigation.goBack();
+    navigation.navigate('AdopcionDetail', { id: adoption.id });
+  }, [navigation, adoption.id]);
+
+  // El back nativo del header (chevron) y el gesto de swipe de iOS harían un
+  // `goBack()` por defecto -> feed. Se reemplaza el botón del header por uno
+  // que usa `volverAlDetalle`, y se apaga el gesto para no dejar un camino
+  // sin cubrir (solo queda el botón del header y el back físico de Android,
+  // ambos cableados acá).
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: false,
+      headerLeft: (props: any) => <HeaderBackButton {...props} onPress={volverAlDetalle} />,
+    });
+  }, [navigation, volverAlDetalle]);
+
+  // Back físico de Android: mismo trato que el header, para que "cancelar"
+  // sea consistente sin importar cómo se salga de la pantalla.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        volverAlDetalle();
+        return true;
+      });
+      return () => sub.remove();
+    }, [volverAlDetalle]),
+  );
+
   const onSubmit = async () => {
     const parsed = adoptionSchema.safeParse({
       especie: adoption.especie,
@@ -135,14 +176,8 @@ export default function EditAdoptionScreen({ route, navigation }: any) {
         requisitos: parsed.data.requisitos || null,
       });
       notify('Guardado', 'Tu publicación se actualizó.');
-      // OJO: no usamos `goBack()` a secas. `AdopcionDetail` vive en el stack
-      // RAÍZ (link público `adopcion/:id`) y esta pantalla vive dentro del
-      // stack de la pestaña Adopción — al llegar acá con navegación anidada
-      // absoluta desde el detalle, ese `AdopcionDetail` deja de estar en el
-      // historial del stack raíz, así que un `goBack()` termina en la pestaña
-      // Adopción (o en Inicio), no en el detalle. Se navega explícito de
-      // vuelta, y `AdopcionDetailScreen` refresca al recuperar el foco.
-      navigation.navigate('AdopcionDetail', { id: adoption.id });
+      // `AdopcionDetailScreen` refresca al recuperar el foco.
+      volverAlDetalle();
     } catch (e: any) {
       notify('No se pudo guardar', mensajeDeErrorDb(e));
     } finally {
