@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -31,6 +31,8 @@ import { pickFromLibrary } from '../lib/pickImage';
 import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
 import AficheGenerator from '../components/AficheGenerator';
+import TarjetaCompartir from '../components/TarjetaCompartir';
+import { compartirTarjeta } from '../lib/compartirTarjeta';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
@@ -88,6 +90,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [perfil, setPerfil] = useState<Profile | null>(null);
   const [duenoNombre, setDuenoNombre] = useState<string | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
+  // "Compartir tarjeta" (F1): monta TarjetaCompartir off-screen y la captura
+  // apenas avisa que está lista (mismo patrón que el afiche, ver abajo).
+  const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
+  const tarjetaRef = useRef<View>(null);
   // Flujo "¡Volvió a casa!" (final feliz)
   const [mostrarReunion, setMostrarReunion] = useState(false);
   const [notaFeliz, setNotaFeliz] = useState('');
@@ -393,6 +399,11 @@ export default function PetDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const onTarjetaLista = async () => {
+    await compartirTarjeta(tarjetaRef.current, pet!);
+    setCompartiendoTarjeta(false);
+  };
+
   const denunciar = async (motivo: string) => {
     if (!requireAuth('denunciar')) return;
     if (!user || !pet || !denunciaTarget) return;
@@ -650,6 +661,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
           variant="secondary"
           icon="logo-whatsapp"
           onPress={() => shareReport(pet)}
+          style={styles.shareButton}
+        />
+
+        <Button
+          title="Compartir tarjeta"
+          variant="secondary"
+          icon="image"
+          loading={compartiendoTarjeta}
+          onPress={() => setCompartiendoTarjeta(true)}
           style={styles.shareButton}
         />
 
@@ -975,6 +995,14 @@ export default function PetDetailScreen({ route, navigation }: any) {
         {generandoAfiche && perfil && (
           <AficheGenerator pet={pet} profile={perfil} onDone={onAficheDone} onError={onAficheError} />
         )}
+
+        {compartiendoTarjeta && (
+          <View style={styles.offscreenTarjeta} pointerEvents="none">
+            <View ref={tarjetaRef} collapsable={false}>
+              <TarjetaCompartir pet={pet} onListo={onTarjetaLista} />
+            </View>
+          </View>
+        )}
       </ScrollView>
       <Confetti visible={mostrarConfetti} onDone={() => setMostrarConfetti(false)} />
     </Screen>
@@ -1068,6 +1096,12 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   shareButton: {
     marginTop: spacing.md,
+  },
+  offscreenTarjeta: {
+    position: 'absolute',
+    left: -10000,
+    top: 0,
+    opacity: 0,
   },
   sightingsSection: {
     marginTop: spacing.lg,

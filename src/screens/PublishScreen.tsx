@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,10 +7,15 @@ import ComunaPickerModal from '../components/ComunaPickerModal';
 import { petSchema } from '../schemas/pet';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import { uploadPetPhotos } from '../services/storage';
-import { createPet } from '../services/pets';
+import { createPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { confirmAction, notify } from '../lib/notify';
+// F1 — oferta de "Compartir tarjeta" tras publicar (agente A). Bloque
+// autocontenido: el orquestador reconcilia si choca con la oferta de guía
+// "encontrada" de otro agente en esta misma pantalla.
+import TarjetaCompartir from '../components/TarjetaCompartir';
+import { compartirTarjeta } from '../lib/compartirTarjeta';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
@@ -72,6 +77,31 @@ export default function PublishScreen({ navigation, route }: any) {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // --- F1: "Compartir tarjeta" tras publicar (bloque autocontenido, agente A) ---
+  const tarjetaRef = useRef<View>(null);
+  const [tarjetaPet, setTarjetaPet] = useState<Pet | null>(null); // dispara el montaje off-screen
+  const tarjetaResolver = useRef<(() => void) | null>(null);
+
+  const ofrecerTarjeta = async (pet: Pet) => {
+    const quiere = await confirmAction(
+      'Compartir tarjeta',
+      '¿Quieres compartir una tarjeta con la foto de tu reporte (para WhatsApp o redes)?',
+    );
+    if (!quiere) return;
+    await new Promise<void>((resolve) => {
+      tarjetaResolver.current = resolve;
+      setTarjetaPet(pet);
+    });
+  };
+
+  const onTarjetaLista = async () => {
+    if (tarjetaPet) await compartirTarjeta(tarjetaRef.current, tarjetaPet);
+    setTarjetaPet(null);
+    tarjetaResolver.current?.();
+    tarjetaResolver.current = null;
+  };
+  // --- fin bloque F1 ---
 
   // Re-aplicar la pre-carga cuando se navega a Publicar desde una ficha "Mi
   // mascota" (Función 2) estando el tab YA montado: en ese caso los
@@ -200,7 +230,7 @@ export default function PublishScreen({ navigation, route }: any) {
       // `origenMyPet` (Función 2): si el reporte se publicó desde una ficha de
       // "Mi mascota", queda vinculado para que el QR del collar sepa que está
       // perdida. Es undefined en el flujo normal.
-      await createPet(parsed.data, urls, user!.id, origenMyPet);
+      const nuevoPet = await createPet(parsed.data, urls, user!.id, origenMyPet);
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
       // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.
@@ -209,9 +239,13 @@ export default function PublishScreen({ navigation, route }: any) {
           '¡Publicado!',
           'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
         );
+        // Si va a la guía ya tiene bastante ahí; la tarjeta se ofrece solo
+        // cuando no la pidió, para no encadenar dos confirms de más.
+        if (!quiereGuia) await ofrecerTarjeta(nuevoPet);
         navigation.navigate(quiereGuia ? 'GuiaPerdida' : 'Mapa');
       } else {
         notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
+        await ofrecerTarjeta(nuevoPet);
         navigation.navigate('Explorar');
       }
     } catch (e: any) {
@@ -437,6 +471,14 @@ export default function PublishScreen({ navigation, route }: any) {
         onClose={() => setSelectorOpen(false)}
         onSelect={elegirComuna}
       />
+
+      {tarjetaPet && (
+        <View style={styles.offscreenTarjeta} pointerEvents="none">
+          <View ref={tarjetaRef} collapsable={false}>
+            <TarjetaCompartir pet={tarjetaPet} onListo={onTarjetaLista} />
+          </View>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -555,5 +597,11 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   submitButton: {
     alignSelf: 'stretch',
     marginTop: spacing.sm,
+  },
+  offscreenTarjeta: {
+    position: 'absolute',
+    left: -10000,
+    top: 0,
+    opacity: 0,
   },
 });
