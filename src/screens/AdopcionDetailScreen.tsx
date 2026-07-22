@@ -336,7 +336,10 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
     // anidada absoluta, mismo patrón que `contactar` arriba.
     navigation.navigate('App', {
       screen: 'Adopcion',
-      params: { screen: 'EditAdoption', params: { adoption } },
+      // `initial: false` monta el feed DEBAJO del editor aunque la pestaña
+      // nunca se haya abierto (caso deep-link): así el goBack() de guardar/
+      // cancelar siempre tiene a dónde popear y el editor no queda de raíz.
+      params: { screen: 'EditAdoption', initial: false, params: { adoption } },
     });
   };
 
