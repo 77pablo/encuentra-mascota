@@ -17,6 +17,7 @@ import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
 import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
+import { InstalarAppCard } from '../components/InstalarAppCard';
 import MensajesButton from '../components/MensajesButton';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -221,6 +222,10 @@ export default function HomeScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </Card>
         </TouchableOpacity>
+
+        {/* Tarjeta de instalar la PWA: web-only, descartable con ✕ (recuerda
+            la elección) y se oculta sola si ya está instalada. */}
+        <InstalarAppCard variante="tarjeta" />
 
         {/* Banner de recordatorios del carnet "Mi mascota" (Función 6): solo
             aparece con sesión y si alguna dosis vence pronto o ya venció.
