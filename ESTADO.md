@@ -1,5 +1,29 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-22 (2) — Modo oscuro (refactor transversal)
+
+Spec/plan en `docs/superpowers/*/2026-07-22-modo-oscuro*`. Ejecutado **subagent-driven** (infra
+inline + 4 subagentes en paralelo para la conversión mecánica + gate + ajuste visual).
+**554 tests, tsc limpio.** Fusionado en `feat/mvp-encuentra-mascota` (`ca609d6`).
+
+- **Enfoque A (de verdad):** `ThemeProvider` + hook `useColors()` reemplazan al `colors`
+  estático. **~54 archivos** pasaron de `StyleSheet.create` a nivel de módulo al patrón
+  DINÁMICO (`const colors = useColors(); const styles = useMemo(() => crearEstilos(colors), [colors])`).
+  Dos paletas en `src/theme` (light = la de siempre; dark = cálida, no negro puro). Sigue el
+  sistema por defecto (`useColorScheme`), cambio **en vivo**, y **selector Automático/Claro/
+  Oscuro** en Perfil (invitado y autenticado; pref en `src/lib/temaPref.ts`).
+- **Navegación + StatusBar** siguen el tema (`NavigationContainer` theme, headers/fondo
+  dinámicos, tabBar). **Assets imprimibles** (`AfichePoster`, `CollarTag`) quedan fijos en
+  paleta CLARA (un afiche/placa impreso no puede salir oscuro).
+- **Red de seguridad que funcionó:** al quitar el alias `colors` estático, `tsc` dio **0
+  errores** → prueba de que NINGUNA pantalla quedó sin convertir. Auditoría de `colors.white`:
+  los restantes son texto sobre color, puntos del carrusel (sobre foto) o la placa imprimible.
+- **Verificado visual** (Playwright, `prefers-color-scheme: dark`): Inicio, Explorar, Registro,
+  Perfil y onboarding en oscuro — paleta equilibrada, buen contraste, tono cálido; no necesitó
+  ajustes de valores.
+- ⚠️ **Falta subir la web** (drag-and-drop de `dist` a Cloudflare); regenerar `dist` con
+  `npx expo export --platform web` (borrar `dist/borrar-cuenta` hasta tener el correo).
+
 ## 🗓️ SESIÓN 2026-07-22 — 3 mejoras de comunidad + arreglos de UX
 
 Spec en `docs/superpowers/specs/2026-07-22-mejoras-comunidad-design.md`. `tsc` limpio, **550
