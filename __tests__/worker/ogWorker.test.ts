@@ -2,14 +2,13 @@
 // El worker es JS plano autónomo (sin imports de la app ni de node) que corre
 // en Cloudflare Pages; acá lo importamos como módulo para testear sus partes
 // puras y el handler completo con un env.ASSETS falso.
-import worker, {
-  escaparHtml,
-  armarMetaTags,
-  tituloDeReporte,
-  tituloDeAdopcion,
-  inyectarEnHead,
-  TAGS_PWA,
-} from '../../public/_worker.js';
+// Único export del módulo: el runtime real de Cloudflare Workers valida cada
+// named export y exige que sea función o ExportedHandler — un `export const`
+// de texto plano (TAGS_PWA) lo tira con "Incorrect type for map entry...".
+// Por eso el worker solo tiene `export default {...}` con todo colgado ahí.
+import worker from '../../public/_worker.js';
+
+const { escaparHtml, armarMetaTags, tituloDeReporte, tituloDeAdopcion, inyectarEnHead, TAGS_PWA } = worker;
 
 const INDEX_HTML = '<!doctype html><html><head><title>Encuentra tu Mascota</title></head><body><div id="root"></div></body></html>';
 

@@ -26,9 +26,18 @@ const SUPABASE_ANON_KEY = 'sb_publishable_K1UXXganPME34mfGqvt9vA_DOrcbwr6';
 // Funciones puras (testeadas en __tests__/worker/ogWorker.test.ts)
 // ---------------------------------------------------------------------------
 
+// Nota Cloudflare (verificada con `wrangler pages dev`): el runtime de
+// Workers valida CADA named export del módulo y exige que sea una función o
+// un ExportedHandler — un `export const TAGS_PWA = '...'` (string) tira
+// "Incorrect type for map entry... not of type 'function or ExportedHandler'"
+// y el worker ni arranca. Por eso acá NO hay named exports: las funciones
+// puras y TAGS_PWA se declaran normales y se cuelgan como propiedades del
+// `export default`, que es el único export del módulo (jest y Cloudflare
+// acceden a ellas igual, vía `worker.escaparHtml`, etc.).
+
 // Escapa los cinco caracteres peligrosos de HTML. Cualquier dato de usuario
 // (nombre, descripción) pasa por acá antes de entrar a un atributo o al head.
-export function escaparHtml(s) {
+function escaparHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s)
     .replace(/&/g, '&amp;')
@@ -54,7 +63,7 @@ function capitalizar(palabra) {
 
 // Título OG de un reporte (perdida/encontrada/reunida). `row` es la fila de
 // `pets` devuelta por PostgREST (select del spec F1).
-export function tituloDeReporte(row) {
+function tituloDeReporte(row) {
   const nombre = row.nombre || 'esta mascota';
   const especie = capitalizar(row.especie) || 'Mascota';
   if (row.reunida_en) {
@@ -70,7 +79,7 @@ export function tituloDeReporte(row) {
 
 // Título OG de una publicación de adopción. `row` es la fila de `adoptions`
 // devuelta por PostgREST (select del spec F1).
-export function tituloDeAdopcion(row) {
+function tituloDeAdopcion(row) {
   const nombre = row.nombre || 'Esta mascota';
   if (row.adoptada_en) {
     return `¡Ya encontró familia! ${nombre}`;
@@ -82,7 +91,7 @@ export function tituloDeAdopcion(row) {
 
 // Arma el bloque de meta tags Open Graph + Twitter Card, escapando todo lo
 // que puede venir de un usuario (título, descripción, imagen, url).
-export function armarMetaTags(datos) {
+function armarMetaTags(datos) {
   const titulo = escaparHtml(datos.titulo || '');
   const descripcion = escaparHtml(recortarDescripcion(datos.descripcion || ''));
   const imagen = datos.imagen ? escaparHtml(datos.imagen) : '';
@@ -104,7 +113,7 @@ ${imagenTags}<meta property="og:url" content="${url}">
 
 // Inserta `extra` justo antes de `</head>`. Si no hay `</head>` (o no hay
 // extra), devuelve el html intacto — nunca revienta el fallback SPA.
-export function inyectarEnHead(html, extra) {
+function inyectarEnHead(html, extra) {
   if (!extra) return html;
   const idx = html.indexOf('</head>');
   if (idx === -1) return html;
@@ -113,7 +122,7 @@ export function inyectarEnHead(html, extra) {
 
 // Tags PWA que se inyectan en TODO html (interfaz fija con el Agente B: estos
 // nombres de archivo los crea/mantiene B, acá solo se referencian).
-export const TAGS_PWA = `
+const TAGS_PWA = `
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#17654B">
 <link rel="apple-touch-icon" href="/icons/icono-180.png">
@@ -172,37 +181,49 @@ async function datosPublicos(tipo, id) {
 const RUTA_OG = /^\/(mascota|adopcion)\/([0-9a-f-]{36})$/;
 const TIENE_EXTENSION = /\.[a-z0-9]+$/i;
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
+async function manejarFetch(request, env) {
+  const url = new URL(request.url);
 
-    // 1) assets: extensión de archivo o prefijos conocidos → tal cual.
-    if (
-      TIENE_EXTENSION.test(url.pathname) ||
-      url.pathname.startsWith('/_expo/') ||
-      url.pathname.startsWith('/assets/')
-    ) {
-      return env.ASSETS.fetch(request);
-    }
+  // 1) assets: extensión de archivo o prefijos conocidos → tal cual.
+  if (
+    TIENE_EXTENSION.test(url.pathname) ||
+    url.pathname.startsWith('/_expo/') ||
+    url.pathname.startsWith('/assets/')
+  ) {
+    return env.ASSETS.fetch(request);
+  }
 
-    // 2) SPA: index.html como base de TODA ruta sin extensión.
-    const indexResp = await env.ASSETS.fetch(new Request(new URL('/', request.url)));
-    const html = await indexResp.text();
+  // 2) SPA: index.html como base de TODA ruta sin extensión.
+  const indexResp = await env.ASSETS.fetch(new Request(new URL('/', request.url)));
+  const html = await indexResp.text();
 
-    // 3) OG solo para /mascota/:uuid y /adopcion/:uuid — fallar ABIERTO.
-    let extra = TAGS_PWA;
-    const m = url.pathname.match(RUTA_OG);
-    if (m) {
-      try {
-        const datos = await datosPublicos(m[1], m[2]);
-        if (datos) {
-          extra += armarMetaTags({ ...datos, url: url.toString() });
-        }
-      } catch (e) {
-        // index pelado: un hipo de Supabase (o el timeout) no tira el sitio.
+  // 3) OG solo para /mascota/:uuid y /adopcion/:uuid — fallar ABIERTO.
+  let extra = TAGS_PWA;
+  const m = url.pathname.match(RUTA_OG);
+  if (m) {
+    try {
+      const datos = await datosPublicos(m[1], m[2]);
+      if (datos) {
+        extra += armarMetaTags({ ...datos, url: url.toString() });
       }
+    } catch (e) {
+      // index pelado: un hipo de Supabase (o el timeout) no tira el sitio.
     }
+  }
 
-    return new Response(inyectarEnHead(html, extra), { headers: CABECERAS_HTML });
-  },
+  return new Response(inyectarEnHead(html, extra), { headers: CABECERAS_HTML });
+}
+
+// Único export del módulo: el default handler que Cloudflare invoca, con las
+// funciones puras colgadas como propiedades para poder testearlas desde jest
+// (`worker.escaparHtml(...)`, `worker.TAGS_PWA`, etc.) sin agregar más named
+// exports (ver nota más arriba sobre por qué eso rompe el runtime real).
+export default {
+  fetch: manejarFetch,
+  escaparHtml,
+  armarMetaTags,
+  tituloDeReporte,
+  tituloDeAdopcion,
+  inyectarEnHead,
+  TAGS_PWA,
 };
