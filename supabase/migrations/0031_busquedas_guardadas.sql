@@ -31,7 +31,7 @@ create table public.busquedas_guardadas (
   especie text check (especie is null or especie in ('perro', 'gato', 'otro')),
   -- Obligatoria a proposito: sin comuna esto seria "avisame de todo Chile",
   -- que es spam para el resto de la cola.
-  comuna text not null check (length(btrim(comuna)) between 1 and 80),
+  comuna text not null constraint busquedas_guardadas_comuna_largo check (length(btrim(comuna)) between 1 and 80),
   creado_en timestamptz not null default now()
 );
 alter table public.busquedas_guardadas enable row level security;

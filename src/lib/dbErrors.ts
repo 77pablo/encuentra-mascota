@@ -10,6 +10,7 @@
 
 // Nombre de la restricción -> qué decirle a la persona.
 const POR_RESTRICCION: Record<string, string> = {
+  busquedas_guardadas_comuna_largo: 'La comuna es muy larga (máximo 80 caracteres).',
   pets_descripcion_largo: 'La descripción es muy larga. Contá las señas en menos de 1.000 caracteres.',
   pets_nombre_largo: 'El nombre de la mascota es muy largo (máximo 60 caracteres).',
   pets_raza_largo: 'La raza es muy larga (máximo 60 caracteres).',
