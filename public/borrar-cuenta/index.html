@@ -10,9 +10,11 @@
       Data deletion): debe poder llegarse SIN login y SIN instalar la app. Apple
       no la exige (el borrado in-app ya cumple), pero Google sí.
 
-      Se sirve en /borrar-cuenta/ . Cloudflare Pages sirve los archivos estáticos
-      ANTES del catch-all de public/_redirects, así que la regla SPA no la pisa
-      (verificado el 19-jul: /metadata.json devuelve JSON, no HTML).
+      Se sirve en /borrar-cuenta/ . Bajo public/_worker.js (advanced mode,
+      public/_redirects ya no rige solo) el worker tiene un pase explícito
+      para /borrar-cuenta y /borrar-cuenta/* que la sirve vía env.ASSETS.fetch
+      ANTES del fallback SPA — sin ese pase el catch-all la pisaría con
+      index.html (ver public/_worker.js, rama 1 de manejarFetch).
 
       ⚠️ PENDIENTE antes de subir: reemplazar [[CORREO_CONTACTO]] por el correo de
       contacto real. Sin ese correo la vía alternativa no funciona y la página no

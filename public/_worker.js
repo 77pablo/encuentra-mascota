@@ -6,7 +6,8 @@
 // Graph al compartir links de reportes/adopciones.
 //
 // Orden de decisiones en fetch():
-//   1) assets estáticos (extensión de archivo o prefijos conocidos) → tal cual.
+//   1) assets estáticos (extensión de archivo, prefijos conocidos, o
+//      /borrar-cuenta explícito) → tal cual, vía env.ASSETS.fetch.
 //   2) todo lo demás sin extensión → index.html (fallback SPA).
 //   3) si la ruta es /mascota/:uuid o /adopcion/:uuid → se intenta enriquecer
 //      ese index con meta tags OG leyendo datos públicos de Supabase.
@@ -185,10 +186,17 @@ async function manejarFetch(request, env) {
   const url = new URL(request.url);
 
   // 1) assets: extensión de archivo o prefijos conocidos → tal cual.
+  //    /borrar-cuenta (sin extensión) es un estático real exigido por Google
+  //    Play (Data safety → Data deletion, debe abrir sin login ni app) — sin
+  //    este pase explícito el fallback SPA del punto 2 lo pisaría con
+  //    index.html. Hoy no está publicado (falta [[CORREO_CONTACTO]]), pero
+  //    volverá, y en ese momento no debe quedar atrapado por el catch-all.
   if (
     TIENE_EXTENSION.test(url.pathname) ||
     url.pathname.startsWith('/_expo/') ||
-    url.pathname.startsWith('/assets/')
+    url.pathname.startsWith('/assets/') ||
+    url.pathname === '/borrar-cuenta' ||
+    url.pathname.startsWith('/borrar-cuenta/')
   ) {
     return env.ASSETS.fetch(request);
   }

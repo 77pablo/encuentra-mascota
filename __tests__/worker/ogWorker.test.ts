@@ -195,6 +195,50 @@ describe('worker fetch handler', () => {
     expect(res.headers.get('Permissions-Policy')).toBe('geolocation=(self), camera=(self), microphone=(), payment=()');
   });
 
+  it('/borrar-cuenta (estático sin extensión) pasa a env.ASSETS.fetch, no al fallback SPA', async () => {
+    const env = {
+      ASSETS: {
+        fetch: jest.fn(async (req: Request) => {
+          const u = new URL(req.url);
+          if (u.pathname === '/borrar-cuenta' || u.pathname === '/borrar-cuenta/') {
+            return new Response('<html>borrar-cuenta estático</html>', {
+              headers: { 'content-type': 'text/html; charset=utf-8' },
+            });
+          }
+          if (u.pathname === '/') {
+            return new Response(INDEX_HTML, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+          }
+          return new Response('contenido-del-asset');
+        }),
+      },
+    };
+    const req = new Request('https://x.cl/borrar-cuenta');
+    const res = await worker.fetch(req, env);
+    const html = await res.text();
+    expect(html).toBe('<html>borrar-cuenta estático</html>');
+    expect(html).not.toContain('href="/manifest.webmanifest"'); // no pasó por el fallback SPA
+  });
+
+  it('/borrar-cuenta/ (con barra final) también pasa a env.ASSETS.fetch', async () => {
+    const env = {
+      ASSETS: {
+        fetch: jest.fn(async (req: Request) => {
+          const u = new URL(req.url);
+          if (u.pathname.startsWith('/borrar-cuenta')) {
+            return new Response('<html>borrar-cuenta estático</html>', {
+              headers: { 'content-type': 'text/html; charset=utf-8' },
+            });
+          }
+          return new Response(INDEX_HTML, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+        }),
+      },
+    };
+    const req = new Request('https://x.cl/borrar-cuenta/');
+    const res = await worker.fetch(req, env);
+    const html = await res.text();
+    expect(html).toBe('<html>borrar-cuenta estático</html>');
+  });
+
   it('/mascota/:uuid con Supabase colgado falla abierto: index pelado en <3s', async () => {
     global.fetch = jest.fn((_url: string, opts: RequestInit) => new Promise((_resolve, reject) => {
       opts.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
