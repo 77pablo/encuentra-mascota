@@ -113,6 +113,89 @@ describe('createMyPet', () => {
       createMyPet({ nombre: 'Sol', especie: 'gato' }, null, 'user-1'),
     ).rejects.toEqual({ message: 'boom' });
   });
+
+  it('incluye los 4 campos del carnet en el insert cuando se pasan valores', async () => {
+    const builder = makeQueryBuilder({ data: { id: 'mp-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createMyPet(
+      { nombre: 'Pelusa', especie: 'perro' },
+      null,
+      'user-1',
+      {
+        fechaNacimiento: '2022-01-15',
+        vacunaProxima: '2025-08-15',
+        antiparasitarioInternoProximo: '2025-09-15',
+        antiparasitarioExternoProximo: '2025-08-15',
+      },
+    );
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.fecha_nacimiento).toBe('2022-01-15');
+    expect(guardado.vacuna_proxima).toBe('2025-08-15');
+    expect(guardado.antiparasitario_interno_proximo).toBe('2025-09-15');
+    expect(guardado.antiparasitario_externo_proximo).toBe('2025-08-15');
+  });
+
+  it('convierte los campos del carnet undefined a null', async () => {
+    const builder = makeQueryBuilder({ data: { id: 'mp-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createMyPet(
+      { nombre: 'Pelusa', especie: 'perro' },
+      null,
+      'user-1',
+      {
+        fechaNacimiento: undefined,
+        vacunaProxima: undefined,
+        antiparasitarioInternoProximo: undefined,
+        antiparasitarioExternoProximo: undefined,
+      },
+    );
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.fecha_nacimiento).toBeNull();
+    expect(guardado.vacuna_proxima).toBeNull();
+    expect(guardado.antiparasitario_interno_proximo).toBeNull();
+    expect(guardado.antiparasitario_externo_proximo).toBeNull();
+  });
+
+  it('guarda null en los campos del carnet cuando se pasan null', async () => {
+    const builder = makeQueryBuilder({ data: { id: 'mp-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createMyPet(
+      { nombre: 'Pelusa', especie: 'perro' },
+      null,
+      'user-1',
+      {
+        fechaNacimiento: null,
+        vacunaProxima: null,
+        antiparasitarioInternoProximo: null,
+        antiparasitarioExternoProximo: null,
+      },
+    );
+
+    const guardado = builder.insert.mock.calls[0][0];
+    expect(guardado.fecha_nacimiento).toBeNull();
+    expect(guardado.vacuna_proxima).toBeNull();
+    expect(guardado.antiparasitario_interno_proximo).toBeNull();
+    expect(guardado.antiparasitario_externo_proximo).toBeNull();
+  });
+
+  it('no incluye los campos del carnet cuando no se pasan', async () => {
+    const builder = makeQueryBuilder({ data: { id: 'mp-1' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await createMyPet({ nombre: 'Pelusa', especie: 'perro' }, null, 'user-1');
+
+    const guardado = builder.insert.mock.calls[0][0];
+    // No se envían si no se pasan en carnet (objeto vacío es default)
+    expect(guardado.fecha_nacimiento).toBeNull();
+    expect(guardado.vacuna_proxima).toBeNull();
+    expect(guardado.antiparasitario_interno_proximo).toBeNull();
+    expect(guardado.antiparasitario_externo_proximo).toBeNull();
+  });
 });
 
 describe('updateMyPet', () => {
@@ -134,6 +217,85 @@ describe('updateMyPet', () => {
     const builder = makeQueryBuilder({ data: null, error: { message: 'boom' } });
     mockFrom.mockReturnValue(builder);
     await expect(updateMyPet('mp-1', { nombre: 'x' })).rejects.toEqual({ message: 'boom' });
+  });
+
+  it('incluye solo los campos del carnet que se pasan en el update', async () => {
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateMyPet('mp-1', {
+      nombre: 'Nuevo nombre',
+      fechaNacimiento: '2022-01-15',
+      vacunaProxima: '2025-08-15',
+    });
+
+    expect(mockFrom).toHaveBeenCalledWith('my_pets');
+    expect(builder.update).toHaveBeenCalledWith({
+      nombre: 'Nuevo nombre',
+      fecha_nacimiento: '2022-01-15',
+      vacuna_proxima: '2025-08-15',
+    });
+    expect(builder.eq).toHaveBeenCalledWith('id', 'mp-1');
+  });
+
+  it('no incluye campos del carnet que no se pasan (no sobrescribe otros campos)', async () => {
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateMyPet('mp-1', {
+      fechaNacimiento: '2022-01-15',
+    });
+
+    expect(builder.update).toHaveBeenCalledWith({
+      fecha_nacimiento: '2022-01-15',
+    });
+    // Los otros campos del carnet NO se incluyen
+    const payload = builder.update.mock.calls[0][0];
+    expect(payload).not.toHaveProperty('vacuna_proxima');
+    expect(payload).not.toHaveProperty('antiparasitario_interno_proximo');
+    expect(payload).not.toHaveProperty('antiparasitario_externo_proximo');
+  });
+
+  it('guarda null en los campos del carnet cuando se pasan null', async () => {
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateMyPet('mp-1', {
+      fechaNacimiento: null,
+      vacunaProxima: null,
+      antiparasitarioInternoProximo: null,
+      antiparasitarioExternoProximo: null,
+    });
+
+    expect(builder.update).toHaveBeenCalledWith({
+      fecha_nacimiento: null,
+      vacuna_proxima: null,
+      antiparasitario_interno_proximo: null,
+      antiparasitario_externo_proximo: null,
+    });
+  });
+
+  it('mapea correctamente los 4 campos del carnet de camelCase a snake_case', async () => {
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateMyPet('mp-1', {
+      fechaNacimiento: '2022-01-15',
+      vacunaProxima: '2025-08-15',
+      antiparasitarioInternoProximo: '2025-09-15',
+      antiparasitarioExternoProximo: '2025-08-15',
+    });
+
+    const payload = builder.update.mock.calls[0][0];
+    expect(payload.fecha_nacimiento).toBe('2022-01-15');
+    expect(payload.vacuna_proxima).toBe('2025-08-15');
+    expect(payload.antiparasitario_interno_proximo).toBe('2025-09-15');
+    expect(payload.antiparasitario_externo_proximo).toBe('2025-08-15');
+    // Los nombres camelCase no deben estar en el payload
+    expect(payload).not.toHaveProperty('fechaNacimiento');
+    expect(payload).not.toHaveProperty('vacunaProxima');
+    expect(payload).not.toHaveProperty('antiparasitarioInternoProximo');
+    expect(payload).not.toHaveProperty('antiparasitarioExternoProximo');
   });
 });
 
