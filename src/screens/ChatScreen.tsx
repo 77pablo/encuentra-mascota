@@ -19,6 +19,7 @@ import { ctxDeParams, markThreadRead, sendMessage } from '../services/messages';
 import { getAdoption } from '../services/adoptions';
 import { uploadPetPhoto } from '../services/storage';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
+import { resolverUrlFoto } from '../lib/fotoAdjuntaChat';
 import { supabase } from '../lib/supabase';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
@@ -41,10 +42,15 @@ export default function ChatScreen({ route, navigation }: any) {
   const me = user!.id;
   const messages = useRealtimeMessages(ctx, me, otherUserId);
   const [texto, setTexto] = useState('');
-  // Foto adjunta al mensaje que se está por mandar (0038). Guarda el `uri`
-  // LOCAL (de la cámara/galería) hasta que `onSend` la sube; `subiendo`
+  // Foto adjunta al mensaje que se está por mandar (0038). `imagenAdjunta`
+  // guarda SIEMPRE la uri LOCAL (de la cámara/galería), tanto para el
+  // preview como para volver a subirla si hace falta. `urlSubida` guarda la
+  // URL pública una vez que esa foto ya se subió: si `sendMessage` falla
+  // después de una subida exitosa, un reintento reusa `urlSubida` en vez de
+  // volver a subir la foto (ver `onSend` y `resolverUrlFoto`). `subiendo`
   // controla el spinner del botón de enviar mientras dura la subida.
   const [imagenAdjunta, setImagenAdjunta] = useState<string | null>(null);
+  const [urlSubida, setUrlSubida] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [menuAdjuntarAbierto, setMenuAdjuntarAbierto] = useState(false);
   // Visor simple de la foto de una burbuja, a pantalla completa.
@@ -152,29 +158,43 @@ export default function ChatScreen({ route, navigation }: any) {
   const onTomarFotoAdjunta = async () => {
     setMenuAdjuntarAbierto(false);
     const uri = await takePhoto();
-    if (uri) setImagenAdjunta(uri);
+    // Nueva foto: si había una `urlSubida` de un adjunto anterior (p. ej. de
+    // un envío fallido), ya no corresponde — es la URL de OTRA foto.
+    if (uri) {
+      setImagenAdjunta(uri);
+      setUrlSubida(null);
+    }
   };
 
   const onElegirFotoAdjunta = async () => {
     setMenuAdjuntarAbierto(false);
     const uris = await pickFromLibrary(1);
-    if (uris[0]) setImagenAdjunta(uris[0]);
+    // Ídem: descartar cualquier `urlSubida` que quedara de un adjunto previo.
+    if (uris[0]) {
+      setImagenAdjunta(uris[0]);
+      setUrlSubida(null);
+    }
   };
 
   const onSend = async () => {
     const t = texto;
     const adjunta = imagenAdjunta;
+    const yaSubida = urlSubida;
     setTexto('');
     setImagenAdjunta(null);
     // La foto se sube ANTES de intentar el insert: `sendMessage` necesita ya
     // la URL pública (no hay forma de "subir después" un mensaje ya mandado).
-    // Si la subida falla, no se manda nada y se le devuelven el texto y la
-    // foto a la persona para que reintente.
+    // Si ya se había subido en un intento anterior (reintento tras un
+    // `sendMessage` fallido), `resolverUrlFoto` reusa esa URL sin volver a
+    // subir la foto — evita duplicar el archivo en Storage y evita pasarle
+    // una URL remota a `uploadPetPhoto`, que espera una uri local. Si la
+    // subida falla, no se manda nada y se le devuelven el texto y la foto a
+    // la persona para que reintente.
     let url: string | undefined;
     if (adjunta) {
-      setSubiendo(true);
+      if (!yaSubida) setSubiendo(true);
       try {
-        url = await uploadPetPhoto(adjunta, me);
+        url = await resolverUrlFoto(adjunta, yaSubida, (uriLocal) => uploadPetPhoto(uriLocal, me));
       } catch (e: any) {
         setSubiendo(false);
         setTexto(t);
@@ -183,9 +203,13 @@ export default function ChatScreen({ route, navigation }: any) {
         return;
       }
       setSubiendo(false);
+      setUrlSubida(url ?? null);
     }
     try {
       await sendMessage(ctx, me, otherUserId, t, url);
+      // Se mandó: si había foto, ya no hace falta conservar su URL subida
+      // (no hay reintento pendiente).
+      if (url) setUrlSubida(null);
       // Push "best effort": si falla, el chat igual funcionó, así que no le
       // mostramos nada al usuario. Pero SÍ lo dejamos en la consola: este
       // `catch` vacío tapó durante semanas que la función `send-push` ni
@@ -213,10 +237,11 @@ export default function ChatScreen({ route, navigation }: any) {
         })
         .catch((e) => console.warn('No se pudo mandar el aviso push del mensaje:', e));
     } catch {
-      // restaurar si falla: la foto ya subida no se pierde (queda su URL),
-      // así que un reintento no la vuelve a subir.
+      // El insert falló. Si había foto, ya quedó subida (su URL sigue en
+      // `urlSubida`, sin tocar): se restaura la uri LOCAL para el preview y
+      // el reintento, que gracias a `urlSubida` no la vuelve a subir.
       setTexto(t);
-      if (url) setImagenAdjunta(url);
+      if (adjunta) setImagenAdjunta(adjunta);
     }
   };
 
@@ -444,7 +469,10 @@ export default function ChatScreen({ route, navigation }: any) {
               <View style={styles.previewRow}>
                 <Image source={{ uri: imagenAdjunta }} style={styles.previewImagen} />
                 <TouchableOpacity
-                  onPress={() => setImagenAdjunta(null)}
+                  onPress={() => {
+                    setImagenAdjunta(null);
+                    setUrlSubida(null);
+                  }}
                   style={styles.previewQuitar}
                   accessibilityLabel="Quitar foto"
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
