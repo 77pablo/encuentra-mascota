@@ -378,6 +378,95 @@ describe('componerAviso - escaneo_collar', () => {
   });
 });
 
+// Búsqueda guardada (Función 2): aviso dirigido a UNA persona (quien guardó la
+// búsqueda), igual que escaneo_collar: el destinatario sale de targetUserId,
+// no del dueño de un reporte, y no pasa por ningún interruptor de tipo.
+describe('resolverDestinatarios - busqueda_guardada', () => {
+  const evBusqueda: EventoAviso = {
+    id: 'b1', tipo: 'busqueda_guardada', petId: 'p1', actorId: 'quienPublico',
+    targetUserId: 'buscador', datos: { estado: 'perdida', especie: 'gato', comuna: 'Ñuñoa', nombre: 'Luna' },
+  };
+
+  it('avisa a quien guardó la búsqueda (targetUserId), no al actor', () => {
+    const ctx: Contexto = { ...ctxBase, duenoPetId: 'otro' };
+    expect(resolverDestinatarios(evBusqueda, ctx)).toEqual([
+      { userId: 'buscador', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('excluye al actor aunque targetUserId coincidiera con él (defensivo)', () => {
+    const ev: EventoAviso = { ...evBusqueda, targetUserId: 'quienPublico' };
+    expect(resolverDestinatarios(ev, ctxBase)).toEqual([]);
+  });
+
+  it('siempre envía: no hay interruptor de tipo ni filtro de zona (opt-in explícito)', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        buscador: { userId: 'buscador', zona: false, avistamientos: false, pistas: false,
+                    coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evBusqueda, ctx)).toEqual([
+      { userId: 'buscador', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('respeta el filtro de canales (canal_email=false)', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        buscador: { userId: 'buscador', zona: true, avistamientos: true, pistas: true,
+                    coincidencias: true, canalEmail: false, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evBusqueda, ctx)[0].canales).toEqual(['push']);
+  });
+
+  it('no envía si apagó los dos canales', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        buscador: { userId: 'buscador', zona: true, avistamientos: true, pistas: true,
+                    coincidencias: true, canalEmail: false, canalPush: false },
+      },
+    };
+    expect(resolverDestinatarios(evBusqueda, ctx)).toEqual([]);
+  });
+
+  it('sin targetUserId no hay a quien avisar (defensivo)', () => {
+    const sinTarget: EventoAviso = { ...evBusqueda, targetUserId: null };
+    expect(resolverDestinatarios(sinTarget, ctxBase)).toEqual([]);
+  });
+});
+
+describe('componerAviso - busqueda_guardada', () => {
+  it('arma el texto con estado, comuna, especie y nombre; ruta a /mascota/:id', () => {
+    const ev: EventoAviso = {
+      id: 'b2', tipo: 'busqueda_guardada', petId: 'p9', actorId: 'x',
+      targetUserId: 'buscador', datos: { estado: 'perdida', especie: 'perro', comuna: 'Maipú', nombre: 'Luna' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo).toContain('PERDIDA');
+    expect(aviso.cuerpo).toContain('Maipú');
+    expect(aviso.cuerpo).toContain('perro');
+    expect(aviso.cuerpo).toContain('«Luna»');
+    expect(aviso.ruta).toBe('/mascota/p9');
+  });
+
+  it('funciona sin nombre de reporte (sin huecos)', () => {
+    const ev: EventoAviso = {
+      id: 'b3', tipo: 'busqueda_guardada', petId: 'p9', actorId: 'x',
+      targetUserId: 'buscador', datos: { estado: 'encontrada', especie: 'gato', comuna: 'Ñuñoa' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo).toContain('ENCONTRADA');
+    expect(aviso.cuerpo).not.toContain('undefined');
+    expect(aviso.cuerpo).not.toContain('null');
+    expect(aviso.cuerpo).not.toContain('«');
+  });
+});
+
 describe('componerAviso', () => {
   it('usa el nombre de la mascota cuando lo hay', () => {
     const ev: EventoAviso = { id: 'e8', tipo: 'avistamiento', petId: 'p1', actorId: 'v', datos: {} };

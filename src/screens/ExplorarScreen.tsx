@@ -5,6 +5,7 @@ import ComunaPickerModal from '../components/ComunaPickerModal';
 import ReportesLista from '../components/ReportesLista';
 import ReportesMapa from '../components/ReportesMapa';
 import SeguirComunaButton from '../components/SeguirComunaButton';
+import GuardarBusquedaButton from '../components/GuardarBusquedaButton';
 import MensajesButton from '../components/MensajesButton';
 import { Pet } from '../services/pets';
 import { AppText, Card, Chip, Input, Screen, Title } from '../ui';
@@ -213,6 +214,16 @@ export default function ExplorarScreen({ navigation, route }: any) {
             </View>
           ) : null}
           {comunaFiltro ? <SeguirComunaButton comuna={comunaFiltro} /> : null}
+          {/* "Avisarme de esta búsqueda" (Función 2): necesita comuna Y un estado
+              concreto (perdida/encontrada). Con "Todas" no hay `tipo` válido para
+              guardar, así que el botón no aparece. */}
+          {comunaFiltro && estado !== 'todas' ? (
+            <GuardarBusquedaButton
+              tipo={estado}
+              especie={especie === 'todas' ? null : especie}
+              comuna={comunaFiltro}
+            />
+          ) : null}
         </View>
       ) : null}
 

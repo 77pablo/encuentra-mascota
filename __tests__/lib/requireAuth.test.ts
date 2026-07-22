@@ -1,7 +1,8 @@
 import { MENSAJES, mensajeDe, AccionProtegida } from '../../src/lib/requireAuth';
 
 const ACCIONES: AccionProtegida[] = ['contactar', 'publicar', 'guardar', 'dejar_pista',
-  'avistamiento', 'novedad', 'denunciar', 'reencuentro', 'preguntar_adopcion'];
+  'avistamiento', 'novedad', 'denunciar', 'reencuentro', 'preguntar_adopcion',
+  'guardar_busqueda'];
 
 describe('mensajes del portero', () => {
   it('tiene un mensaje para cada acción protegida', () => {

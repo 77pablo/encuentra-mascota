@@ -60,4 +60,11 @@ describe('mensajeDeErrorDb', () => {
       'Eso ya estaba registrado.',
     );
   });
+
+  it('traduce el largo máximo de comuna guardada (patrón 0016)', () => {
+    const m = mensajeDeErrorDb({
+      message: 'new row for relation "busquedas_guardadas" violates check constraint "busquedas_guardadas_comuna_largo"',
+    });
+    expect(m).toBe('La comuna es muy larga (máximo 80 caracteres).');
+  });
 });

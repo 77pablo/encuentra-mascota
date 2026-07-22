@@ -124,6 +124,23 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       },
     },
   },
+  {
+    // Búsqueda guardada (Función 2): destinatario = targetUserId, sin
+    // interruptor de tipo ni filtro de zona (opt-in explícito), ruta a
+    // /mascota/:id con el estado/comuna/especie/nombre del reporte que calzó.
+    nombre: 'búsqueda guardada que calza con un reporte nuevo (destinatario dirigido)',
+    evento: {
+      id: 'g1', tipo: 'busqueda_guardada', petId: 'p1', actorId: 'quienPublico',
+      targetUserId: 'buscador', datos: { estado: 'perdida', especie: 'gato', comuna: 'Ñuñoa', nombre: 'Luna' },
+    },
+    ctx: {
+      duenoPetId: 'otro', nombrePet: null, zonas: [], seguidoresComuna: [],
+      prefs: {
+        buscador: { userId: 'buscador', zona: false, avistamientos: false, pistas: false,
+                    coincidencias: false, canalEmail: true, canalPush: false },
+      },
+    },
+  },
 ];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {

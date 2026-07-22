@@ -15,15 +15,17 @@ export type TipoEvento =
   | 'avistamiento'
   | 'pista'
   | 'coincidencia'
-  | 'escaneo_collar';
+  | 'escaneo_collar'
+  | 'busqueda_guardada';
 
 export type EventoAviso = {
   id: string;
   tipo: TipoEvento;
   petId: string;
   actorId: string | null;
-  // Destinatario directo (solo 'escaneo_collar'): el dueño de la ficha del
-  // collar. En el resto de los tipos el destinatario se deriva del reporte.
+  // Destinatario directo ('escaneo_collar' y 'busqueda_guardada'): el evento ya
+  // trae a quién avisarle (el dueño de la ficha o de la búsqueda guardada). En
+  // el resto de los tipos el destinatario se deriva del reporte.
   targetUserId?: string | null;
   datos: {
     lat?: number;
@@ -40,6 +42,10 @@ export type EventoAviso = {
     // 'escaneo_collar': datos de la ficha del collar y del escaneo.
     nombre_mascota?: string;
     nota?: string;
+    // 'busqueda_guardada': el reporte recién publicado que calzó con la
+    // búsqueda guardada de alguien (ver enqueue_busquedas_guardadas, 0031).
+    estado?: string;
+    nombre?: string;
   };
 };
 
@@ -111,11 +117,12 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 //   recibe uno solo.
 // - En todos los casos se respeta el filtro de canales (email/push).
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
-  // 'escaneo_collar': destinatario único y directo = el dueño de la ficha
-  // (evento.targetUserId), NO el dueño de un reporte (puede no haber reporte
-  // activo). No pasa por ningún interruptor de tipo: el dueño puso la placa
-  // justamente para esto (alta prioridad). Solo se respeta el filtro de canales.
-  if (evento.tipo === 'escaneo_collar') {
+  // 'escaneo_collar' y 'busqueda_guardada': destinatario único y directo =
+  // evento.targetUserId (el dueño de la ficha o de la búsqueda guardada), NO
+  // el dueño de un reporte. Ninguno pasa por el interruptor de tipo: guardar
+  // la búsqueda (o colgar la placa) YA es el opt-in explícito. Solo se
+  // respeta el filtro de canales.
+  if (evento.tipo === 'escaneo_collar' || evento.tipo === 'busqueda_guardada') {
     const target = evento.targetUserId ?? null;
     if (!target || target === evento.actorId) return [];
     const canales = canalesDe(prefsDe(ctx, target));
@@ -190,6 +197,22 @@ export function componerAviso(
         ? `"${nota}" · Entrá para ver dónde.`
         : `Alguien encontró a ${nombreMascota} y quiere avisarte. Entrá para ver dónde.`,
       ruta: '/mis-mascotas',
+    };
+  }
+
+  // 'busqueda_guardada': aviso dirigido a quien guardó una búsqueda que calzó
+  // con el reporte recién publicado. El texto lleva estado + comuna + especie
+  // (siempre vienen) y el nombre si el reporte lo tiene.
+  if (evento.tipo === 'busqueda_guardada') {
+    const estadoLabel = evento.datos.estado === 'encontrada' ? 'ENCONTRADA' : 'PERDIDA';
+    const especieLabel =
+      evento.datos.especie === 'gato' ? 'gato' : evento.datos.especie === 'perro' ? 'perro' : 'mascota';
+    const comunaTexto = evento.datos.comuna?.trim() || 'tu zona';
+    const nombreReporte = evento.datos.nombre?.trim();
+    return {
+      titulo: 'Apareció un reporte que calza con tu búsqueda',
+      cuerpo: `${estadoLabel} en ${comunaTexto} — ${especieLabel}${nombreReporte ? ` «${nombreReporte}»` : ''}`,
+      ruta: `/mascota/${evento.petId}`,
     };
   }
 
