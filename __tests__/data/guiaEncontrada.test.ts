@@ -2,7 +2,7 @@ import { GUIA_ENCONTRADA, RUTAS_GUIA_ENCONTRADA, type GuiaEncontradaPaso } from 
 
 describe('GUIA_ENCONTRADA (contenido de la guía "encontré una mascota")', () => {
   it('tiene los 7 pasos del espejo de guiaPerdida', () => {
-    expect(GUIA_ENCONTRADA.length).toBeGreaterThanOrEqual(6);
+    expect(GUIA_ENCONTRADA.length).toBe(7);
   });
 
   it('todos los ids son únicos', () => {
