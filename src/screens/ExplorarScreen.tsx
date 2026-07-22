@@ -62,7 +62,18 @@ export default function ExplorarScreen({ navigation, route }: any) {
   const [comunaFiltro, setComunaFiltro] = useState<string | null>(null);
   const [comunaPickerOpen, setComunaPickerOpen] = useState(false);
   const [vista, setVista] = useState<Vista>('lista');
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const location = useMyLocation();
+
+  // Cuántos filtros hay activos (para el contador del botón "Filtros"). La
+  // búsqueda de texto no cuenta acá: vive en su propio input, siempre visible.
+  const filtrosActivos =
+    (estado !== 'todas' ? 1 : 0) +
+    (especie !== 'todas' ? 1 : 0) +
+    (rango !== 'todo' ? 1 : 0) +
+    (conRecompensa ? 1 : 0) +
+    (comunaFiltro ? 1 : 0) +
+    (cercaDeMi ? 1 : 0);
 
   // Pre-cargar la comuna cuando se llega desde "En tu comuna" de Inicio.
   useEffect(() => {
@@ -144,52 +155,63 @@ export default function ExplorarScreen({ navigation, route }: any) {
         icon="search"
       />
 
-      <View style={styles.chipsRow}>
-        {filtros.map((f) => (
-          <Chip key={f.key} label={f.label} active={estado === f.key} onPress={() => setEstado(f.key)} />
-        ))}
-      </View>
-      <View style={styles.chipsRow}>
-        {especieFiltros.map((f) => (
-          <Chip key={f.key} label={f.label} active={especie === f.key} onPress={() => setEspecie(f.key)} />
-        ))}
-      </View>
-      <View style={styles.chipsRow}>
-        {rangos.map((r) => (
-          <Chip key={r.key} label={r.label} active={rango === r.key} onPress={() => setRango(r.key)} />
-        ))}
-      </View>
-      <View style={styles.chipsRow}>
-        <Chip label="Con recompensa" active={conRecompensa} onPress={() => setConRecompensa((v) => !v)} />
+      {/* Control: botón de filtros colapsables (cerrado por defecto, para que la
+          lista/mapa se vea enseguida) + toggle Lista/Mapa siempre visible. */}
+      <View style={styles.controlRow}>
         <Chip
-          label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
-          active={cercaDeMi}
-          onPress={toggleCercaDeMi}
+          label={`⚙ Filtros${filtrosActivos > 0 ? ` (${filtrosActivos})` : ''} ${filtrosAbiertos ? '▴' : '▾'}`}
+          active={filtrosAbiertos || filtrosActivos > 0}
+          onPress={() => setFiltrosAbiertos((v) => !v)}
         />
+        <View style={styles.toggleGroup}>
+          <Chip label="☰ Lista" active={vista === 'lista'} onPress={() => setVista('lista')} />
+          <Chip label="🗺 Mapa" active={vista === 'mapa'} onPress={() => setVista('mapa')} />
+        </View>
       </View>
-      <View style={styles.chipsRow}>
-        <Chip
-          label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
-          active={!!comunaFiltro}
-          onPress={() => setComunaPickerOpen(true)}
-        />
-        {comunaFiltro ? <Chip label="✕ Quitar" onPress={() => setComunaFiltro(null)} /> : null}
-      </View>
-      {cercaDeMi ? (
-        <View style={styles.chipsRow}>
-          {radios.map((r) => (
-            <Chip key={r.label} label={r.label} active={radioKm === r.key} onPress={() => setRadioKm(r.key)} />
-          ))}
+
+      {filtrosAbiertos ? (
+        <View>
+          <View style={styles.chipsRow}>
+            {filtros.map((f) => (
+              <Chip key={f.key} label={f.label} active={estado === f.key} onPress={() => setEstado(f.key)} />
+            ))}
+          </View>
+          <View style={styles.chipsRow}>
+            {especieFiltros.map((f) => (
+              <Chip key={f.key} label={f.label} active={especie === f.key} onPress={() => setEspecie(f.key)} />
+            ))}
+          </View>
+          <View style={styles.chipsRow}>
+            {rangos.map((r) => (
+              <Chip key={r.key} label={r.label} active={rango === r.key} onPress={() => setRango(r.key)} />
+            ))}
+          </View>
+          <View style={styles.chipsRow}>
+            <Chip label="Con recompensa" active={conRecompensa} onPress={() => setConRecompensa((v) => !v)} />
+            <Chip
+              label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
+              active={cercaDeMi}
+              onPress={toggleCercaDeMi}
+            />
+          </View>
+          <View style={styles.chipsRow}>
+            <Chip
+              label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
+              active={!!comunaFiltro}
+              onPress={() => setComunaPickerOpen(true)}
+            />
+            {comunaFiltro ? <Chip label="✕ Quitar" onPress={() => setComunaFiltro(null)} /> : null}
+          </View>
+          {cercaDeMi ? (
+            <View style={styles.chipsRow}>
+              {radios.map((r) => (
+                <Chip key={r.label} label={r.label} active={radioKm === r.key} onPress={() => setRadioKm(r.key)} />
+              ))}
+            </View>
+          ) : null}
+          {comunaFiltro ? <SeguirComunaButton comuna={comunaFiltro} /> : null}
         </View>
       ) : null}
-
-      {comunaFiltro ? <SeguirComunaButton comuna={comunaFiltro} /> : null}
-
-      {/* Toggle Lista / Mapa: las dos vistas de la misma búsqueda. */}
-      <View style={styles.toggleRow}>
-        <Chip label="☰ Lista" active={vista === 'lista'} onPress={() => setVista('lista')} />
-        <Chip label="🗺 Mapa" active={vista === 'mapa'} onPress={() => setVista('mapa')} />
-      </View>
 
       <View style={styles.body}>
         {vista === 'lista' ? (
@@ -245,11 +267,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.md,
   },
-  toggleRow: {
+  controlRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
+  },
+  toggleGroup: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   body: {
     flex: 1,
