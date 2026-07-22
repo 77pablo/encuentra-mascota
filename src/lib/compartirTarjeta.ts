@@ -3,11 +3,13 @@ import { Pet } from '../services/pets';
 import { capturarAfiche } from './aficheImage';
 import { notify } from './notify';
 
-export type ResultadoCompartir = 'compartida' | 'descargada' | 'error';
+export type ResultadoCompartir = 'compartida' | 'descargada' | 'cancelada' | 'error';
 
 // Convierte el data-uri PNG (lo que devuelve `capturarAfiche` en web) a un
 // `File`, porque la Web Share API Level 2 exige `files`, no una URL.
-function dataUriAFile(dataUri: string, nombre: string): File {
+// Exportada (no solo de uso interno) para poder testearla directo, ver
+// compartirTarjeta.test.ts.
+export function dataUriAFile(dataUri: string, nombre: string): File {
   const [meta, base64] = dataUri.split(',');
   const mime = /data:(.*);base64/.exec(meta)?.[1] ?? 'image/png';
   const binario = atob(base64);
@@ -16,8 +18,18 @@ function dataUriAFile(dataUri: string, nombre: string): File {
   return new File([bytes], nombre, { type: mime });
 }
 
-function nombreArchivo(pet: Pick<Pet, 'id'>): string {
+export function nombreArchivo(pet: Pick<Pet, 'id'>): string {
   return `mascota-${pet.id}.png`;
+}
+
+// El usuario cerró la hoja de compartir sin elegir nada: no es un error, así
+// que hay que quedarse en silencio (nada de "No se pudo compartir"). La Web
+// Share API rechaza con un `DOMException` de nombre `AbortError` cuando se
+// cancela; expo-sharing en nativo resuelve sin error incluso si el usuario
+// cancela (ver su changelog: "resolves unconditionally on dismissal"), pero
+// por si alguna plataforma llegara a rechazar así, esto también lo cubre.
+function esCancelacion(e: unknown): boolean {
+  return (e as { name?: unknown } | null | undefined)?.name === 'AbortError';
 }
 
 // Captura la tarjeta referenciada (misma rasterización que el afiche, ver
@@ -55,6 +67,7 @@ export async function compartirTarjeta(ref: unknown, pet: Pet): Promise<Resultad
     }
     return 'descargada';
   } catch (e: any) {
+    if (esCancelacion(e)) return 'cancelada';
     notify('No se pudo compartir', 'Probá de nuevo en un momento.');
     return 'error';
   }
