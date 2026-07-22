@@ -1,5 +1,55 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-22 (4) — Tanda "difusión + PWA" (3 agentes en paralelo)
+
+Spec `docs/superpowers/specs/2026-07-22-tanda-difusion-pwa-design.md`, plan
+`docs/superpowers/plans/2026-07-22-tanda-difusion-pwa.md`. Subagent-driven (3 implementadores
+en worktrees + revisor por rama + revisión final adversarial + fix wave + verificación
+integrada). **773 tests / 72 suites, tsc limpio.** En `feat/mvp-encuentra-mascota`
+(merges `tanda7/*`; HEAD `c1dfe24`). **⚠️ Lista para subir: falta el drag-and-drop de Pablo.**
+
+1. **Vista previa al compartir links (`public/_worker.js`, Cloudflare advanced mode):** OG/Twitter
+   tags con foto para `/mascota/:id` y `/adopcion/:id` (PostgREST anon + RLS decide qué se ve;
+   reunida → "¡Volvió a casa!", adoptada → "¡Ya encontró familia!"). Escapado XSS en TODO dato
+   de usuario (primer HTML server-side de la app), fail-open 2s, fallback SPA (rol de
+   `_redirects`), 5 cabeceras de seguridad + `no-cache` en HTML, `immutable` para
+   `/_expo/static/` (solo respuestas OK), pass-through explícito de `/borrar-cuenta`, e
+   inyección de las tags PWA en todo HTML. **Hechos verificados:** drag-and-drop soporta
+   `_worker.js` (la carpeta `functions/` NO); en advanced mode `_headers`/`_redirects` dejan de
+   regir (quedan como rollback: borrar `dist/_worker.js` y re-subir). **Dato del runtime real:**
+   Workers rechaza named exports no-función (todo cuelga del default) y un handler llamado
+   `fetch` sombrea al global — jest no lo ve, `wrangler pages dev` sí.
+2. **PWA instalable:** `manifest.webmanifest` (colores = lightColors reales), íconos
+   180/192/512/maskable desde `assets/icon.png`, `sw.js` conservador (nunca intercepta
+   Supabase; cache-first solo hasheados con tope LRU 60; navegación network-first, fallback
+   offline SOLO desde `/`; espejo `estrategiaPara` con `src/lib/pwa/decisionCache.ts` protegido
+   por test de sincronía que lee ambos archivos), `registrar-sw.js`, captura de
+   `beforeinstallprompt` en el arranque web (App.tsx), tarjeta descartable en Inicio + fila en
+   Perfil, modal iOS de 2 pasos.
+3. **Tarjetas nuevas:** `DatosTarjeta` genérico (la de reportes NO cambió su comportamiento,
+   tests sin cambios de expectativa); adopción "BUSCA HOGAR [EN COMUNA]" (#17654B, QR a
+   `adopcionUrl`, botón para cualquiera en el detalle + oferta post-publicar) y final feliz
+   "¡VOLVIÓ A CASA!" (#1E8A63, `final_foto ?? fotos[0]`, "X días después" vía `diasEntre`,
+   oferta post-confetti + botón en detalle propio).
+
+**Verificación integrada (wrangler + Playwright, TODO PASA):** worker sirviendo manifest/sw/
+íconos con content-types correctos; OG real con un reporte de prod; SPA byte-idéntico; 5
+cabeceras; tarjeta de instalación (aparece con el evento, ✕ persiste); fila de Perfil
+capturada; tarjeta de adopción real descargada 1080×1080 ("BUSCA HOGAR EN SANTIAGO") con
+adopción de prueba creada y borrada; 0 errores de consola.
+
+**Diferidos anotados:** 4xx/5xx sin fallback a caché (decisión documentada en sw.js); `esIos`
+no ve iPad-desktop; `diasEntre` asume ISO con TZ; el worker titula reunida solo con
+`reunida_en` (cliente exige además `activo=false` — hoy coherentes); caché del feed de
+adopción no se invalida al publicar/borrar en la misma sesión (preexistente).
+
+**Post-deploy a verificar (checklist):** pegar un link `/mascota/:id` en WhatsApp → vista
+previa con foto; `curl -I` a `/manifest.webmanifest`, `/sw.js` y un bundle (content-types y
+qué headers aplica Pages en advanced mode REAL); instalar la app desde Chrome Android;
+Lighthouse instalabilidad; y el pendiente heredado: tarjeta CON foto en navegador real.
+Residuo local: `C:\Users\pdani\em-agente-a\.wrangler` bloqueado por un handle (borrar tras
+reiniciar). En prod sigue el reporte de prueba viejo de Pablo (a propósito).
+
 ## 🗓️ SESIÓN 2026-07-22 (3) — Tanda de 6 funciones + pulido de adopción (4 agentes en paralelo)
 
 Spec `docs/superpowers/specs/2026-07-22-tanda-6funciones-pulido-design.md`, plan
