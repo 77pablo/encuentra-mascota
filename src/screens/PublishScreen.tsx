@@ -211,8 +211,14 @@ export default function PublishScreen({ navigation, route }: any) {
         );
         navigation.navigate(quiereGuia ? 'GuiaPerdida' : 'Mapa');
       } else {
-        notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
-        navigation.navigate('Explorar');
+        // Simétrico al flujo de "perdida": ofrecemos la guía de "encontré una
+        // mascota" (func. 4) en vez de solo confirmar. Bloque autocontenido:
+        // no toca el resto del flujo de publicar.
+        const quiereGuia = await confirmAction(
+          '¡Publicado!',
+          'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
+        );
+        navigation.navigate(quiereGuia ? 'GuiaEncontrada' : 'Explorar');
       }
     } catch (e: any) {
       notify('No se pudo publicar', mensajeDeErrorDb(e));

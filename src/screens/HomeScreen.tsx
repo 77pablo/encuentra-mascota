@@ -188,8 +188,9 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         </Card>
 
-        {/* Entrada a la guía "recién se me perdió" (func. 4). Sección propia y
-            autocontenida para mergear sin choque con el nudge de vigencia. */}
+        {/* Entradas a las guías "recién se me perdió" / "encontré una
+            mascota" (func. 4). Sección propia y autocontenida para mergear
+            sin choque con el nudge de vigencia. */}
         <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('GuiaPerdida')}>
           <Card style={styles.guiaCard}>
             <Ionicons name="footsteps" size={20} color={colors.brand} />
@@ -199,6 +200,21 @@ export default function HomeScreen({ navigation }: any) {
               </AppText>
               <AppText muted size={12}>
                 Guía calmada de qué hacer en la primera hora
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Card>
+        </TouchableOpacity>
+
+        <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('GuiaEncontrada')}>
+          <Card style={styles.guiaCard}>
+            <Ionicons name="heart-circle-outline" size={20} color={colors.found} />
+            <View style={styles.guiaTextWrap}>
+              <AppText weight="bold" size={14}>
+                ¿Te encontraste una mascota?
+              </AppText>
+              <AppText muted size={12}>
+                Guía de qué hacer para que vuelva con su familia
               </AppText>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />

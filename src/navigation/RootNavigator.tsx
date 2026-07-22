@@ -17,7 +17,9 @@ import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
 import AyudaScreen from '../screens/AyudaScreen';
 import VolvieronACasaScreen from '../screens/VolvieronACasaScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import GuiaEncontradaScreen from '../screens/GuiaEncontradaScreen';
 import { getOnboardingVisto } from '../lib/onboarding';
+import { navigationRef } from '../lib/navigationRef';
 
 const Stack = createNativeStackNavigator();
 
@@ -93,7 +95,10 @@ export default function RootNavigator() {
     },
   };
   return (
-    <NavigationContainer linking={linking} theme={navTheme}>
+    // `ref={navigationRef}` (pulido de la tanda 6): permite navegar desde
+    // fuera de un componente, para el listener de push que consume
+    // `data.ruta` (ver src/lib/pushSetup.ts, src/lib/rutaANavegacion.ts).
+    <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
       <Stack.Navigator
         key={recovering ? 'recuperando' : 'normal'}
         screenOptions={{
@@ -117,6 +122,14 @@ export default function RootNavigator() {
           name="GuiaPerdida"
           component={GuiaPerdidaScreen}
           options={{ headerShown: true, title: 'Primeros pasos' }}
+        />
+        {/* Guía "encontré una mascota" (Función 4, espejo de GuiaPerdida): se
+            abre desde Inicio y tras publicar una "encontrada". Mismo trato:
+            stack raíz, alcanzable por nombre desde cualquier pestaña. */}
+        <Stack.Screen
+          name="GuiaEncontrada"
+          component={GuiaEncontradaScreen}
+          options={{ headerShown: true, title: 'Encontraste una mascota' }}
         />
         {/* Página pública del collar (Función 2): la abre el QR de la placa, en
             modo invitado, igual que MascotaPublica. */}
