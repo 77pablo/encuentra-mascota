@@ -16,6 +16,7 @@ import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
+import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
 import MensajesButton from '../components/MensajesButton';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -188,8 +189,9 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         </Card>
 
-        {/* Entrada a la guía "recién se me perdió" (func. 4). Sección propia y
-            autocontenida para mergear sin choque con el nudge de vigencia. */}
+        {/* Entradas a las guías "recién se me perdió" / "encontré una
+            mascota" (func. 4). Sección propia y autocontenida para mergear
+            sin choque con el nudge de vigencia. */}
         <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('GuiaPerdida')}>
           <Card style={styles.guiaCard}>
             <Ionicons name="footsteps" size={20} color={colors.brand} />
@@ -204,6 +206,28 @@ export default function HomeScreen({ navigation }: any) {
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </Card>
         </TouchableOpacity>
+
+        <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('GuiaEncontrada')}>
+          <Card style={styles.guiaCard}>
+            <Ionicons name="heart-circle-outline" size={20} color={colors.found} />
+            <View style={styles.guiaTextWrap}>
+              <AppText weight="bold" size={14}>
+                ¿Te encontraste una mascota?
+              </AppText>
+              <AppText muted size={12}>
+                Guía de qué hacer para que vuelva con su familia
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Card>
+        </TouchableOpacity>
+
+        {/* Banner de recordatorios del carnet "Mi mascota" (Función 6): solo
+            aparece con sesión y si alguna dosis vence pronto o ya venció.
+            Degrada en silencio si `my_pets` falla (ver RecordatoriosBanner). */}
+        {user ? (
+          <RecordatoriosBanner onPress={() => navigation.navigate('Perfil', { screen: 'MyPets' })} />
+        ) : null}
 
         {/* En tu comuna → pestaña Comunidad */}
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (

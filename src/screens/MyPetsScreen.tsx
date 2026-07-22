@@ -10,6 +10,7 @@ import { uploadPetPhoto } from '../services/storage';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import { myPetSchema } from '../schemas/myPet';
 import {
+  CarnetInput,
   createMyPet,
   deleteMyPet,
   listMyPets,
@@ -18,6 +19,10 @@ import {
 } from '../services/myPets';
 import { collarUrl } from '../lib/collarTag';
 import CollarTag from '../components/CollarTag';
+import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
+import { armarFechaISO } from '../lib/fechaCampos';
+import { edadDesde } from '../lib/edadDesde';
+import { estadoDosis } from '../lib/recordatorios';
 import { AppText, Button, Card, EmptyState, Input, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -40,6 +45,79 @@ function esRemota(uri: string | null): boolean {
   return !!uri && /^https?:\/\//.test(uri);
 }
 
+// Un campo de fecha del carnet (Función 6), armado con 3 inputs sueltos
+// (día/mes/año): mismo patrón que RegisterScreen para la fecha de nacimiento,
+// sin depender de un DateTimePicker nativo (no hay ninguno en el repo) y
+// funcionando igual en web.
+function useCampoFecha(inicial: string | null) {
+  const partes = inicial ? inicial.split('-') : [];
+  const [anio, setAnio] = useState(partes[0] ?? '');
+  const [mes, setMes] = useState(partes[1] ?? '');
+  const [dia, setDia] = useState(partes[2] ?? '');
+
+  const reset = (valor: string | null) => {
+    const p = valor ? valor.split('-') : [];
+    setAnio(p[0] ?? '');
+    setMes(p[1] ?? '');
+    setDia(p[2] ?? '');
+  };
+
+  return { dia, mes, anio, setDia, setMes, setAnio, reset };
+}
+
+type CampoFecha = ReturnType<typeof useCampoFecha>;
+
+function FechaTresCampos({
+  label,
+  campo,
+  styles,
+}: {
+  label: string;
+  campo: CampoFecha;
+  styles: ReturnType<typeof crearEstilos>;
+}) {
+  return (
+    <View style={styles.fechaGrupo}>
+      <AppText weight="semi" muted size={13} style={styles.label}>
+        {label}
+      </AppText>
+      <View style={styles.fechaFila}>
+        <View style={styles.fechaDia}>
+          <Input placeholder="Día" keyboardType="number-pad" value={campo.dia} onChangeText={campo.setDia} />
+        </View>
+        <View style={styles.fechaMes}>
+          <Input placeholder="Mes" keyboardType="number-pad" value={campo.mes} onChangeText={campo.setMes} />
+        </View>
+        <View style={styles.fechaAnio}>
+          <Input placeholder="Año" keyboardType="number-pad" value={campo.anio} onChangeText={campo.setAnio} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Color del estado de una dosis, con los colores del tema (nunca hardcodeado):
+// al día = texto normal, vence pronto = dorado (el mismo tono de "destacado"
+// que ya usa la app), vencida = coral (mismo color que un reporte "perdida").
+function colorDeEstado(estado: ReturnType<typeof estadoDosis>, colors: Colors): string {
+  if (estado === 'vencida') return colors.lost;
+  if (estado === 'vence_pronto') return colors.sun;
+  return colors.muted;
+}
+
+function etiquetaEstado(estado: ReturnType<typeof estadoDosis>): string {
+  if (estado === 'vencida') return 'vencida';
+  if (estado === 'vence_pronto') return 'vence pronto';
+  return 'al día';
+}
+
+// 'YYYY-MM-DD' → 'DD-MM-YYYY' para mostrar en la ficha (el formato de la base
+// no es el que lee una persona común).
+function formatoFechaCorta(iso: string): string {
+  const [anio, mes, dia] = iso.split('-');
+  return `${dia}-${mes}-${anio}`;
+}
+
 export default function MyPetsScreen({ navigation }: any) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
@@ -57,6 +135,12 @@ export default function MyPetsScreen({ navigation }: any) {
   const [chip, setChip] = useState('');
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Carnet "Mi mascota" (Función 6): 4 fechas opcionales del formulario.
+  const fechaNacimientoCampo = useCampoFecha(null);
+  const vacunaCampo = useCampoFecha(null);
+  const antiIntCampo = useCampoFecha(null);
+  const antiExtCampo = useCampoFecha(null);
 
   // Ficha para la que se está generando la etiqueta de collar (monta CollarTag).
   const [collarPet, setCollarPet] = useState<MyPet | null>(null);
@@ -84,6 +168,10 @@ export default function MyPetsScreen({ navigation }: any) {
     setSenas('');
     setChip('');
     setFotoUri(null);
+    fechaNacimientoCampo.reset(null);
+    vacunaCampo.reset(null);
+    antiIntCampo.reset(null);
+    antiExtCampo.reset(null);
     setFormOpen(true);
   };
 
@@ -95,6 +183,10 @@ export default function MyPetsScreen({ navigation }: any) {
     setSenas(ficha.senas ?? '');
     setChip(ficha.chip ?? '');
     setFotoUri(ficha.foto ?? null);
+    fechaNacimientoCampo.reset(ficha.fecha_nacimiento);
+    vacunaCampo.reset(ficha.vacuna_proxima);
+    antiIntCampo.reset(ficha.antiparasitario_interno_proximo);
+    antiExtCampo.reset(ficha.antiparasitario_externo_proximo);
     setFormOpen(true);
   };
 
@@ -120,6 +212,38 @@ export default function MyPetsScreen({ navigation }: any) {
       notify('Revisá el texto', moderacion.motivo);
       return;
     }
+
+    // Carnet (Función 6): cada fecha llega como `string` (válida), `null`
+    // (vacía, se omite) o `undefined` (a medio llenar / imposible). Ante
+    // cualquier `undefined` no seguimos: es mejor avisar que guardar una
+    // fecha rota o incompleta.
+    const fechaNacimientoISO = armarFechaISO(
+      fechaNacimientoCampo.dia,
+      fechaNacimientoCampo.mes,
+      fechaNacimientoCampo.anio,
+    );
+    const vacunaISO = armarFechaISO(vacunaCampo.dia, vacunaCampo.mes, vacunaCampo.anio);
+    const antiIntISO = armarFechaISO(antiIntCampo.dia, antiIntCampo.mes, antiIntCampo.anio);
+    const antiExtISO = armarFechaISO(antiExtCampo.dia, antiExtCampo.mes, antiExtCampo.anio);
+    if (
+      fechaNacimientoISO === undefined ||
+      vacunaISO === undefined ||
+      antiIntISO === undefined ||
+      antiExtISO === undefined
+    ) {
+      notify(
+        'Revisá una fecha',
+        'Alguna fecha del carnet quedó a medio llenar o no es una fecha real. Completá día, mes y año, o dejá los 3 vacíos.',
+      );
+      return;
+    }
+    const carnet: CarnetInput = {
+      fechaNacimiento: fechaNacimientoISO,
+      vacunaProxima: vacunaISO,
+      antiparasitarioInternoProximo: antiIntISO,
+      antiparasitarioExternoProximo: antiExtISO,
+    };
+
     if (!user) return;
     setSaving(true);
     try {
@@ -138,10 +262,14 @@ export default function MyPetsScreen({ navigation }: any) {
           senas,
           chip,
           foto: fotoUrl,
+          fechaNacimiento: fechaNacimientoISO,
+          vacunaProxima: vacunaISO,
+          antiparasitarioInternoProximo: antiIntISO,
+          antiparasitarioExternoProximo: antiExtISO,
         });
         notify('Listo', 'Actualizamos la ficha de tu mascota.');
       } else {
-        await createMyPet(parsed.data, fotoUrl, user.id);
+        await createMyPet(parsed.data, fotoUrl, user.id, carnet);
         notify('¡Guardada!', 'Ya tenés la ficha de tu mascota lista.');
       }
       setFormOpen(false);
@@ -265,6 +393,30 @@ export default function MyPetsScreen({ navigation }: any) {
             />
           </Card>
 
+          {/* Carnet "Mi mascota" (Función 6): todo opcional. Si se completa,
+              calculamos la edad y avisamos acá mismo cuando se acerque una
+              dosis (nunca por push ni correo). */}
+          <Card style={styles.section}>
+            <Title size={16} style={styles.sectionTitle}>
+              Carnet (opcional)
+            </Title>
+            <AppText muted size={12} style={styles.carnetHelp}>
+              Guardá estas fechas y te avisamos acá mismo cuando se acerquen.
+            </AppText>
+            <FechaTresCampos label="Fecha de nacimiento" campo={fechaNacimientoCampo} styles={styles} />
+            <FechaTresCampos label="Próxima vacuna" campo={vacunaCampo} styles={styles} />
+            <FechaTresCampos
+              label="Próximo antiparasitario interno"
+              campo={antiIntCampo}
+              styles={styles}
+            />
+            <FechaTresCampos
+              label="Próximo antiparasitario externo"
+              campo={antiExtCampo}
+              styles={styles}
+            />
+          </Card>
+
           <Button
             title={editId ? 'Guardar cambios' : 'Guardar mascota'}
             icon="paw"
@@ -290,6 +442,12 @@ export default function MyPetsScreen({ navigation }: any) {
           su etiqueta de collar cualquiera que la encuentre puede avisarte.
         </AppText>
 
+        {user && fichas.length > 0 ? (
+          <View style={styles.bannerWrap}>
+            <RecordatoriosBanner fichas={fichas} />
+          </View>
+        ) : null}
+
         {fichas.length === 0 ? (
           <View style={styles.emptyWrap}>
             <EmptyState
@@ -300,51 +458,88 @@ export default function MyPetsScreen({ navigation }: any) {
           </View>
         ) : (
           <View style={styles.list}>
-            {fichas.map((ficha) => (
-              <Card key={ficha.id} style={styles.fichaCard}>
-                <View style={styles.fichaHeader}>
-                  {ficha.foto ? (
-                    <Image source={{ uri: ficha.foto }} style={styles.fichaFoto} />
-                  ) : (
-                    <View style={[styles.fichaFoto, styles.fichaFotoPlaceholder]}>
-                      <AppText size={28}>🐾</AppText>
-                    </View>
-                  )}
-                  <View style={styles.fichaInfo}>
-                    <Title size={18}>{ficha.nombre}</Title>
-                    <AppText muted size={13}>
-                      {especieLabel[ficha.especie]}
-                      {ficha.raza ? ` · ${ficha.raza}` : ''}
-                    </AppText>
-                  </View>
-                  <View style={styles.fichaActions}>
-                    <TouchableOpacity accessibilityLabel="Editar" onPress={() => abrirEditar(ficha)} style={styles.iconBtn}>
-                      <Ionicons name="create-outline" size={20} color={colors.brand} />
-                    </TouchableOpacity>
-                    <TouchableOpacity accessibilityLabel="Borrar" onPress={() => borrar(ficha)} style={styles.iconBtn}>
-                      <Ionicons name="trash-outline" size={20} color={colors.lost} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+            {fichas.map((ficha) => {
+              const edad = ficha.fecha_nacimiento
+                ? edadDesde(ficha.fecha_nacimiento, new Date())
+                : null;
+              const dosis: { etiqueta: string; fecha: string | null }[] = [
+                { etiqueta: 'Vacuna', fecha: ficha.vacuna_proxima },
+                { etiqueta: 'Antiparasitario interno', fecha: ficha.antiparasitario_interno_proximo },
+                { etiqueta: 'Antiparasitario externo', fecha: ficha.antiparasitario_externo_proximo },
+              ];
+              const dosisConFecha = dosis.filter(
+                (d): d is { etiqueta: string; fecha: string } => !!d.fecha,
+              );
 
-                <Button
-                  title="Reportar como perdida"
-                  icon="alert-circle"
-                  variant="danger"
-                  onPress={() => reportarPerdida(ficha)}
-                  style={styles.fichaButton}
-                />
-                <Button
-                  title="Etiqueta de collar"
-                  icon="qr-code"
-                  variant="secondary"
-                  onPress={() => generarCollar(ficha)}
-                  disabled={generando}
-                  loading={generando && collarPet?.id === ficha.id}
-                  style={styles.fichaButton}
-                />
-              </Card>
-            ))}
+              return (
+                <Card key={ficha.id} style={styles.fichaCard}>
+                  <View style={styles.fichaHeader}>
+                    {ficha.foto ? (
+                      <Image source={{ uri: ficha.foto }} style={styles.fichaFoto} />
+                    ) : (
+                      <View style={[styles.fichaFoto, styles.fichaFotoPlaceholder]}>
+                        <AppText size={28}>🐾</AppText>
+                      </View>
+                    )}
+                    <View style={styles.fichaInfo}>
+                      <Title size={18}>{ficha.nombre}</Title>
+                      <AppText muted size={13}>
+                        {especieLabel[ficha.especie]}
+                        {ficha.raza ? ` · ${ficha.raza}` : ''}
+                      </AppText>
+                      {edad ? (
+                        <AppText muted size={12} style={styles.edadLine}>
+                          🎂 {edad}
+                        </AppText>
+                      ) : null}
+                    </View>
+                    <View style={styles.fichaActions}>
+                      <TouchableOpacity accessibilityLabel="Editar" onPress={() => abrirEditar(ficha)} style={styles.iconBtn}>
+                        <Ionicons name="create-outline" size={20} color={colors.brand} />
+                      </TouchableOpacity>
+                      <TouchableOpacity accessibilityLabel="Borrar" onPress={() => borrar(ficha)} style={styles.iconBtn}>
+                        <Ionicons name="trash-outline" size={20} color={colors.lost} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {dosisConFecha.length > 0 ? (
+                    <View style={styles.carnetWrap}>
+                      {dosisConFecha.map((d) => {
+                        const estado = estadoDosis(d.fecha, new Date());
+                        return (
+                          <View key={d.etiqueta} style={styles.carnetRow}>
+                            <AppText size={12} muted>
+                              {d.etiqueta}
+                            </AppText>
+                            <AppText size={12} weight="semi" color={colorDeEstado(estado, colors)}>
+                              {formatoFechaCorta(d.fecha)} · {etiquetaEstado(estado)}
+                            </AppText>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+
+                  <Button
+                    title="Reportar como perdida"
+                    icon="alert-circle"
+                    variant="danger"
+                    onPress={() => reportarPerdida(ficha)}
+                    style={styles.fichaButton}
+                  />
+                  <Button
+                    title="Etiqueta de collar"
+                    icon="qr-code"
+                    variant="secondary"
+                    onPress={() => generarCollar(ficha)}
+                    disabled={generando}
+                    loading={generando && collarPet?.id === ficha.id}
+                    style={styles.fichaButton}
+                  />
+                </Card>
+              );
+            })}
           </View>
         )}
 
@@ -411,4 +606,15 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   chip: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1 },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipInactive: { backgroundColor: colors.card, borderColor: colors.line },
+  sectionTitle: { marginBottom: spacing.xs },
+  carnetHelp: { marginTop: -spacing.xs, marginBottom: spacing.sm, lineHeight: 17 },
+  fechaGrupo: { marginBottom: spacing.sm },
+  fechaFila: { flexDirection: 'row', gap: spacing.sm },
+  fechaDia: { flex: 1 },
+  fechaMes: { flex: 1 },
+  fechaAnio: { flex: 1.4 },
+  bannerWrap: { marginBottom: spacing.xs },
+  edadLine: { marginTop: 2 },
+  carnetWrap: { gap: 4, marginTop: spacing.xs },
+  carnetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });
