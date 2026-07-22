@@ -135,7 +135,14 @@ export default function EditAdoptionScreen({ route, navigation }: any) {
         requisitos: parsed.data.requisitos || null,
       });
       notify('Guardado', 'Tu publicación se actualizó.');
-      navigation.goBack();
+      // OJO: no usamos `goBack()` a secas. `AdopcionDetail` vive en el stack
+      // RAÍZ (link público `adopcion/:id`) y esta pantalla vive dentro del
+      // stack de la pestaña Adopción — al llegar acá con navegación anidada
+      // absoluta desde el detalle, ese `AdopcionDetail` deja de estar en el
+      // historial del stack raíz, así que un `goBack()` termina en la pestaña
+      // Adopción (o en Inicio), no en el detalle. Se navega explícito de
+      // vuelta, y `AdopcionDetailScreen` refresca al recuperar el foco.
+      navigation.navigate('AdopcionDetail', { id: adoption.id });
     } catch (e: any) {
       notify('No se pudo guardar', mensajeDeErrorDb(e));
     } finally {

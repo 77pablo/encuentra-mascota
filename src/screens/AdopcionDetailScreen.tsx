@@ -109,7 +109,13 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
 
   useEffect(() => {
     cargar();
-  }, [cargar]);
+    // Refresca al recuperar el foco: mismo motivo que pistas/novedades en
+    // PetDetailScreen — al volver de editar la publicación (pulido), la
+    // pantalla debe mostrar los datos frescos sin depender de que
+    // `navigation.navigate` remonte el componente.
+    const off = navigation.addListener('focus', cargar);
+    return off;
+  }, [navigation, cargar]);
 
   // Nombre público de quien publicó, para la firma "Responde …" de las
   // preguntas contestadas. Silencioso: si no se puede leer, no se muestra.
