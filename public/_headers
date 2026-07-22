@@ -1,3 +1,6 @@
+# ⚠️ Con _worker.js desplegado (advanced mode) este archivo NO rige; el worker
+# asume este rol. Se conserva como rollback: borrar dist/_worker.js y re-subir.
+#
 # Cabeceras de seguridad para el hosting (Netlify las lee de este archivo).
 #
 # Nota sobre CSP: NO ponemos Content-Security-Policy todavía. La app carga el

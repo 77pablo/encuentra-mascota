@@ -1,3 +1,6 @@
+# ⚠️ Con _worker.js desplegado (advanced mode) este archivo NO rige; el worker
+# asume este rol. Se conserva como rollback: borrar dist/_worker.js y re-subir.
+#
 # La app es una SPA: todas las rutas las resuelve React Navigation en el cliente.
 # Sin esta regla, entrar directo a "/mascota/<id>" (el link compartido, el QR del
 # afiche y el botón de los correos de aviso) devuelve 404 en vez de abrir la app.
