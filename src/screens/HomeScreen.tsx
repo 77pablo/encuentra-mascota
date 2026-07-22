@@ -7,6 +7,7 @@ import { countReunidas, Pet } from '../services/pets';
 import { buscarReportes, contarReportesEnComuna } from '../services/busqueda';
 import { listFinalesFelices } from '../services/reunions';
 import { getMyProfile } from '../services/profile';
+import { getImpacto, Impacto } from '../services/impacto';
 import { comunaDeCoords } from '../lib/comunas';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
@@ -38,6 +39,7 @@ export default function HomeScreen({ navigation }: any) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState(0);
   const [finales, setFinales] = useState<Pet[]>([]);
+  const [impacto, setImpacto] = useState<Impacto | null>(null);
   const [nombrePerfil, setNombrePerfil] = useState<string | null>(null);
   const [comunaInicio, setComunaInicio] = useState<string | null>(null);
   const [comunaCount, setComunaCount] = useState<number | null>(null);
@@ -61,12 +63,16 @@ export default function HomeScreen({ navigation }: any) {
       countReunidas(),
       listFinalesFelices(6).catch(() => [] as Pet[]),
       user ? getMyProfile(user.id).catch(() => null) : Promise.resolve(null),
+      // Tarjeta de impacto: agregados globales, decorativa. Si la RPC 0039
+      // aún no está aplicada o falla por lo que sea, se oculta sola.
+      getImpacto().catch(() => null),
     ])
-      .then(([activePets, count, finalesFelices, perfil]) => {
+      .then(([activePets, count, finalesFelices, perfil, impactoData]) => {
         setPets(activePets);
         setReunidas(count);
         setFinales(finalesFelices);
         setNombrePerfil(perfil?.nombre?.trim() || null);
+        setImpacto(impactoData);
       })
       .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
@@ -113,6 +119,10 @@ export default function HomeScreen({ navigation }: any) {
 
   // Ya vienen ordenadas de más nueva a más vieja; solo tomamos las primeras
   // y, si tenemos ubicación, les calculamos la distancia (sin reordenar).
+  const hasImpacto =
+    !!impacto &&
+    (impacto.reencuentros > 0 || impacto.buscando > 0 || impacto.adopciones > 0 || impacto.aportes > 0);
+
   const topPets = pets.slice(0, RECIENTES_LIMIT);
   const recientes: { pet: Pet; distanceKm?: number }[] = location.coords
     ? topPets.map((p) => ({
@@ -328,6 +338,53 @@ export default function HomeScreen({ navigation }: any) {
               })}
             </ScrollView>
           </View>
+        ) : null}
+
+        {/* Tarjeta de impacto de la comunidad: agregados globales, sin datos
+            personales, visible para invitado y autenticado. Solo aparece si
+            hay algo que mostrar (algún número > 0). */}
+        {hasImpacto ? (
+          <Card style={styles.impactoCard}>
+            <Title size={16}>Lo que logramos juntos</Title>
+            <View style={styles.impactoGrid}>
+              <View style={styles.impactoItem}>
+                <Ionicons name="heart" size={18} color={colors.found} />
+                <AppText weight="bold" size={20} style={styles.impactoNumero}>
+                  {impacto!.reencuentros}
+                </AppText>
+                <AppText muted size={12}>
+                  reencuentros
+                </AppText>
+              </View>
+              <View style={styles.impactoItem}>
+                <Ionicons name="paw" size={18} color={colors.brand} />
+                <AppText weight="bold" size={20} style={styles.impactoNumero}>
+                  {impacto!.buscando}
+                </AppText>
+                <AppText muted size={12}>
+                  mascotas buscando
+                </AppText>
+              </View>
+              <View style={styles.impactoItem}>
+                <Ionicons name="home-outline" size={18} color={colors.found} />
+                <AppText weight="bold" size={20} style={styles.impactoNumero}>
+                  {impacto!.adopciones}
+                </AppText>
+                <AppText muted size={12}>
+                  encontraron familia
+                </AppText>
+              </View>
+              <View style={styles.impactoItem}>
+                <Ionicons name="people-outline" size={18} color={colors.brand} />
+                <AppText weight="bold" size={20} style={styles.impactoNumero}>
+                  {impacto!.aportes}
+                </AppText>
+                <AppText muted size={12}>
+                  aportes de vecinos
+                </AppText>
+              </View>
+            </View>
+          </Card>
         ) : null}
 
         {/* Sección "cerca de ti" */}
@@ -592,5 +649,21 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   heartButton: {
     padding: spacing.xs,
+  },
+  impactoCard: {
+    gap: spacing.md,
+  },
+  impactoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  impactoItem: {
+    width: '50%',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.xs,
+  },
+  impactoNumero: {
+    marginTop: 2,
   },
 });
