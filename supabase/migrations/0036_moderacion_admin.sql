@@ -15,7 +15,7 @@ alter table public.profiles add column if not exists suspendido_en timestamptz;
 alter table public.denuncias add column if not exists estado text not null default 'pendiente'
   check (estado in ('pendiente','resuelta','descartada'));
 alter table public.denuncias add column if not exists resuelto_en timestamptz;
-alter table public.denuncias add column if not exists resuelto_por uuid references public.profiles(id);
+alter table public.denuncias add column if not exists resuelto_por uuid references public.profiles(id) on delete set null;
 alter table public.denuncias add column if not exists accion text;
 create index if not exists denuncias_estado_idx on public.denuncias (estado, creado_en);
 
