@@ -10,7 +10,7 @@
 
 // Pantallas que ya existen en la app y a las que un paso puede navegar. Si un
 // enlace apuntaría a algo que aún no existe, el paso queda como texto sin acción.
-export const RUTAS_GUIA = ['Publicar', 'Explorar'] as const;
+export const RUTAS_GUIA = ['Publicar', 'Explorar', 'Ayuda'] as const;
 
 export type RutaGuia = (typeof RUTAS_GUIA)[number];
 
@@ -80,6 +80,10 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
       'Pregunta si llegó una mascota con sus señas y deja tu contacto por si aparece. ' +
       'Si tiene chip, ten el número a mano: en una veterinaria pueden leerlo y dar ' +
       'contigo. Vuelve a llamar los días siguientes; a veces llegan después.',
+    accion: {
+      label: 'Ver veterinarias y refugios',
+      ruta: 'Ayuda',
+    },
   },
   {
     id: 'revisa-avistamientos',
