@@ -12,6 +12,8 @@ export type OrdenAdopcion = 'recientes' | 'cerca';
 export interface FiltrosAdopcion {
   especie?: 'perro' | 'gato' | 'otro' | null;
   tamano?: 'chico' | 'mediano' | 'grande' | null;
+  // Filtro por comuna (F5, migración 0033). `null`/ausente = todas las comunas.
+  comuna?: string | null;
   lat?: number | null;
   lng?: number | null;
   radioKm?: number | null;
@@ -56,6 +58,7 @@ export async function buscarAdopciones(
   const { data, error } = await supabase.rpc('buscar_adopciones', {
     p_especie: filtros.especie ?? null,
     p_tamano: filtros.tamano ?? null,
+    p_comuna: filtros.comuna ?? null,
     p_lat: filtros.lat ?? null,
     p_lng: filtros.lng ?? null,
     p_radio_km: filtros.radioKm ?? null,
