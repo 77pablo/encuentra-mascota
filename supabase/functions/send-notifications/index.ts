@@ -7,6 +7,7 @@ import {
   resolverDestinatarios,
   ZonaAlerta,
 } from './notifyTargets.ts';
+import { enviarWebPush } from '../_shared/webpush.ts';
 
 // DESPACHADOR DE AVISOS
 //
@@ -127,7 +128,11 @@ async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: s
   return false;
 }
 
-// Manda el push por la API de Expo a todos los tokens del destinatario.
+// Manda el push por la API de Expo a todos los tokens del destinatario Y,
+// además, Web Push (VAPID) a sus suscripciones de navegador. Un solo canal
+// "push" para quien llama a `procesar()`: la persona que recibe el aviso no
+// tiene por qué saber (ni le importa) si le llegó por Expo o por el
+// navegador, y las preferencias (`canalPush`) son una sola.
 async function enviarPush(
   supabase: Supa,
   userId: string,
@@ -135,6 +140,9 @@ async function enviarPush(
   cuerpo: string,
   ruta: string,
 ): Promise<boolean> {
+  let enviado = false;
+
+  // --- Expo (app nativa instalada) -----------------------------------------
   const { data: tokens } = await supabase.from('push_tokens').select('token').eq('user_id', userId);
   const mensajes = ((tokens ?? []) as Array<{ token: string }>).map((t) => ({
     to: t.token,
@@ -142,15 +150,51 @@ async function enviarPush(
     body: cuerpo,
     data: { ruta },
   }));
-  if (mensajes.length === 0) return false;
+  if (mensajes.length > 0) {
+    const res = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mensajes),
+    });
+    // Esto SÍ propaga: un fallo de la API de Expo es un fallo real del canal
+    // que ya existía, y `procesar()` lo necesita para reintentar el evento.
+    if (!res.ok) throw new Error(`Expo push respondió ${res.status}`);
+    enviado = true;
+  }
 
-  const res = await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(mensajes),
-  });
-  if (!res.ok) throw new Error(`Expo push respondió ${res.status}`);
-  return true;
+  // --- Web Push (VAPID), best-effort ---------------------------------------
+  // A propósito NUNCA lanza ni tumba el envío por Expo de arriba:
+  // `enviarWebPush` ya atrapa sus propios errores (ver _shared/webpush.ts), y
+  // acá directo se ignora cualquier suscripción que falle — es un canal
+  // adicional, no reemplaza al de Expo. Sin las tres variables de entorno
+  // (proyecto sin Web Push configurado todavía) se salta en silencio, igual
+  // que el correo cuando no hay proveedor configurado (ver `enviarCorreo`).
+  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  const vapidSubject = Deno.env.get('VAPID_SUBJECT');
+  if (vapidPublicKey && vapidPrivateKey && vapidSubject) {
+    const { data: webSubs } = await supabase
+      .from('web_push_subscriptions')
+      .select('endpoint, p256dh, auth')
+      .eq('user_id', userId);
+    for (const s of (webSubs ?? []) as Array<{ endpoint: string; p256dh: string; auth: string }>) {
+      const r = await enviarWebPush(
+        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
+        { title: titulo, body: cuerpo, ruta },
+        { publicKey: vapidPublicKey, privateKey: vapidPrivateKey, subject: vapidSubject },
+      );
+      if (r.gone) {
+        // El navegador ya no tiene esa suscripción (desinstaló, limpió datos
+        // del sitio, etc.): se borra para no reintentar contra un endpoint
+        // muerto en cada aviso futuro.
+        await supabase.from('web_push_subscriptions').delete().eq('endpoint', s.endpoint);
+      } else if (r.ok) {
+        enviado = true;
+      }
+    }
+  }
+
+  return enviado;
 }
 
 // Arma el contexto que necesita `resolverDestinatarios`: dueño y nombre del
