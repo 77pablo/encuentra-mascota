@@ -43,8 +43,13 @@ as $$
     end
   );
 $$;
-revoke all on function public._denunciado_de(text, uuid, uuid, uuid) from public, anon;
-grant execute on function public._denunciado_de(text, uuid, uuid, uuid) to authenticated;
+-- No se concede execute a nadie (ni anon ni authenticated): solo la llaman
+-- moderacion_bandeja() y moderar_suspender(), ambas security definer, que
+-- corren la llamada interna con el rol del owner sin importar los grants del
+-- cliente. Un grant a authenticated permitiria invocarla directo via
+-- supabase.rpc('_denunciado_de', ...) y leer messages.from_user (u otros
+-- user_id) de cualquier denuncia ajena, saltandose la RLS de mensajes.
+revoke all on function public._denunciado_de(text, uuid, uuid, uuid) from public, anon, authenticated;
 
 drop function if exists public.moderacion_bandeja();
 create function public.moderacion_bandeja()
