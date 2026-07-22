@@ -9,23 +9,21 @@ import { Image, StyleSheet, View } from 'react-native';
 import { AppText } from '../ui/AppText';
 import { lightColors, font, spacing } from '../theme';
 import QrCode from './QrCode';
-import { Pet } from '../services/pets';
-import { tarjetaTextos } from '../lib/tarjeta';
-import { petUrl } from '../lib/links';
+import { DatosTarjeta } from '../lib/tarjeta';
 import { fotoParaCaptura } from '../lib/aficheImage';
 
-// Tarjeta compartible del reporte: se rasteriza a PNG para WhatsApp/redes, así
-// que SIEMPRE debe quedar en paleta clara (misma regla que AfichePoster/
+// Tarjeta compartible: se rasteriza a PNG para WhatsApp/redes, así que
+// SIEMPRE debe quedar en paleta clara (misma regla que AfichePoster/
 // CollarTag para assets compartibles/imprimibles), nunca según el tema del
-// dispositivo/usuario.
+// dispositivo/usuario. Genérica (F3+F4): recibe el shape `DatosTarjeta` ya
+// armado (ver `datosDeReporte`/`datosDeAdopcion`/`datosDeFinalFeliz` en
+// `src/lib/tarjeta.ts`), no conoce `Pet` ni `Adoption`.
 const colors = lightColors;
 
 const LADO = 1080;
-const BANDA_PERDIDA = '#C62828';
-const BANDA_ENCONTRADA = '#2E7D32';
 
 export interface TarjetaCompartirProps {
-  pet: Pet;
+  datos: DatosTarjeta;
   // Se dispara UNA vez cuando la tarjeta ya está lista para capturar (la
   // foto cargó, falló, o no había foto). Encapsula acá la misma espera que
   // usa AficheGenerator para el afiche, para que las pantallas que ofrecen
@@ -33,10 +31,8 @@ export interface TarjetaCompartirProps {
   onListo?: () => void;
 }
 
-export default function TarjetaCompartir({ pet, onListo }: TarjetaCompartirProps) {
-  const { banda, titulo, subtitulo, esPerdida } = tarjetaTextos(pet);
-  const url = petUrl(pet.id);
-  const bandaColor = esPerdida ? BANDA_PERDIDA : BANDA_ENCONTRADA;
+export default function TarjetaCompartir({ datos, onListo }: TarjetaCompartirProps) {
+  const { banda, bandaColor, titulo, subtitulo, qrUrl } = datos;
   const [foto, setFoto] = useState<string | null | undefined>(undefined); // undefined = resolviendo
   const disparado = useRef(false);
 
@@ -45,7 +41,7 @@ export default function TarjetaCompartir({ pet, onListo }: TarjetaCompartirProps
   // captura). Ver src/lib/aficheImage.ts.
   useEffect(() => {
     let vivo = true;
-    const original = pet.fotos?.[0] ?? null;
+    const original = datos.fotoUrl;
     fotoParaCaptura(original)
       .then((f) => vivo && setFoto(f))
       .catch(() => vivo && setFoto(original));
@@ -103,7 +99,7 @@ export default function TarjetaCompartir({ pet, onListo }: TarjetaCompartirProps
           {subtitulo ? <AppText style={styles.subtitulo}>{subtitulo}</AppText> : null}
         </View>
         <View style={styles.qrWrap}>
-          <QrCode value={url ?? 'https://encuentratumascota.app'} size={130} />
+          <QrCode value={qrUrl ?? 'https://encuentratumascota.app'} size={130} />
         </View>
       </View>
 

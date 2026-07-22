@@ -1,4 +1,4 @@
-import { Pet } from '../services/pets';
+import { DatosTarjeta } from './tarjeta';
 
 // Solo lo que compartirTarjeta.ts toca de react-native: `Platform.OS`. Se fija
 // en 'web' para poder ejercer la rama de la Web Share API sin pasar por el
@@ -13,39 +13,24 @@ jest.mock('./notify', () => ({
   notify: jest.fn(),
 }));
 
-import { compartirTarjeta, dataUriAFile, nombreArchivo } from './compartirTarjeta';
+import { compartirTarjeta, dataUriAFile } from './compartirTarjeta';
 import { notify } from './notify';
 
-function pet(over: Partial<Pet> = {}): Pet {
+// `nombreArchivo` ya no es una función propia de este módulo: llega armado
+// dentro de `DatosTarjeta` (ver `datosDeReporte`/`datosDeAdopcion`/
+// `datosDeFinalFeliz` en `./tarjeta.ts`, con sus propios tests).
+function datos(over: Partial<DatosTarjeta> = {}): DatosTarjeta {
   return {
-    id: 'pet-1',
-    user_id: 'u',
-    estado: 'perdida',
-    especie: 'perro',
-    raza: null,
-    nombre: null,
-    descripcion: '',
-    fotos: [],
-    lat: -33.45,
-    lng: -70.66,
-    recompensa: null,
-    activo: true,
-    oculto: false,
-    creado_en: '2026-01-01T00:00:00Z',
+    banda: 'PERDIDA EN MAIPÚ',
+    bandaColor: '#C62828',
+    titulo: 'Luna',
+    subtitulo: 'Perro · Quiltro',
+    fotoUrl: null,
+    qrUrl: 'https://encuentratumascota.app/mascota/pet-1',
+    nombreArchivo: 'mascota-pet-1.png',
     ...over,
   };
 }
-
-describe('nombreArchivo', () => {
-  it('usa el id de la mascota y termina en .png', () => {
-    expect(nombreArchivo({ id: 'abc123' })).toBe('mascota-abc123.png');
-  });
-
-  it('cambia con el id', () => {
-    expect(nombreArchivo({ id: 'x' })).toBe('mascota-x.png');
-    expect(nombreArchivo({ id: 'y' })).toBe('mascota-y.png');
-  });
-});
 
 describe('dataUriAFile', () => {
   it('arma un File con el nombre pedido, el mime del data-uri y su contenido', () => {
@@ -78,7 +63,7 @@ describe('compartirTarjeta — cancelación del share sheet', () => {
       throw Object.assign(new Error('cancelado'), { name: 'AbortError' });
     });
 
-    const resultado = await compartirTarjeta({}, pet());
+    const resultado = await compartirTarjeta({}, datos());
 
     expect(resultado).toBe('cancelada');
     expect(notify).not.toHaveBeenCalled();
@@ -90,7 +75,7 @@ describe('compartirTarjeta — cancelación del share sheet', () => {
       throw new Error('boom');
     });
 
-    const resultado = await compartirTarjeta({}, pet());
+    const resultado = await compartirTarjeta({}, datos());
 
     expect(resultado).toBe('error');
     expect(notify).toHaveBeenCalledWith('No se pudo compartir', 'Probá de nuevo en un momento.');
@@ -100,7 +85,7 @@ describe('compartirTarjeta — cancelación del share sheet', () => {
     (navigator as any).canShare = jest.fn(() => true);
     (navigator as any).share = jest.fn(async () => undefined);
 
-    const resultado = await compartirTarjeta({}, pet());
+    const resultado = await compartirTarjeta({}, datos());
 
     expect(resultado).toBe('compartida');
     expect(notify).not.toHaveBeenCalled();

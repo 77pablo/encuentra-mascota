@@ -32,6 +32,7 @@ import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
 import AficheGenerator from '../components/AficheGenerator';
 import TarjetaGenerador from '../components/TarjetaGenerador';
+import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
 import { faltaWhatsapp } from '../lib/afiche';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
@@ -990,7 +991,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
         )}
 
         {compartiendoTarjeta && (
-          <TarjetaGenerador pet={pet} onFin={() => setCompartiendoTarjeta(false)} />
+          <TarjetaGenerador datos={datosDeReporte(pet)} onFin={() => setCompartiendoTarjeta(false)} />
         )}
       </ScrollView>
       <Confetti visible={mostrarConfetti} onDone={() => setMostrarConfetti(false)} />

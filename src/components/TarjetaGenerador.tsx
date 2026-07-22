@@ -2,10 +2,10 @@ import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import TarjetaCompartir from './TarjetaCompartir';
 import { compartirTarjeta } from '../lib/compartirTarjeta';
-import { Pet } from '../services/pets';
+import { DatosTarjeta } from '../lib/tarjeta';
 
 export interface TarjetaGeneradorProps {
-  pet: Pet;
+  datos: DatosTarjeta;
   // Se dispara cuando ya se intentó compartir (compartida, descargada,
   // cancelada o con error): la pantalla que lo monta lo usa para desmontarse.
   onFin: () => void;
@@ -14,20 +14,20 @@ export interface TarjetaGeneradorProps {
 // Contenedor de "Compartir tarjeta" (equivalente a AficheGenerator para el
 // afiche): dueño del ref, del montaje off-screen de TarjetaCompartir y de la
 // captura + compartir. Antes esto estaba duplicado entero en PetDetailScreen
-// y PublishScreen; ahora ambas pantallas solo montan este componente cuando
-// quieren ofrecer la tarjeta.
-export default function TarjetaGenerador({ pet, onFin }: TarjetaGeneradorProps) {
+// y PublishScreen; ahora las pantallas (reporte, adopción, final feliz) solo
+// arman el `DatosTarjeta` correspondiente y montan este componente.
+export default function TarjetaGenerador({ datos, onFin }: TarjetaGeneradorProps) {
   const tarjetaRef = useRef<View>(null);
 
   const onListo = async () => {
-    await compartirTarjeta(tarjetaRef.current, pet);
+    await compartirTarjeta(tarjetaRef.current, datos);
     onFin();
   };
 
   return (
     <View style={styles.offscreen} pointerEvents="none">
       <View ref={tarjetaRef} collapsable={false}>
-        <TarjetaCompartir pet={pet} onListo={onListo} />
+        <TarjetaCompartir datos={datos} onListo={onListo} />
       </View>
     </View>
   );
