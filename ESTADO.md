@@ -1,5 +1,31 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-22 — 3 mejoras de comunidad + arreglos de UX
+
+Spec en `docs/superpowers/specs/2026-07-22-mejoras-comunidad-design.md`. `tsc` limpio, **550
+tests**. Fusionado en `feat/mvp-encuentra-mascota`. Modo oscuro queda para una tanda aparte
+(refactor transversal del sistema de colores).
+
+- **🏥 Ayuda rápida (`AyudaScreen`):** en vez de una lista curada que se desactualiza, abre el
+  mapa del teléfono con la búsqueda hecha (veterinarias / urgencia 24h / refugios, vía
+  `Linking` + `src/lib/mapas.ts`) + recursos nacionales (Registro Nacional de Mascotas) + qué
+  tener a mano. Enlazada desde la guía "recién se me perdió" (paso de vets) y desde Perfil.
+- **👋 Onboarding (`OnboardingScreen`):** 4 slides de bienvenida solo en el primer arranque
+  (flag local en `src/lib/onboarding.ts`; gate en `RootNavigator`). Saltable. Verificado en
+  vivo (aparece, se cierra a Inicio).
+- **🏡 "Volvieron a casa" (`VolvieronACasaScreen`):** galería completa de reencuentros
+  (foto + historia `final_feliz`), con "Ver todas" desde la tira de Inicio.
+
+**Arreglos de UX de esta sesión (feedback de Pablo):**
+- **Botón de volver** en las pantallas empujadas al stack raíz que no eran tab y quedaban sin
+  volver (`Mensajes`/`AdopcionDetail`/`MascotaPublica`/`Collar`).
+- **Filtros colapsables en Explorar:** botón "⚙ Filtros" (con contador) que despliega/oculta
+  el panel de chips; cerrado por defecto (antes eran 6 filas siempre visibles).
+- **`SafeAreaProvider` en la raíz** (`App.tsx`): el onboarding se renderiza fuera del
+  `NavigationContainer`; sin esto `<Screen>` reventaba con "No safe area value available".
+- ⚠️ **Falta subir la web** (drag-and-drop de `dist` a Cloudflare); el `dist` se regenera con
+  `npx expo export --platform web` (recordar borrar `dist/borrar-cuenta` hasta tener el correo).
+
 ## 🗓️ SESIÓN 2026-07-21 (noche 2) — Navegación de 5 pestañas (tab bar apretado)
 
 Con la 8ª pestaña (Adopción) el tab bar quedó apretado. Se pasó a **5 pestañas**
