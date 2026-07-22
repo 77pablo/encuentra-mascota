@@ -34,10 +34,6 @@ export const darkColors: typeof lightColors = {
 
 export type Colors = typeof lightColors;
 
-// ALIAS TEMPORAL (se quita en la Tarea 8 del plan de modo oscuro). Existe solo
-// para que la app siga compilando mientras se convierten las pantallas al hook
-// `useColors()`. Cuando se elimine, `tsc` marcará lo que falte convertir.
-export const colors = lightColors;
 
 export const radius = { sm: 12, md: 16, lg: 20, pill: 999 };
 
