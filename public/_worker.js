@@ -207,10 +207,12 @@ async function manejarFetch(request, env) {
     url.pathname.startsWith('/borrar-cuenta/')
   ) {
     const respAsset = await env.ASSETS.fetch(request);
-    if (url.pathname.startsWith('/_expo/static/')) {
+    if (url.pathname.startsWith('/_expo/static/') && respAsset.ok) {
       // Rol que cumplía public/_headers (deja de aplicar solo en advanced
       // mode): assets con hash en el nombre no cambian nunca, se cachean para
-      // siempre. Cloudflare no lo agrega solo.
+      // siempre. Cloudflare no lo agrega solo. Solo sobre respuestas OK: un
+      // 404 (bundle viejo pedido por HTML viejo) con immutable de un año
+      // dejaría al navegador cacheando el error.
       const headers = new Headers(respAsset.headers);
       headers.set('Cache-Control', 'public, max-age=31536000, immutable');
       return new Response(respAsset.body, { status: respAsset.status, statusText: respAsset.statusText, headers });
