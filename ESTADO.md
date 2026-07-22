@@ -78,7 +78,7 @@ duplicado también choca con el índice único.
    `import()` de expo-sharing — los DOS archivos en `_expo/static/js/web/` son correctos),
    `borrar-cuenta` quitado, `_headers`/`_redirects` presentes.
 
-**⚠️ LO ÚNICO PENDIENTE: subir la web** — drag-and-drop de `dist` a Cloudflare (manual de
+**✅ WEB SUBIDA (22-jul, Pablo)** — verificada en produccion: bundle `index-084db396…` servido, ruteo SPA 200, chunk de expo-sharing 200, cabeceras de seguridad presentes, onboarding aparece en primer arranque y al saltarlo estan las 5 pestañas + guia nueva, 0 errores JS. Instrucciones originales: — drag-and-drop de `dist` a Cloudflare (manual de
 Pablo): Deployments → Create new deployment → rama `main` → arrastrar la carpeta `dist`.
 Sube TODO lo acumulado: adopción, 5 pestañas, modo oscuro y esta tanda.
 **Tras subir, probar en el navegador de verdad:** que la TARJETA salga con la FOTO (en headless
