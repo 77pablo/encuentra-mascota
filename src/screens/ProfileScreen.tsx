@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { timeAgo } from '../lib/time';
+import { InstalarAppCard } from '../components/InstalarAppCard';
 import { AppText, Badge, Button, Card, Chip, Confetti, EmptyState, Input, Mascota, Screen, Title } from '../ui';
 import { radius, spacing } from '../theme';
 import type { Colors } from '../theme';
@@ -568,6 +569,10 @@ export default function ProfileScreen({ navigation }: any) {
           icon="help-buoy-outline"
           onPress={() => navigation.navigate('Ayuda')}
         />
+
+        {/* Entrada fija (no descartable) para instalar la PWA: web-only,
+            se oculta sola si ya está instalada. */}
+        <InstalarAppCard variante="fila" />
 
         <AppText weight="bold" size={14} style={styles.apparienceLabel}>
           Apariencia
