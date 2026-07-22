@@ -1,5 +1,85 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-22 (3) — Tanda de 6 funciones + pulido de adopción (4 agentes en paralelo)
+
+Spec `docs/superpowers/specs/2026-07-22-tanda-6funciones-pulido-design.md`, plan
+`docs/superpowers/plans/2026-07-22-tanda-6funciones-pulido.md`. Ejecutado subagent-driven con
+**4 implementadores en paralelo** (worktrees manuales `em-agente-a..d`, junction de node_modules,
+puertos 8092-8095) + revisión por rama + fixers + **revisión final de rama adversarial** + fix
+wave único. **700 tests / 69 suites, tsc limpio.** Fusionado en `feat/mvp-encuentra-mascota`
+(merges `67e6102` C → `2e22157` B → `fa5ca8f` D → `c02da2f` A; HEAD `b53cd70`).
+
+**Lo nuevo:**
+1. **Tarjeta compartible 1080×1080** (F1): `TarjetaCompartir` (vista pura, paleta CLARA fija) +
+   `TarjetaGenerador` (contenedor dueño de ref/captura/compartir, patrón AficheGenerator) +
+   `compartirTarjeta` (Web Share con archivo gateado por canShare → fallback descarga; nativo
+   expo-sharing; cancelar = silencio). Entradas: detalle + post-publicar. PNG verificado con
+   Pillow (1080×1080, banda "PERDIDA EN SANTIAGO").
+2. **Búsqueda guardada con aviso** (F2, mig `0031`): tabla con RLS solo-dueño, tope 5 (trigger),
+   índice único `busquedas_guardadas_unicas`, trigger `enqueue_busquedas_guardadas` (security
+   definer, `target_user_id`, dedup `distinct on`); CHECK de la cola con 6 tipos; notifyTargets
+   ×2 espejo (opt-in: no filtra por pref zona, sí canales); dispatcher con branch propio — e
+   incluye un fix real: **pedía las prefs del AUTOR en vez del buscador**. UI: botón "Avisarme
+   de esta búsqueda" en Explorar (requiere comuna + estado concreto) + "Mis búsquedas" en Perfil.
+3. **Preguntas públicas en adopciones** (F3, mig `0032`): 1 respuesta del dueño por pregunta,
+   grant columnar (update solo `respuesta`/`respondido_en`, patrón 0018), lectura hereda la RLS
+   de adoptions vía exists, moderarTexto en preguntar/responder, denuncias tipo
+   `'pregunta_adopcion'` (drop robusto por pg_constraint).
+4. **Guía "encontré una mascota"** (F4): espejo de la de perdida, 7 pasos, CTAs anidados
+   absolutos, tests de navegación NO tautológicos (leen los navigators reales con readFileSync).
+5. **Filtro por comuna en Adopción** (F5, mig `0033`): `buscar_adopciones` recreada (drop con
+   firma completa de 10 params) con `p_comuna`; cuerpo verificado VERBATIM contra la 0030 (el
+   cursor no se tocó); chip de comuna en el feed.
+6. **Carnet "Mi mascota"** (F6, mig `0034`): fecha_nacimiento + 3 próximas dosis (CHECKs con
+   fechas fijas, no current_date); libs puras `edadDesde`/`recordatorios` (hoy como parámetro);
+   formulario día/mes/año (patrón RegisterScreen, no hay DateTimePicker), carnet en la ficha,
+   banner en Mis mascotas e Inicio.
+7. **Pulido adopción:** `EditAdoptionScreen` (moderación también al editar; campos editables por
+   tipo; sin zombi: goBack+navigate, headerLeft custom, BackHandler, gestureEnabled:false,
+   `initial:false` al abrirlo), encabezado del chat de adopción → detalle (navigate pelado hacia
+   ARRIBA, correcto), y **push data.ruta**: `rutaANavegacion` (adopcion/mascota/mis-mascotas) +
+   listener nativo + **tap pendiente en arranque frío** (destino guardado y consumido en onReady).
+
+**Lo que cazó la revisión final (el patrón se repite):** 1 Critical — CTA muerto: la firma del
+autor de una pregunta navegaba a `PublicProfile` con nombre pelado desde el stack raíz (tercera
+vez que aparece esta clase de bug; fix = anidada absoluta). Además: 6 restricciones nuevas sin
+traducción en dbErrors; y **una regla de despliegue nueva**: la Edge Function `send-notifications`
+se redespliega **ANTES** de aplicar la 0031, porque el dispatcher viejo consume los eventos
+`busqueda_guardada` marcándolos `enviado` sin enviarlos (sin reintento). De la reconciliación
+del merge salió otro hallazgo: `navigate('Mapa')` post-publicar era un **destino muerto
+preexistente** desde las 5 pestañas → 'Explorar'.
+
+**Verificación visual pre-migración (Playwright, 7/7 PASA):** guía encontrada + preselección
+"Encontrada"; portero al publicar como invitado; tarjeta descargada y medida; degradaciones
+amables SIN jerga Postgres en Mis búsquedas y el feed de adopción (que falla a propósito hasta
+la 0033 porque el cliente ya manda p_comuna); carnet renderiza; modo oscuro OK en lo nuevo.
+⚠️ En headless la foto de la tarjeta no rasteriza (bloque verde) — mismo mecanismo del afiche
+que ya anda en prod; **confirmar con navegador real tras subir la web**.
+
+**Diferidos anotados (menores):** timeout de `fotoParaCaptura` sin race; tipos MyPet sin modelar
+`undefined` pre-migración; `crearEstilos` sin usar colors en GuardarBusquedaButton; copy "tu
+zona" con match solo por alcance; "Responde quien la publicó" vs "Un vecino"; 2 focus listeners
+en AdopcionDetail; el dueño puede preguntar en su propia adopción; mensaje del tope-5 cuando el
+duplicado también choca con el índice único.
+
+**⚠️ PENDIENTE (deploy, en ESTE orden):**
+1. Redesplegar `send-notifications` (ANTES de la 0031 — ver regla arriba). También conviene
+   redesplegar `send-push` (pendiente desde adopción: manda `data.ruta`).
+2. Aplicar migraciones `0031` → `0032` → `0033` → `0034` (API admin con PAT) + verificación
+   contra la base (ataques anon a preguntas/búsquedas, CHECK 6 tipos, firma de buscar_adopciones,
+   columnas carnet).
+3. Pase visual E2E post-migración (búsqueda guardada completa, preguntas, filtro comuna, carnet).
+4. Regenerar `dist` (`npx expo export --platform web`, borrar `dist/borrar-cuenta`) y
+   **drag-and-drop a Cloudflare (manual de Pablo)** — sube TODO lo acumulado: adopción, 5
+   pestañas, modo oscuro y esta tanda.
+
+**Infra/aprendizajes de la sesión:** los subagentes ya NO pueden escribir archivos de informe
+(política del harness) → los informes vuelven inline y el orquestador los persiste él mismo;
+`expo-font`/`expo-asset` y `@types/react-test-renderer` FALTAN en node_modules → los tests de
+componentes importan `../ui/AppText` directo (NO "arreglar" al barrel `../ui`: rompe jest) y hay
+un `src/types/react-test-renderer.d.ts` ambient; residuo en prod: una 2ª cuenta de prueba del
+agente C sin autoborrar (el CORS de delete-account bloquea localhost — correcto en prod).
+
 ## 🗓️ SESIÓN 2026-07-22 (2) — Modo oscuro (refactor transversal)
 
 Spec/plan en `docs/superpowers/*/2026-07-22-modo-oscuro*`. Ejecutado **subagent-driven** (infra
