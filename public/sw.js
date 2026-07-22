@@ -12,14 +12,18 @@
 //     vuelo la primera vez que se piden.
 //   - `activate` borra cachés de versiones viejas SIEMPRE, para no acumular
 //     basura ni servir contenido obsoleto por error.
-//   - Sin push, sin background sync: no corresponde en esta tanda.
+//   - Sin background sync: no corresponde en esta tanda.
+//   - Push (desde v3): SÍ maneja `push`/`notificationclick` para Web Push
+//     real (VAPID). Quien manda ese push es `enviarWebPush` en
+//     supabase/functions/_shared/webpush.ts. No usa Cache Storage para nada
+//     de esto — es un canal aparte, no una estrategia de caché.
 //
 // IMPORTANTE — subir VERSION en cada cambio de este archivo (invalida las
 // cachés viejas en el próximo activate de cada usuario). Los bundles de
 // /_expo/static/* son hasheados (si cambian, cambian de nombre), pero se
 // cachean al vuelo en cache-first; se recorta a un tope de 60 entradas
 // por caché para acotar la cuota (ver cacheFirst()).
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE_NAME = `emp-pwa-${VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -128,4 +132,59 @@ self.addEventListener('fetch', (event) => {
   if (estrategia === 'red-con-fallback') {
     event.respondWith(redConFallback(request));
   }
+});
+
+// --- Web Push (VAPID) -------------------------------------------------------
+// El payload lo arma `enviarWebPush` (supabase/functions/_shared/webpush.ts)
+// como JSON: { title, body, ruta }. `ruta` es relativa (p. ej. '/mascota/xyz')
+// y es la misma convención que ya usa el push de Expo (`data: { ruta }`).
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (_) {
+    // Un payload que no es JSON válido no debe tumbar el SW: se muestra un
+    // aviso genérico en vez de no mostrar nada.
+    payload = {};
+  }
+  const title = payload.title || 'Encuentra tu Mascota';
+  const body = payload.body || '';
+  const ruta = payload.ruta || '/';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      // Nombres reales en public/icons/ (ver icono-*.png; no hay icon-192.png).
+      icon: '/icons/icono-192.png',
+      badge: '/icons/icono-192.png',
+      data: { ruta },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const ruta = (event.notification.data && event.notification.data.ruta) || '/';
+  event.waitUntil(
+    (async () => {
+      // Si ya hay una pestaña de la app abierta, la reusamos (navegando a la
+      // ruta del aviso) en vez de abrir una pestaña nueva cada vez que llega
+      // un push y se toca.
+      const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of all) {
+        if ('focus' in c) {
+          // `navigate` puede no existir en todos los navegadores/versiones;
+          // si falla, igual enfocamos la pestaña (mejor eso que nada).
+          if ('navigate' in c) {
+            try {
+              await c.navigate(ruta);
+            } catch (_) {
+              // seguimos igual al focus de abajo
+            }
+          }
+          return c.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(ruta);
+    })(),
+  );
 });
