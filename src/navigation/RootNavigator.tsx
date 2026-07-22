@@ -19,7 +19,7 @@ import VolvieronACasaScreen from '../screens/VolvieronACasaScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import GuiaEncontradaScreen from '../screens/GuiaEncontradaScreen';
 import { getOnboardingVisto } from '../lib/onboarding';
-import { navigationRef } from '../lib/navigationRef';
+import { navigationRef, consumirDestinoPendiente } from '../lib/navigationRef';
 
 const Stack = createNativeStackNavigator();
 
@@ -98,7 +98,20 @@ export default function RootNavigator() {
     // `ref={navigationRef}` (pulido de la tanda 6): permite navegar desde
     // fuera de un componente, para el listener de push que consume
     // `data.ruta` (ver src/lib/pushSetup.ts, src/lib/rutaANavegacion.ts).
-    <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
+    // `onReady`: si ese listener se disparó ANTES de que este contenedor
+    // estuviera listo (arranque en frío, el caso más común al tocar un push),
+    // el destino quedó guardado como pendiente (navigationRef.ts) — acá se
+    // consume y se navega recién ahora que el árbol de navegación existe.
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      theme={navTheme}
+      onReady={() => {
+        const destino = consumirDestinoPendiente();
+        if (!destino) return;
+        (navigationRef as any).navigate(destino.name, destino.params);
+      }}
+    >
       <Stack.Navigator
         key={recovering ? 'recuperando' : 'normal'}
         screenOptions={{
