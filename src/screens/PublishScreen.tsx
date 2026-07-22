@@ -206,7 +206,7 @@ export default function PublishScreen({ navigation, route }: any) {
         navigation.navigate(quiereGuia ? 'GuiaPerdida' : 'Mapa');
       } else {
         notify('¡Publicado!', 'Tu reporte ya aparece en el mapa.');
-        navigation.navigate('Mapa');
+        navigation.navigate('Explorar');
       }
     } catch (e: any) {
       notify('No se pudo publicar', mensajeDeErrorDb(e));

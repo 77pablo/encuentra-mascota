@@ -10,7 +10,7 @@
 
 // Pantallas que ya existen en la app y a las que un paso puede navegar. Si un
 // enlace apuntaría a algo que aún no existe, el paso queda como texto sin acción.
-export const RUTAS_GUIA = ['Publicar', 'Comunidad'] as const;
+export const RUTAS_GUIA = ['Publicar', 'Explorar'] as const;
 
 export type RutaGuia = (typeof RUTAS_GUIA)[number];
 
@@ -70,7 +70,7 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
       'mejor aliado en las primeras horas.',
     accion: {
       label: 'Ir a mi comunidad',
-      ruta: 'Comunidad',
+      ruta: 'Explorar',
     },
   },
   {

@@ -4,7 +4,7 @@ import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import { useAuth } from '../hooks/useAuth';
-import TabNavigator from './TabNavigator';
+import TabNavigator, { MsgStack } from './TabNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
@@ -67,6 +67,10 @@ export default function RootNavigator() {
         initialRouteName={initialRouteName}
       >
         <Stack.Screen name="App" component={TabNavigator} />
+        {/* Mensajes dejó de ser pestaña: se abre desde el ícono de `MensajesButton`
+            (Inicio/Explorar/Adopción). Vive en el stack raíz para ser alcanzable
+            por nombre desde cualquier pestaña, igual que GuiaPerdida. */}
+        <Stack.Screen name="Mensajes" component={MsgStack} />
         <Stack.Screen name="MascotaPublica" component={PublicPetScreen} options={{ title: 'Reporte' }} />
         {/* Guía "recién se me perdió": se abre desde Inicio y tras publicar una
             perdida. Va en el stack raíz para ser alcanzable por nombre desde
