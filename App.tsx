@@ -8,6 +8,8 @@ import {
   HankenGrotesk_800ExtraBold,
 } from '@expo-google-fonts/hanken-grotesk';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { AuthProvider } from './src/hooks/useAuth';
 import { UnreadProvider } from './src/hooks/useUnread';
 import { FavoritesProvider } from './src/hooks/useFavorites';
@@ -33,19 +35,29 @@ export default function App() {
   }
 
   return (
-    // SafeAreaProvider en la RAÍZ: el onboarding se renderiza antes/fuera del
-    // NavigationContainer (que trae su propio provider), así que sin esto
-    // cualquier pantalla montada en el gate revienta con "No safe area value".
-    <SafeAreaProvider>
-      <AuthProvider>
-        <UnreadProvider>
-          <FavoritesProvider>
-            <AdoptionSavesProvider>
-              <RootNavigator />
-            </AdoptionSavesProvider>
-          </FavoritesProvider>
-        </UnreadProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    // ThemeProvider en la RAÍZ (por encima de todo): expone colores/esquema a la
+    // app entera, incluido el onboarding que se monta fuera del NavigationContainer.
+    // SafeAreaProvider también en la raíz por el mismo motivo (el gate de onboarding).
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <UnreadProvider>
+            <FavoritesProvider>
+              <AdoptionSavesProvider>
+                <RootNavigator />
+              </AdoptionSavesProvider>
+            </FavoritesProvider>
+          </UnreadProvider>
+        </AuthProvider>
+        <AppStatusBar />
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
+}
+
+// La StatusBar sigue el esquema (contenido claro sobre fondo oscuro y viceversa).
+// Va en su propio componente porque necesita estar DENTRO del ThemeProvider.
+function AppStatusBar() {
+  const { esquema } = useTheme();
+  return <StatusBar style={esquema === 'dark' ? 'light' : 'dark'} />;
 }
