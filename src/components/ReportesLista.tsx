@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import PetCard from './PetCard';
 import { EmptyState, ErrorState, Loading, Screen } from '../ui';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { useBusquedaReportes } from '../hooks/useBusquedaReportes';
 import { FiltrosBusqueda } from '../services/busqueda';
 
@@ -32,6 +34,8 @@ export default function ReportesLista({
   filtros: FiltrosBusqueda;
   navigation: any;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { reportes, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
     useBusquedaReportes(filtros);
 
@@ -88,7 +92,7 @@ export default function ReportesLista({
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   list: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,

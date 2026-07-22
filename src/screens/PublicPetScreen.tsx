@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -8,7 +8,8 @@ import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { timeAgo } from '../lib/time';
 import { AppText, AvisoEstafa, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -20,6 +21,8 @@ const especieLabel: Record<Pet['especie'], string> = {
 // compartido incluso sin haber iniciado sesión. No permite denunciar; en vez
 // de "Contactar" invita a iniciar sesión (o lleva al chat si ya hay sesión).
 export default function PublicPetScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const id: string | undefined = route?.params?.id;
   const { user } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
@@ -180,7 +183,7 @@ export default function PublicPetScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.sm,

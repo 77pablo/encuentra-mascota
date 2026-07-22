@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { abrirBusquedaMapa, abrirEnlace } from '../lib/mapas';
 
 // Ayuda rápida cuando alguien necesita actuar YA: abre el mapa del teléfono con
@@ -13,6 +14,11 @@ import { abrirBusquedaMapa, abrirEnlace } from '../lib/mapas';
 type Accion = { icono: keyof typeof Ionicons.glyphMap; titulo: string; sub: string; onPress: () => void };
 
 function Fila({ icono, titulo, sub, onPress }: Accion) {
+  // Subcomponente a nivel de módulo: no puede leer el `styles` de
+  // AyudaScreen (es local a ese componente), así que resuelve sus propios
+  // colores y estilos con el mismo `crearEstilos`.
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
       <Card style={styles.row}>
@@ -34,6 +40,8 @@ function Fila({ icono, titulo, sub, onPress }: Accion) {
 }
 
 export default function AyudaScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <Screen padded>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -101,7 +109,7 @@ export default function AyudaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     paddingBottom: spacing.xxl,
     gap: spacing.sm,

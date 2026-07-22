@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,9 +7,12 @@ import { listConversations, Conversation, paramsDeCtx } from '../services/messag
 import { useAuth } from '../hooks/useAuth';
 import { timeAgo } from '../lib/time';
 import { AppText, Card, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 export default function ConversationsScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +110,7 @@ export default function ConversationsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

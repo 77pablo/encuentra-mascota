@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { AppText } from './AppText';
 
 // El timo "tengo a tu mascota, transfiere la recompensa" esta documentado y
@@ -18,6 +21,8 @@ export const TEXTO_AVISO_ESTAFA = {
 } as const;
 
 export function AvisoEstafa({ variante }: { variante: keyof typeof TEXTO_AVISO_ESTAFA }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <View style={styles.caja}>
       <Ionicons name="shield-outline" size={15} color={colors.muted} style={styles.icono} />
@@ -28,16 +33,17 @@ export function AvisoEstafa({ variante }: { variante: keyof typeof TEXTO_AVISO_E
   );
 }
 
-const styles = StyleSheet.create({
-  caja: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.xs,
-    backgroundColor: colors.sky,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  icono: { marginTop: 1 },
-  texto: { flex: 1, lineHeight: 17 },
-});
+const crearEstilos = (colors: Colors) =>
+  StyleSheet.create({
+    caja: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.xs,
+      backgroundColor: colors.sky,
+      borderRadius: radius.md,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+    },
+    icono: { marginTop: 1 },
+    texto: { flex: 1, lineHeight: 17 },
+  });

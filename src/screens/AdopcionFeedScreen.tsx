@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, Chip, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
-import { colors, radius, shadow, spacing } from '../theme';
+import { radius, shadow, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { useBusquedaAdopciones } from '../hooks/useBusquedaAdopciones';
 import { AdopcionConDistancia, FiltrosAdopcion } from '../services/busquedaAdopciones';
 import { Adoption } from '../services/adoptions';
@@ -92,6 +93,8 @@ function AdoptionCard({
   onPress: () => void;
   onContact: () => void;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const { estaGuardada, alternar } = useAdoptionSaves();
   const requireAuth = useRequireAuth();
@@ -206,6 +209,8 @@ function AdoptionCard({
 }
 
 export default function AdopcionFeedScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [tamano, setTamano] = useState<TamanoFiltro>('todos');
   const [cercaDeMi, setCercaDeMi] = useState(false);
@@ -370,7 +375,7 @@ export default function AdopcionFeedScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,6 +433,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.55)',
   },
   dotActive: {
+    // sobre la foto: blanco fijo (card seria invisible en oscuro)
     backgroundColor: colors.white,
     width: 16,
   },

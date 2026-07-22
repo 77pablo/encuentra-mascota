@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { AppText, Title } from './AppText';
 import { Mascota } from './Mascota';
 
@@ -12,6 +13,7 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({ emoji, title, subtitle, illustration }: EmptyStateProps) {
+  const colors = useColors();
   return (
     <View style={styles.container}>
       {illustration ? (

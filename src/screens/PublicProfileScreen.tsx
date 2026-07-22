@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,8 @@ import { useAuth } from '../hooks/useAuth';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
 import { AppText, Badge, Button, Card, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -27,6 +28,8 @@ const especieLabel: Record<Pet['especie'], string> = {
 };
 
 export default function PublicProfileScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const userId: string | undefined = route.params?.userId;
   const { user } = useAuth();
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null);
@@ -375,7 +378,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingHorizontal: spacing.lg,

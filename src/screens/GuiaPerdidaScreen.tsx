@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import { GUIA_PERDIDA, GuiaPaso } from '../data/guiaPerdida';
 import { AppText, Button, Card, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Progreso de la checklist guardado SOLO en este dispositivo. Es una ayuda
 // visual, no dato sensible ni compartido, así que vive en el almacenamiento
@@ -46,6 +47,8 @@ async function guardarMarcados(ids: string[]): Promise<void> {
 }
 
 export default function GuiaPerdidaScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   // Arranca vacío para no bloquear el render; el progreso guardado llega
   // después (asíncrono) y, si falla, la guía queda igual con todo desmarcado.
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
@@ -165,7 +168,7 @@ export default function GuiaPerdidaScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.md,

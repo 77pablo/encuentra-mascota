@@ -8,7 +8,8 @@ import SeguirComunaButton from '../components/SeguirComunaButton';
 import MensajesButton from '../components/MensajesButton';
 import { Pet } from '../services/pets';
 import { AppText, Card, Chip, Input, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { desdeDeRango, RangoTiempo } from '../lib/petFilters';
@@ -51,6 +52,8 @@ const rangos: { key: RangoTiempo; label: string }[] = [
 const ESPERA_TIPEO_MS = 400;
 
 export default function ExplorarScreen({ navigation, route }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [estado, setEstado] = useState<Filtro>('todas');
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [cercaDeMi, setCercaDeMi] = useState(false);
@@ -231,7 +234,7 @@ export default function ExplorarScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',

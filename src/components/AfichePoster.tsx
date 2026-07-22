@@ -1,9 +1,14 @@
 import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { AppText } from '../ui';
-import { colors, font, radius, spacing } from '../theme';
+import { lightColors, font, radius, spacing } from '../theme';
 import QrCode from './QrCode';
 import { AficheContent } from '../lib/afiche';
+
+// Este afiche se rasteriza a PNG para imprimir: SIEMPRE debe quedar en paleta
+// clara, sin seguir el tema del sistema/usuario (si no, un afiche impreso
+// podría salir oscuro). Por eso usa `lightColors` fijo y no `useColors()`.
+const colors = lightColors;
 
 export interface AfichePosterProps {
   content: AficheContent;

@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { AppText } from './AppText';
 
 type Estado = 'perdida' | 'encontrada';
@@ -20,12 +22,17 @@ function isEstadoBadge(props: BadgeProps): props is EstadoBadgeProps {
   return (props as EstadoBadgeProps).estado !== undefined;
 }
 
-const estadoConfig: Record<Estado, { bg: string; label: string; emoji: string }> = {
+const getEstadoConfig = (
+  colors: Colors,
+): Record<Estado, { bg: string; label: string; emoji: string }> => ({
   perdida: { bg: colors.lost, label: 'PERDIDA', emoji: '🔴' },
   encontrada: { bg: colors.found, label: 'ENCONTRADA', emoji: '🟢' },
-};
+});
 
 export function Badge(props: BadgeProps) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
+  const estadoConfig = getEstadoConfig(colors);
   const { bg, label, emoji } = isEstadoBadge(props)
     ? { ...estadoConfig[props.estado], emoji: estadoConfig[props.estado].emoji }
     : { bg: props.color, label: props.label, emoji: '' };
@@ -39,14 +46,15 @@ export function Badge(props: BadgeProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    alignSelf: 'flex-start',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  label: {
-    letterSpacing: 0.5,
-  },
-});
+const crearEstilos = (colors: Colors) =>
+  StyleSheet.create({
+    badge: {
+      alignSelf: 'flex-start',
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+    },
+    label: {
+      letterSpacing: 0.5,
+    },
+  });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +6,8 @@ import { mascotaPorCollar, avisarEscaneoCollar, MascotaCollar } from '../service
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
 import { AppText, Button, Card, EmptyState, Input, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<MascotaCollar['especie'], string> = {
   perro: 'Perro',
@@ -20,6 +21,8 @@ const especieLabel: Record<MascotaCollar['especie'], string> = {
 // - Si no: página SOBRIA ("esta mascota tiene familia") + avisar que la vi.
 //   NUNCA muestra contacto ni identidad del dueño.
 export default function CollarScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const token: string | undefined = route?.params?.token;
   const [mascota, setMascota] = useState<MascotaCollar | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +181,7 @@ export default function CollarScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: { padding: spacing.xl, gap: spacing.md },
   foto: { width: '100%', height: 260, borderRadius: radius.md, backgroundColor: colors.sky },
   fotoPlaceholder: { alignItems: 'center', justifyContent: 'center' },

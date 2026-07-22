@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,9 +14,12 @@ import { notify } from '../../lib/notify';
 import { mensajeDeErrorAuth } from '../../lib/authErrors';
 import { volverAtras } from '../../lib/authReturn';
 import { AppText, Button, Card, Input, Mascota, Screen, Title } from '../../ui';
-import { colors, radius, spacing } from '../../theme';
+import { Colors, radius, spacing } from '../../theme';
+import { useColors } from '../../theme/ThemeProvider';
 
 export default function RegisterScreen({ navigation, route }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -210,7 +213,7 @@ export default function RegisterScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   flex: {
     flex: 1,
   },

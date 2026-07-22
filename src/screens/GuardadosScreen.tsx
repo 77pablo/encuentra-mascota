@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,7 +10,8 @@ import PetCard from '../components/PetCard';
 import { useAuth } from '../hooks/useAuth';
 import { useAdoptionSaves } from '../context/AdoptionSavesProvider';
 import { AppText, Card, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 const especieLabel: Record<Adoption['especie'], string> = {
   perro: 'Perro',
@@ -22,6 +23,8 @@ const especieLabel: Record<Adoption['especie'], string> = {
 // chica + info + corazón) pero para `Adoption` en vez de `Pet`, para que la
 // sección de adopciones se sienta igual que la de reportes guardados.
 function AdoptionSavedCard({ adoption, onPress }: { adoption: Adoption; onPress: () => void }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { estaGuardada, alternar } = useAdoptionSaves();
   const guardada = estaGuardada(adoption.id);
   return (
@@ -61,6 +64,8 @@ function AdoptionSavedCard({ adoption, onPress }: { adoption: Adoption; onPress:
 }
 
 export default function GuardadosScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const { guardadas } = useAdoptionSaves();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -169,7 +174,7 @@ export default function GuardadosScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   screenTitle: {
     marginTop: spacing.sm,
   },

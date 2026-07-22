@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +14,8 @@ import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords } from '../lib/comunas';
 import { AppText, Button, Card, Chip, Input, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Molde: PublishScreen (publicar un reporte). Mismas piezas — fotos, comuna
 // autosugerida, moderación de texto, casilla de confirmación de imagen sin
@@ -69,6 +70,8 @@ function OptionRow<T extends string>({
   value: T | null;
   onChange: (v: T | null) => void;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   return (
     <View style={styles.fieldBlock}>
       <AppText weight="semi" muted size={13} style={styles.fieldLabel}>
@@ -89,6 +92,8 @@ function OptionRow<T extends string>({
 }
 
 export default function PublicarAdopcionScreen({ navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro'>('perro');
   const [nombre, setNombre] = useState('');
@@ -424,7 +429,7 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.md,

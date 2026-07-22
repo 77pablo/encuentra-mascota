@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   KeyboardTypeOptions,
   StyleSheet,
@@ -7,7 +7,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font, radius, spacing } from '../theme';
+import { font, radius, spacing } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 import { AppText } from './AppText';
 
 export interface InputProps {
@@ -34,6 +36,8 @@ export function Input({
   icon,
 }: InputProps) {
   const [focused, setFocused] = useState(false);
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
 
   return (
     <View style={styles.wrapper}>
@@ -75,39 +79,40 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    marginBottom: spacing.xs,
-  },
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    minHeight: 52,
-  },
-  multilineContainer: {
-    minHeight: 100,
-    alignItems: 'flex-start',
-    paddingVertical: spacing.md,
-  },
-  icon: {
-    marginRight: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    fontFamily: font.body,
-    fontSize: 15,
-    color: colors.ink,
-    paddingVertical: spacing.md,
-  },
-  multilineInput: {
-    textAlignVertical: 'top',
-    paddingVertical: 0,
-  },
-});
+const crearEstilos = (colors: Colors) =>
+  StyleSheet.create({
+    wrapper: {
+      marginBottom: spacing.md,
+    },
+    label: {
+      marginBottom: spacing.xs,
+    },
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.lg,
+      minHeight: 52,
+    },
+    multilineContainer: {
+      minHeight: 100,
+      alignItems: 'flex-start',
+      paddingVertical: spacing.md,
+    },
+    icon: {
+      marginRight: spacing.sm,
+    },
+    input: {
+      flex: 1,
+      fontFamily: font.body,
+      fontSize: 15,
+      color: colors.ink,
+      paddingVertical: spacing.md,
+    },
+    multilineInput: {
+      textAlignVertical: 'top',
+      paddingVertical: 0,
+    },
+  });

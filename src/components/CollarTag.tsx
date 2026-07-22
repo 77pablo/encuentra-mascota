@@ -2,8 +2,13 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import QrCode from './QrCode';
 import { AppText } from '../ui';
-import { colors, font, radius, spacing } from '../theme';
+import { lightColors, font, radius, spacing } from '../theme';
 import { armarEtiquetaCollar, armarNombreArchivoCollar } from '../lib/collarTag';
+
+// Esta placa se rasteriza a PNG para imprimir: SIEMPRE debe quedar en paleta
+// clara, sin seguir el tema del sistema/usuario (si no, una placa impresa
+// podría salir oscura). Por eso usa `lightColors` fijo y no `useColors()`.
+const colors = lightColors;
 import { capturarAfiche, entregarAfiche } from '../lib/aficheImage';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { MyPet } from '../services/myPets';

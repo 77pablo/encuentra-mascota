@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -10,7 +10,8 @@ import { useAdoptionSaves } from '../context/AdoptionSavesProvider';
 import { confirmAction, notify } from '../lib/notify';
 import { timeAgo } from '../lib/time';
 import { AppText, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, type Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Molde: PetDetailScreen (detalle de un reporte). Misma mecánica general
 // (carrusel, "es mío", contactar, denunciar), pero más simple: no hay
@@ -54,6 +55,8 @@ const triLabel: Record<'si' | 'no' | 'no_se', string> = {
 };
 
 export default function AdopcionDetailScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { id } = route.params;
   const { user } = useAuth();
   const requireAuth = useRequireAuth();
@@ -436,7 +439,7 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.sm,
@@ -468,6 +471,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.55)',
   },
   dotActive: {
+    // sobre la foto: blanco fijo (card seria invisible en oscuro)
     backgroundColor: colors.white,
     width: 16,
   },

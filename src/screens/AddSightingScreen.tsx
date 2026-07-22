@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -10,12 +10,15 @@ import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { AppText, Button, Card, Input, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Pantalla para reportar "lo vi por acá": elegir el punto en el mapa (o usar mi
 // ubicación), una nota opcional y una foto opcional. El pin arranca en el punto
 // del reporte para que la persona lo mueva a donde vio a la mascota.
 export default function AddSightingScreen({ route, navigation }: any) {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { user } = useAuth();
   const { petId, petLat, petLng } = route.params;
   const location = useMyLocation();
@@ -189,7 +192,7 @@ export default function AddSightingScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.md,

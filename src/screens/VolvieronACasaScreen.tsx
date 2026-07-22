@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { FlatList, Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Pet } from '../services/pets';
@@ -6,7 +6,8 @@ import { listFinalesFelices } from '../services/reunions';
 import { reunionLabel } from '../lib/reunion';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { AppText, Card, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
-import { colors, radius, spacing } from '../theme';
+import { Colors, radius, spacing } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Galería completa de reencuentros ("final feliz"). La tira de Inicio muestra
 // unos pocos; acá se ven todos, con la historia que dejó el dueño. Esperanza +
@@ -21,6 +22,8 @@ const especieLabel: Record<Pet['especie'], string> = {
 const LIMITE = 50;
 
 export default function VolvieronACasaScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [finales, setFinales] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +104,7 @@ export default function VolvieronACasaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   list: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,

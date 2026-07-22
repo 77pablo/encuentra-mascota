@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Dimensions, Easing, Platform, StyleSheet, View } from 'react-native';
-import { colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 export interface ConfettiProps {
   visible: boolean;
@@ -9,7 +9,6 @@ export interface ConfettiProps {
 
 const PIECE_COUNT = 24;
 const DURATION = 1800;
-const PIECE_COLORS = [colors.brand, colors.sun, colors.lost, colors.found, colors.brandDark];
 
 // Los pares "es cuadrado / rota" alternan según el índice para que la
 // mezcla se vea variada sin depender de Math.random en el módulo.
@@ -24,7 +23,7 @@ interface Piece {
   square: boolean;
 }
 
-function buildPieces(width: number): Piece[] {
+function buildPieces(width: number, pieceColors: string[]): Piece[] {
   const pieces: Piece[] = [];
   for (let i = 0; i < PIECE_COUNT; i++) {
     const spread = width > 0 ? width : 360;
@@ -34,7 +33,7 @@ function buildPieces(width: number): Piece[] {
     const delay = (i % 8) * 90;
     const drift = ((i % 5) - 2) * 24;
     const size = 8 + (i % 4) * 3;
-    const color = PIECE_COLORS[i % PIECE_COLORS.length];
+    const color = pieceColors[i % pieceColors.length];
     const rotateEnd = i % 2 === 0 ? '380deg' : '-380deg';
     const square = i % 3 !== 0;
     pieces.push({ key: i, left, size, color, delay, drift, rotateEnd, square });
@@ -91,9 +90,14 @@ function ConfettiPiece({
 // externas. Se muestra como overlay a pantalla completa que nunca bloquea
 // toques (`pointerEvents="none"`).
 export function Confetti({ visible, onDone }: ConfettiProps) {
+  const colors = useColors();
   const { height, width } = Dimensions.get('window');
   const fallDistance = height > 0 ? height + 40 : 720;
-  const pieces = useMemo(() => buildPieces(width), [width]);
+  const pieceColors = useMemo(
+    () => [colors.brand, colors.sun, colors.lost, colors.found, colors.brandDark],
+    [colors],
+  );
+  const pieces = useMemo(() => buildPieces(width, pieceColors), [width, pieceColors]);
   const progressRefs = useRef(pieces.map(() => new Animated.Value(0)));
 
   useEffect(() => {

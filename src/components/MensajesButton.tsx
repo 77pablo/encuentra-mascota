@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -7,13 +7,17 @@ import { useAuth } from '../hooks/useAuth';
 import { mensajeDe } from '../lib/requireAuth';
 import { notify } from '../lib/notify';
 import { AppText } from '../ui';
-import { colors, radius } from '../theme';
+import { radius } from '../theme';
+import type { Colors } from '../theme';
+import { useColors } from '../theme/ThemeProvider';
 
 // Ícono de Mensajes para el encabezado de las pantallas principales (Inicio,
 // Explorar, Adopción). Reemplaza a la vieja pestaña "Mensajes": muestra el badge
 // de no leídos y abre la bandeja (registrada en el stack raíz como `Mensajes`).
 // En modo invitado dispara el mismo portero que tenía la pestaña.
 export default function MensajesButton() {
+  const colors = useColors();
+  const styles = useMemo(() => crearEstilos(colors), [colors]);
   const navigation = useNavigation<any>();
   const { count } = useUnread();
   const { session } = useAuth();
@@ -47,7 +51,7 @@ export default function MensajesButton() {
   );
 }
 
-const styles = StyleSheet.create({
+const crearEstilos = (colors: Colors) => StyleSheet.create({
   button: {
     width: 40,
     height: 40,
