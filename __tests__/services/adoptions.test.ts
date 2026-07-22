@@ -188,8 +188,8 @@ describe('getAdoptionsByIds', () => {
 });
 
 describe('updateAdoption', () => {
-  it('llama a update(fields).eq(id) sobre la tabla adoptions', async () => {
-    const builder = makeQueryBuilder({ data: null, error: null });
+  it('llama a update(fields).eq(id).select() sobre la tabla adoptions', async () => {
+    const builder = makeQueryBuilder({ data: [{ id: 'ad-1' }], error: null });
     mockFrom.mockReturnValue(builder);
 
     await updateAdoption('ad-1', { nombre: 'Pelusa' });
@@ -197,6 +197,36 @@ describe('updateAdoption', () => {
     expect(mockFrom).toHaveBeenCalledWith('adoptions');
     expect(builder.update).toHaveBeenCalledWith({ nombre: 'Pelusa' });
     expect(builder.eq).toHaveBeenCalledWith('id', 'ad-1');
+    expect(builder.select).toHaveBeenCalledWith('id');
+  });
+
+  it('permite editar fotos y comuna (campos editables extra del pulido)', async () => {
+    const builder = makeQueryBuilder({ data: [{ id: 'ad-1' }], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateAdoption('ad-1', { fotos: ['f1.jpg'], comuna: 'Ñuñoa' });
+    expect(builder.update).toHaveBeenCalledWith({ fotos: ['f1.jpg'], comuna: 'Ñuñoa' });
+  });
+
+  it('rechaza texto ofensivo (moderación) sin llamar a la base', async () => {
+    await expect(
+      updateAdoption('ad-1', { descripcion: 'vendo cachorros de raza pura' }),
+    ).rejects.toThrow(/ventas de animales/i);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('rechaza odio en requisitos sin llamar a la base', async () => {
+    await expect(updateAdoption('ad-1', { requisitos: 'no aceptamos sudaca' })).rejects.toThrow(
+      /ofensivos o discriminatorios/i,
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('0 filas devueltas (RLS rechazó) → error amigable', async () => {
+    const builder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await expect(updateAdoption('ad-1', { nombre: 'x' })).rejects.toThrow(/no se pudo guardar/i);
   });
 
   it('lanza el error cuando supabase falla', async () => {

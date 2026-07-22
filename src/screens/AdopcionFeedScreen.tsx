@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, Chip, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
 import { radius, shadow, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
+import ComunaPickerModal from '../components/ComunaPickerModal';
 import { useBusquedaAdopciones } from '../hooks/useBusquedaAdopciones';
 import { AdopcionConDistancia, FiltrosAdopcion } from '../services/busquedaAdopciones';
 import { Adoption } from '../services/adoptions';
@@ -213,6 +214,10 @@ export default function AdopcionFeedScreen({ navigation }: any) {
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [tamano, setTamano] = useState<TamanoFiltro>('todos');
+  // Filtro por comuna (F5, migración 0033). Mismo patrón que ExplorarScreen:
+  // chip que abre el picker + chip "✕ Quitar" cuando ya hay una elegida.
+  const [comunaFiltro, setComunaFiltro] = useState<string | null>(null);
+  const [comunaPickerOpen, setComunaPickerOpen] = useState(false);
   const [cercaDeMi, setCercaDeMi] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const location = useMyLocation();
@@ -244,12 +249,13 @@ export default function AdopcionFeedScreen({ navigation }: any) {
     () => ({
       especie: especie === 'todas' ? null : especie,
       tamano: tamano === 'todos' ? null : tamano,
+      comuna: comunaFiltro,
       lat: cerca ? location.coords!.lat : null,
       lng: cerca ? location.coords!.lng : null,
       radioKm: null,
       orden: cerca ? 'cerca' : 'recientes',
     }),
-    [especie, tamano, cerca, location.coords],
+    [especie, tamano, comunaFiltro, cerca, location.coords],
   );
 
   const { adopciones, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
@@ -276,7 +282,7 @@ export default function AdopcionFeedScreen({ navigation }: any) {
     navigation.navigate('Chat', { adoptionId: adoption.id, otherUserId: adoption.user_id });
   };
 
-  const hayFiltrosPuestos = especie !== 'todas' || tamano !== 'todos' || cerca;
+  const hayFiltrosPuestos = especie !== 'todas' || tamano !== 'todos' || !!comunaFiltro || cerca;
 
   if (cargando && adopciones.length === 0) {
     return <Loading label="Buscando mascotas en adopción…" />;
@@ -322,6 +328,14 @@ export default function AdopcionFeedScreen({ navigation }: any) {
           active={cerca}
           onPress={toggleCercaDeMi}
         />
+      </View>
+      <View style={styles.chipsRow}>
+        <Chip
+          label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
+          active={!!comunaFiltro}
+          onPress={() => setComunaPickerOpen(true)}
+        />
+        {comunaFiltro ? <Chip label="✕ Quitar" onPress={() => setComunaFiltro(null)} /> : null}
       </View>
 
       <FlatList
@@ -371,6 +385,13 @@ export default function AdopcionFeedScreen({ navigation }: any) {
           Publicar
         </AppText>
       </TouchableOpacity>
+
+      <ComunaPickerModal
+        visible={comunaPickerOpen}
+        onClose={() => setComunaPickerOpen(false)}
+        onSelect={setComunaFiltro}
+        titulo="Filtrar por comuna"
+      />
     </Screen>
   );
 }

@@ -47,12 +47,25 @@ describe('buscarAdopciones', () => {
     });
   });
 
+  it('manda la comuna cuando se filtra por ella (F5, 0033)', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await buscarAdopciones({ comuna: 'Ñuñoa' });
+    expect(mockRpc.mock.calls[0][1]).toMatchObject({ p_comuna: 'Ñuñoa' });
+  });
+
+  it('sin comuna manda p_comuna null', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await buscarAdopciones({ especie: 'perro' });
+    expect(mockRpc.mock.calls[0][1].p_comuna).toBeNull();
+  });
+
   it('sin filtros manda todo en null y el orden por defecto', async () => {
     mockRpc.mockResolvedValue({ data: [], error: null });
     await buscarAdopciones();
     const p = mockRpc.mock.calls[0][1];
     expect(p.p_especie).toBeNull();
     expect(p.p_tamano).toBeNull();
+    expect(p.p_comuna).toBeNull();
     expect(p.p_lat).toBeNull();
     expect(p.p_lng).toBeNull();
     expect(p.p_radio_km).toBeNull();

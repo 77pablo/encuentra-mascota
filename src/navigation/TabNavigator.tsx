@@ -8,6 +8,7 @@ import ExplorarScreen from '../screens/ExplorarScreen';
 import EncontreScreen from '../screens/EncontreScreen';
 import AdopcionFeedScreen from '../screens/AdopcionFeedScreen';
 import PublicarAdopcionScreen from '../screens/PublicarAdopcionScreen';
+import EditAdoptionScreen from '../screens/EditAdoptionScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import AddSightingScreen from '../screens/AddSightingScreen';
 import ChatScreen from '../screens/ChatScreen';
@@ -85,6 +86,16 @@ function AdopcionStack() {
       />
       <AdopcionStackNav.Screen name="Chat" component={ChatScreen} />
       <AdopcionStackNav.Screen name="PublicProfile" component={PublicProfileScreen} options={{ title: 'Perfil' }} />
+      {/* Editar publicación (pulido): AdopcionDetail vive en el stack RAÍZ (link
+          público `adopcion/:id`), así que "Editar" llega acá con navegación
+          anidada absoluta (`navigate('App', { screen: 'Adopcion', params: {
+          screen: 'EditAdoption', … } })`), igual que el chat desde el mismo
+          detalle. */}
+      <AdopcionStackNav.Screen
+        name="EditAdoption"
+        component={EditAdoptionScreen}
+        options={{ title: 'Editar publicación' }}
+      />
     </AdopcionStackNav.Navigator>
   );
 }

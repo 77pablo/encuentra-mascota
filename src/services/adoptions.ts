@@ -3,6 +3,7 @@ import { AdoptionInput } from '../schemas/adoption';
 import { ErrorAmigable } from '../lib/dbErrors';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
 import { rutaDeFotoPropia } from '../lib/rutaStorage';
+import { moderarTextoAdopcion } from '../lib/moderarTexto';
 
 export interface Adoption {
   id: string;
@@ -98,27 +99,50 @@ export async function getAdoptionsByIds(ids: string[]): Promise<Adoption[]> {
   return (data ?? []) as Adoption[];
 }
 
-export async function updateAdoption(
-  id: string,
-  fields: Partial<
-    Pick<
-      Adoption,
-      | 'especie'
-      | 'nombre'
-      | 'descripcion'
-      | 'edad'
-      | 'tamano'
-      | 'esterilizado'
-      | 'vacunas'
-      | 'convive_ninos'
-      | 'convive_perros'
-      | 'convive_gatos'
-      | 'requisitos'
-    >
-  >,
-): Promise<void> {
-  const { error } = await supabase.from('adoptions').update(fields).eq('id', id);
+// Campos editables de una publicación de adopción (pulido: EditAdoptionScreen,
+// molde de EditPetScreen). A propósito NUNCA incluye `user_id`/`adoptada_en`/
+// `oculto`: esos tres solo cambian por sus propios caminos (createAdoption,
+// marcarAdoptada, moderación), nunca por este.
+export type CamposEditablesAdopcion = Partial<
+  Pick<
+    Adoption,
+    | 'nombre'
+    | 'descripcion'
+    | 'fotos'
+    | 'edad'
+    | 'tamano'
+    | 'esterilizado'
+    | 'vacunas'
+    | 'convive_ninos'
+    | 'convive_perros'
+    | 'convive_gatos'
+    | 'requisitos'
+    | 'comuna'
+  >
+>;
+
+// Editar es el otro camino de escritura de una adopción, así que el texto
+// libre se revisa igual que al publicar (si no, sería el bypass obvio) —
+// mismo criterio que `EditPetScreen`, pero acá vive DENTRO del servicio (no
+// en la pantalla) para que ningún llamador futuro se salte el filtro.
+//
+// Se pide `.select()` a propósito: cuando la RLS rechaza el update (ya no sos
+// el dueño, o la fila fue borrada), PostgREST NO devuelve error, simplemente
+// no actualiza ninguna fila — sin este chequeo la pantalla diría "guardado" y
+// el cambio nunca habría ocurrido.
+export async function updateAdoption(id: string, fields: CamposEditablesAdopcion): Promise<void> {
+  const moderacion = moderarTextoAdopcion({
+    nombre: fields.nombre ?? undefined,
+    descripcion: fields.descripcion ?? undefined,
+    requisitos: fields.requisitos ?? undefined,
+  });
+  if (!moderacion.ok) throw new ErrorAmigable(moderacion.motivo);
+
+  const { data, error } = await supabase.from('adoptions').update(fields).eq('id', id).select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new ErrorAmigable('No se pudo guardar: puede que ya no seas el dueño de esta publicación.');
+  }
 }
 
 // Borra la publicación y, con ella, sus fotos del bucket público. Mismo

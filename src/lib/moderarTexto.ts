@@ -128,3 +128,34 @@ export function moderarTextoReporte(campos: CamposReporte): ResultadoModeracion 
 
   return { ok: true };
 }
+
+// Moderación de un ÚNICO texto libre corto (F3: pregunta o respuesta de
+// adopción). Mismas listas y mismo criterio conservador que
+// `moderarTextoReporte`, para un solo campo en vez de los cuatro de un
+// reporte.
+export function moderarTextoUnico(texto: string): ResultadoModeracion {
+  if (!texto || !texto.trim()) return { ok: true };
+  const norm = normalize(texto);
+  if (alguna(norm, PALABRAS_ODIO)) return { ok: false, motivo: MOTIVO_ODIO };
+  if (alguna(norm, PALABRAS_SEXUAL)) return { ok: false, motivo: MOTIVO_SEXUAL };
+  if (alguna(norm, INDICIOS_VENTA) && alguna(norm, TERMINOS_ANIMAL_VENTA)) {
+    return { ok: false, motivo: MOTIVO_VENTA };
+  }
+  return { ok: true };
+}
+
+// Campos de texto libre que se pueden editar de una publicación de adopción
+// (pulido: `EditAdoptionScreen`). Editar es el otro camino de escritura, así
+// que pasa por el mismo filtro que publicar (si no, sería el bypass obvio).
+export interface CamposAdopcion {
+  nombre?: string;
+  descripcion?: string;
+  requisitos?: string;
+}
+
+export function moderarTextoAdopcion(campos: CamposAdopcion): ResultadoModeracion {
+  const crudo = [campos.nombre, campos.descripcion, campos.requisitos]
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .join(' ');
+  return moderarTextoUnico(crudo);
+}
