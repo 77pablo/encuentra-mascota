@@ -93,7 +93,7 @@ export default function ModeracionScreen() {
       'No va a poder publicar ni escribir mensajes hasta que levantes la suspensión.',
     );
     if (!ok) return;
-    await conAccion(d.id, () => suspender(d.denunciadoId as string), 'El usuario quedó suspendido.');
+    await conAccion(d.id, () => suspender(d.id), 'El usuario quedó suspendido.');
   };
 
   if (loading) return <Loading />;

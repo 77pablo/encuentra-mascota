@@ -16,6 +16,36 @@
 --     no esta aplicada todavia, este SELECT fallaria con 42703 hasta que lo
 --     este.
 
+-- Autor del contenido denunciado segun `tipo`, o directamente
+-- `usuario_denunciado` cuando la denuncia ya lo trae (tipo 'usuario' y
+-- 'pregunta_adopcion', que no tienen un "autor de contenido" distinto del
+-- denunciado). Comun a la bandeja y a moderar_suspender para no duplicar el
+-- mapeo tipo->autor en dos lugares que se puedan desincronizar.
+--
+-- Columnas de dueño verificadas contra el estado real de cada tabla (mismo
+-- chequeo que documenta la 0036): pets/adoptions/sightings/pet_tips usan
+-- `user_id`, messages usa `from_user`.
+create or replace function public._denunciado_de(
+  p_tipo text, p_pet_id uuid, p_objeto_id uuid, p_usuario_denunciado uuid
+)
+returns uuid
+language sql security definer set search_path = public, pg_temp stable
+as $$
+  select coalesce(
+    p_usuario_denunciado,
+    case p_tipo
+      when 'reporte'      then (select p.user_id from public.pets p where p.id = p_pet_id)
+      when 'adopcion'     then (select a.user_id from public.adoptions a where a.id = p_objeto_id)
+      when 'pista'        then (select t.user_id from public.pet_tips t where t.id = p_objeto_id)
+      when 'avistamiento' then (select s.user_id from public.sightings s where s.id = p_objeto_id)
+      when 'mensaje'      then (select m.from_user from public.messages m where m.id = p_objeto_id)
+      else null
+    end
+  );
+$$;
+revoke all on function public._denunciado_de(text, uuid, uuid, uuid) from public, anon;
+grant execute on function public._denunciado_de(text, uuid, uuid, uuid) to authenticated;
+
 drop function if exists public.moderacion_bandeja();
 create function public.moderacion_bandeja()
 returns table (
@@ -33,7 +63,7 @@ begin
   return query
   select d.id, d.tipo, d.motivo, d.detalle, d.creado_en,
          d.reporter_user, rp.nombre,
-         d.usuario_denunciado, dp.nombre,
+         public._denunciado_de(d.tipo, d.pet_id, d.objeto_id, d.usuario_denunciado), dp.nombre,
          d.objeto_id, d.pet_id,
          (select count(*)::int from public.denuncias d2
             where d2.usuario_denunciado = d.usuario_denunciado
@@ -57,7 +87,8 @@ begin
          end
   from public.denuncias d
   left join public.profiles rp on rp.id = d.reporter_user
-  left join public.profiles dp on dp.id = d.usuario_denunciado
+  left join public.profiles dp
+         on dp.id = public._denunciado_de(d.tipo, d.pet_id, d.objeto_id, d.usuario_denunciado)
   where d.estado = 'pendiente'
   order by d.creado_en asc;
 end;
@@ -116,14 +147,34 @@ $$;
 revoke all on function public.moderar_descartar(uuid) from public, anon;
 grant execute on function public.moderar_descartar(uuid) to authenticated;
 
-create or replace function public.moderar_suspender(p_usuario_id uuid)
+-- Firma vieja `moderar_suspender(p_usuario_id uuid)`: mismos tipos de
+-- parametro que la nueva, asi que `create or replace` la reemplazaria sola,
+-- pero se dropea explicito por las dudas (si el parametro cambiara de tipo en
+-- el futuro, un create or replace silencioso dejaria DOS sobrecargas en vez
+-- de reemplazar una).
+drop function if exists public.moderar_suspender(uuid);
+create function public.moderar_suspender(p_denuncia_id uuid)
 returns void
 language plpgsql security definer set search_path = public, pg_temp
 as $$
+declare
+  d public.denuncias%rowtype;
+  v_objetivo uuid;
 begin
   if not public.es_admin() then raise exception 'no autorizado'; end if;
-  update public.profiles set suspendido_en = now() where id = p_usuario_id;
-  if not found then raise exception 'usuario inexistente'; end if;
+  select * into d from public.denuncias where id = p_denuncia_id;
+  if not found then raise exception 'denuncia inexistente'; end if;
+
+  v_objetivo := public._denunciado_de(d.tipo, d.pet_id, d.objeto_id, d.usuario_denunciado);
+  if v_objetivo is null then
+    raise exception 'la denuncia no tiene un usuario para suspender';
+  end if;
+
+  update public.profiles set suspendido_en = now() where id = v_objetivo;
+
+  update public.denuncias
+     set estado='resuelta', resuelto_en=now(), resuelto_por=auth.uid(), accion='usuario suspendido'
+   where id = p_denuncia_id;
 end;
 $$;
 revoke all on function public.moderar_suspender(uuid) from public, anon;

@@ -69,9 +69,14 @@ describe('descartar', () => {
 });
 
 describe('suspender', () => {
-  it('llama al RPC con el id del usuario', async () => {
+  it('llama al RPC con el id de la denuncia (no el del usuario)', async () => {
     mockRpc.mockResolvedValue({ data: null, error: null });
-    await suspender('u1');
-    expect(mockRpc).toHaveBeenCalledWith('moderar_suspender', { p_usuario_id: 'u1' });
+    await suspender('d1');
+    expect(mockRpc).toHaveBeenCalledWith('moderar_suspender', { p_denuncia_id: 'd1' });
+  });
+
+  it('propaga el error de la RPC (p. ej. denuncia sin usuario para suspender)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'la denuncia no tiene un usuario para suspender' } });
+    await expect(suspender('d1')).rejects.toMatchObject({ code: 'P0001' });
   });
 });

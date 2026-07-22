@@ -60,7 +60,12 @@ export async function descartar(id: string): Promise<void> {
 
 // Suspende la cuenta del usuario denunciado: no vuelve a poder publicar ni
 // escribir (RLS de insert, migracion 0036) hasta que se levante a mano.
-export async function suspender(usuarioId: string): Promise<void> {
-  const { error } = await supabase.rpc('moderar_suspender', { p_usuario_id: usuarioId });
+// Recibe el id de la DENUNCIA (no el del usuario): la RPC (0036b) deriva el
+// usuario objetivo del lado del servidor -coalesce(usuario_denunciado, autor
+// del contenido segun tipo)- porque para reporte/pista/avistamiento/
+// adopcion/mensaje `usuario_denunciado` viene null y el cliente no tiene ese
+// dato. De paso resuelve la denuncia, asi que sale de la bandeja.
+export async function suspender(denunciaId: string): Promise<void> {
+  const { error } = await supabase.rpc('moderar_suspender', { p_denuncia_id: denunciaId });
   if (error) throw error;
 }
