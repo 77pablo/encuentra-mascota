@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   TextInput,
@@ -14,6 +17,9 @@ import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { useUnread } from '../hooks/useUnread';
 import { ctxDeParams, markThreadRead, sendMessage } from '../services/messages';
 import { getAdoption } from '../services/adoptions';
+import { uploadPetPhoto } from '../services/storage';
+import { pickFromLibrary, takePhoto } from '../lib/pickImage';
+import { resolverUrlFoto } from '../lib/fotoAdjuntaChat';
 import { supabase } from '../lib/supabase';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
@@ -36,6 +42,19 @@ export default function ChatScreen({ route, navigation }: any) {
   const me = user!.id;
   const messages = useRealtimeMessages(ctx, me, otherUserId);
   const [texto, setTexto] = useState('');
+  // Foto adjunta al mensaje que se está por mandar (0038). `imagenAdjunta`
+  // guarda SIEMPRE la uri LOCAL (de la cámara/galería), tanto para el
+  // preview como para volver a subirla si hace falta. `urlSubida` guarda la
+  // URL pública una vez que esa foto ya se subió: si `sendMessage` falla
+  // después de una subida exitosa, un reintento reusa `urlSubida` en vez de
+  // volver a subir la foto (ver `onSend` y `resolverUrlFoto`). `subiendo`
+  // controla el spinner del botón de enviar mientras dura la subida.
+  const [imagenAdjunta, setImagenAdjunta] = useState<string | null>(null);
+  const [urlSubida, setUrlSubida] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [menuAdjuntarAbierto, setMenuAdjuntarAbierto] = useState(false);
+  // Visor simple de la foto de una burbuja, a pantalla completa.
+  const [fotoGrande, setFotoGrande] = useState<string | null>(null);
   const { refresh: refreshUnread } = useUnread();
   const [otroEliminado, setOtroEliminado] = useState(false);
   const [otroNombre, setOtroNombre] = useState<string | null>(null);
@@ -136,11 +155,61 @@ export default function ChatScreen({ route, navigation }: any) {
     navigation.navigate('AdopcionDetail', { id: ctx.id });
   };
 
+  const onTomarFotoAdjunta = async () => {
+    setMenuAdjuntarAbierto(false);
+    const uri = await takePhoto();
+    // Nueva foto: si había una `urlSubida` de un adjunto anterior (p. ej. de
+    // un envío fallido), ya no corresponde — es la URL de OTRA foto.
+    if (uri) {
+      setImagenAdjunta(uri);
+      setUrlSubida(null);
+    }
+  };
+
+  const onElegirFotoAdjunta = async () => {
+    setMenuAdjuntarAbierto(false);
+    const uris = await pickFromLibrary(1);
+    // Ídem: descartar cualquier `urlSubida` que quedara de un adjunto previo.
+    if (uris[0]) {
+      setImagenAdjunta(uris[0]);
+      setUrlSubida(null);
+    }
+  };
+
   const onSend = async () => {
     const t = texto;
+    const adjunta = imagenAdjunta;
+    const yaSubida = urlSubida;
     setTexto('');
+    setImagenAdjunta(null);
+    // La foto se sube ANTES de intentar el insert: `sendMessage` necesita ya
+    // la URL pública (no hay forma de "subir después" un mensaje ya mandado).
+    // Si ya se había subido en un intento anterior (reintento tras un
+    // `sendMessage` fallido), `resolverUrlFoto` reusa esa URL sin volver a
+    // subir la foto — evita duplicar el archivo en Storage y evita pasarle
+    // una URL remota a `uploadPetPhoto`, que espera una uri local. Si la
+    // subida falla, no se manda nada y se le devuelven el texto y la foto a
+    // la persona para que reintente.
+    let url: string | undefined;
+    if (adjunta) {
+      if (!yaSubida) setSubiendo(true);
+      try {
+        url = await resolverUrlFoto(adjunta, yaSubida, (uriLocal) => uploadPetPhoto(uriLocal, me));
+      } catch (e: any) {
+        setSubiendo(false);
+        setTexto(t);
+        setImagenAdjunta(adjunta);
+        notify('No se pudo subir la foto', mensajeDeErrorDb(e));
+        return;
+      }
+      setSubiendo(false);
+      setUrlSubida(url ?? null);
+    }
     try {
-      await sendMessage(ctx, me, otherUserId, t);
+      await sendMessage(ctx, me, otherUserId, t, url);
+      // Se mandó: si había foto, ya no hace falta conservar su URL subida
+      // (no hay reintento pendiente).
+      if (url) setUrlSubida(null);
       // Push "best effort": si falla, el chat igual funcionó, así que no le
       // mostramos nada al usuario. Pero SÍ lo dejamos en la consola: este
       // `catch` vacío tapó durante semanas que la función `send-push` ni
@@ -154,22 +223,29 @@ export default function ChatScreen({ route, navigation }: any) {
       // dónde llevar: se manda sin ruta.
       const ruta =
         ctx.tipo === 'adopcion' ? `/adopcion/${ctx.id}` : ctx.tipo === 'pet' ? `/mascota/${ctx.id}` : undefined;
+      // Un mensaje solo-foto no tiene texto para el cuerpo del push (0038):
+      // se avisa igual, con un cuerpo genérico.
+      const cuerpoPush = t.trim() ? t.slice(0, 80) : '📷 Foto';
       supabase.functions
         .invoke('send-push', {
           body: {
             toUserId: otherUserId,
             title: ctx.tipo === 'adopcion' ? 'Nuevo mensaje sobre una adopción' : 'Nuevo mensaje sobre una mascota',
-            body: t.slice(0, 80),
+            body: cuerpoPush,
             ruta,
           },
         })
         .catch((e) => console.warn('No se pudo mandar el aviso push del mensaje:', e));
     } catch {
-      setTexto(t); // restaurar si falla
+      // El insert falló. Si había foto, ya quedó subida (su URL sigue en
+      // `urlSubida`, sin tocar): se restaura la uri LOCAL para el preview y
+      // el reintento, que gracias a `urlSubida` no la vuelve a subir.
+      setTexto(t);
+      if (adjunta) setImagenAdjunta(adjunta);
     }
   };
 
-  const puedeEnviar = texto.trim().length > 0;
+  const puedeEnviar = texto.trim().length > 0 || imagenAdjunta != null;
 
   const alternarBloqueo = async () => {
     setMenuAbierto(false);
@@ -334,44 +410,126 @@ export default function ChatScreen({ route, navigation }: any) {
             return (
               <View style={[styles.bubbleRow, mine ? styles.bubbleRowMine : styles.bubbleRowOther]}>
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
-                  <AppText size={15} color={mine ? colors.white : colors.ink}>
-                    {item.texto}
-                  </AppText>
+                  {item.imagen_url ? (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => setFotoGrande(item.imagen_url)}
+                    >
+                      <Image source={{ uri: item.imagen_url }} style={styles.bubbleImage} />
+                    </TouchableOpacity>
+                  ) : null}
+                  {item.texto ? (
+                    <AppText
+                      size={15}
+                      color={mine ? colors.white : colors.ink}
+                      style={item.imagen_url ? styles.bubbleTextoConFoto : undefined}
+                    >
+                      {item.texto}
+                    </AppText>
+                  ) : null}
                 </View>
               </View>
             );
           }}
         />
+        {/* Visor a pantalla completa: tocar la foto de una burbuja la agranda. */}
+        <Modal visible={fotoGrande != null} transparent animationType="fade" onRequestClose={() => setFotoGrande(null)}>
+          <TouchableOpacity
+            style={styles.visorFondo}
+            activeOpacity={1}
+            onPress={() => setFotoGrande(null)}
+          >
+            {fotoGrande ? (
+              <Image source={{ uri: fotoGrande }} style={styles.visorImagen} resizeMode="contain" />
+            ) : null}
+            <TouchableOpacity
+              style={styles.visorCerrar}
+              onPress={() => setFotoGrande(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="close" size={28} color={colors.white} />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
         {otroEliminado ? (
-          <View style={styles.inputRow}>
+          <View style={[styles.composer, styles.inputRow]}>
             <AppText muted style={styles.cerrado}>
               Esta persona borró su cuenta. La conversación queda como recuerdo.
             </AppText>
           </View>
         ) : bloqueado ? (
-          <View style={styles.inputRow}>
+          <View style={[styles.composer, styles.inputRow]}>
             <AppText muted style={styles.cerrado}>
               Bloqueaste a esta persona. Podés desbloquearla desde el menú de arriba.
             </AppText>
           </View>
         ) : (
-          <View style={styles.inputRow}>
-            <TextInput
-              placeholder="Escribe un mensaje…"
-              placeholderTextColor={colors.muted}
-              value={texto}
-              onChangeText={setTexto}
-              style={styles.input}
-              multiline
-            />
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={onSend}
-              disabled={!puedeEnviar}
-              style={[styles.sendButton, !puedeEnviar && styles.sendButtonDisabled]}
-            >
-              <Ionicons name="send" size={18} color={colors.white} />
-            </TouchableOpacity>
+          <View style={styles.composer}>
+            {imagenAdjunta ? (
+              <View style={styles.previewRow}>
+                <Image source={{ uri: imagenAdjunta }} style={styles.previewImagen} />
+                <TouchableOpacity
+                  onPress={() => {
+                    setImagenAdjunta(null);
+                    setUrlSubida(null);
+                  }}
+                  style={styles.previewQuitar}
+                  accessibilityLabel="Quitar foto"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={22} color={colors.ink} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {menuAdjuntarAbierto ? (
+              <View style={styles.adjuntarButtonsRow}>
+                <Button
+                  title="Cámara"
+                  variant="secondary"
+                  icon="camera"
+                  onPress={onTomarFotoAdjunta}
+                  style={styles.adjuntarButton}
+                />
+                <Button
+                  title="Galería"
+                  variant="secondary"
+                  icon="image"
+                  onPress={onElegirFotoAdjunta}
+                  style={styles.adjuntarButton}
+                />
+              </View>
+            ) : null}
+            <View style={styles.inputRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setMenuAdjuntarAbierto((v) => !v)}
+                disabled={subiendo}
+                style={styles.attachButton}
+                accessibilityLabel="Adjuntar foto"
+              >
+                <Ionicons name="attach" size={22} color={colors.muted} />
+              </TouchableOpacity>
+              <TextInput
+                placeholder="Escribe un mensaje…"
+                placeholderTextColor={colors.muted}
+                value={texto}
+                onChangeText={setTexto}
+                style={styles.input}
+                multiline
+              />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={onSend}
+                disabled={!puedeEnviar || subiendo}
+                style={[styles.sendButton, (!puedeEnviar || subiendo) && styles.sendButtonDisabled]}
+              >
+                {subiendo ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons name="send" size={18} color={colors.white} />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -476,6 +634,66 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  bubbleImage: {
+    width: 200,
+    height: 200,
+    borderRadius: radius.md,
+  },
+  bubbleTextoConFoto: {
+    marginTop: spacing.sm,
+  },
+  visorFondo: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visorImagen: {
+    width: '100%',
+    height: '80%',
+  },
+  visorCerrar: {
+    position: 'absolute',
+    top: spacing.xl,
+    right: spacing.lg,
+  },
+  composer: {
+    backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  previewImagen: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+  },
+  previewQuitar: {
+    marginLeft: -14,
+    marginTop: -8,
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+  },
+  adjuntarButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  adjuntarButton: {
+    flex: 1,
+  },
+  attachButton: {
+    width: 40,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -483,9 +701,6 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
-    backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
   },
   input: {
     flex: 1,

@@ -13,7 +13,13 @@ export interface Message {
   adoption_id: string | null;
   from_user: string;
   to_user: string;
-  texto: string;
+  // Nullable desde la 0038: un mensaje puede ser solo-foto (`imagen_url` sin
+  // texto). Al menos uno de los dos existe siempre (CHECK en la base).
+  texto: string | null;
+  // Agregado en la 0038: URL pública del bucket `pet-photos` (misma
+  // convención `<uid>/<id>.jpg` que las fotos de reportes/perfil, ver
+  // `uploadPetPhoto` en `storage.ts`). `null` si el mensaje es solo texto.
+  imagen_url: string | null;
   leido: boolean;
   creado_en: string;
 }
@@ -129,9 +135,20 @@ export async function markThreadRead(ctx: HiloCtx, me: string, other: string): P
   if (error) throw error;
 }
 
-export async function sendMessage(ctx: HiloCtx, fromUser: string, toUser: string, texto: string) {
+// `imagenUrl` es opcional (0038): un mensaje puede llevar solo foto, foto +
+// texto, o solo texto. Lo único que NO puede pasar es que falten los dos —
+// eso también lo exige el CHECK de la base (`messages_texto_o_imagen`), pero
+// se corta acá antes para no gastar un viaje de red en un insert que va a
+// rebotar igual.
+export async function sendMessage(
+  ctx: HiloCtx,
+  fromUser: string,
+  toUser: string,
+  texto: string,
+  imagenUrl?: string,
+) {
   const clean = texto.trim();
-  if (!clean) throw new Error('Mensaje vacío');
+  if (!clean && !imagenUrl) throw new Error('Mensaje vacío');
   // Un mensaje pertenece a UN contexto: se setea la columna que corresponde y
   // la otra queda null. El reporte borrado deja las dos null.
   const { error } = await supabase.from('messages').insert({
@@ -139,7 +156,8 @@ export async function sendMessage(ctx: HiloCtx, fromUser: string, toUser: string
     adoption_id: ctx.tipo === 'adopcion' ? ctx.id : null,
     from_user: fromUser,
     to_user: toUser,
-    texto: clean,
+    texto: clean || null,
+    imagen_url: imagenUrl ?? null,
   });
   if (error) throw error;
 }
@@ -188,7 +206,12 @@ function foldPageInto(threads: Map<string, ConversationKey>, msgs: Message[], me
     // funden entre si (clave `del:<otro>`), a proposito (0017).
     const key = `${claveHilo(ctx)}:${otherUser}`;
     if (!threads.has(key)) {
-      threads.set(key, { ctx, otherUser, lastTexto: m.texto, lastAt: m.creado_en });
+      // Mensaje solo-foto (0038): `texto` llega null. La vista previa de la
+      // lista de conversaciones necesita SIEMPRE un string; se usa el mismo
+      // rótulo que el push best-effort del chat (`ChatScreen`) para cuando no
+      // hay texto.
+      const lastTexto = m.texto ?? (m.imagen_url ? '📷 Foto' : '');
+      threads.set(key, { ctx, otherUser, lastTexto, lastAt: m.creado_en });
     }
   }
 }
