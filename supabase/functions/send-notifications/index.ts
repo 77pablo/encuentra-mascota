@@ -143,6 +143,13 @@ async function enviarPush(
   let enviado = false;
 
   // --- Expo (app nativa instalada) -----------------------------------------
+  // El fetch (y su chequeo de `res.ok`) va en su propio try/catch: un fallo
+  // de la API de Expo (rate limit, 5xx, red caída) NO debe impedir que se
+  // intente el bloque de Web Push de abajo, ni cortar el loop de
+  // destinatarios en `procesar()`, si el destinatario también tiene una
+  // suscripción web sana. Guardamos el error para, al final de la función,
+  // decidir si de verdad hay que propagarlo (ver el `throw` más abajo).
+  let expoError: unknown = null;
   const { data: tokens } = await supabase.from('push_tokens').select('token').eq('user_id', userId);
   const mensajes = ((tokens ?? []) as Array<{ token: string }>).map((t) => ({
     to: t.token,
@@ -151,15 +158,18 @@ async function enviarPush(
     data: { ruta },
   }));
   if (mensajes.length > 0) {
-    const res = await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mensajes),
-    });
-    // Esto SÍ propaga: un fallo de la API de Expo es un fallo real del canal
-    // que ya existía, y `procesar()` lo necesita para reintentar el evento.
-    if (!res.ok) throw new Error(`Expo push respondió ${res.status}`);
-    enviado = true;
+    try {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mensajes),
+      });
+      if (!res.ok) throw new Error(`Expo push respondió ${res.status}`);
+      enviado = true;
+    } catch (e) {
+      expoError = e;
+      console.error(`fallo el push Expo para ${userId}`, e);
+    }
   }
 
   // --- Web Push (VAPID), best-effort ---------------------------------------
@@ -192,6 +202,14 @@ async function enviarPush(
         enviado = true;
       }
     }
+  }
+
+  // Si ningún canal entregó nada Y Expo falló de verdad (no fue simplemente
+  // "no tenía token"), ahí sí propaga: es un fallo real y `procesar()` lo
+  // necesita para reintentar el evento, igual que antes de este arreglo. La
+  // diferencia es que ahora solo pasa cuando Web Push tampoco salvó el envío.
+  if (!enviado && expoError) {
+    throw expoError instanceof Error ? expoError : new Error(String(expoError));
   }
 
   return enviado;
