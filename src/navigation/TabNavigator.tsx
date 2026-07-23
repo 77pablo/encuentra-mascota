@@ -23,6 +23,7 @@ import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
 import DeleteAccountScreen from '../screens/DeleteAccountScreen';
+import ModeracionScreen from '../screens/ModeracionScreen';
 import { useAuth } from '../hooks/useAuth';
 import { AccionProtegida, mensajeDe } from '../lib/requireAuth';
 import { notify } from '../lib/notify';
@@ -153,6 +154,11 @@ function ProfileStack() {
         name="DeleteAccount"
         component={DeleteAccountScreen}
         options={{ title: 'Borrar mi cuenta' }}
+      />
+      <ProfileStackNav.Screen
+        name="Moderacion"
+        component={ModeracionScreen}
+        options={{ headerShown: true, title: 'Moderación' }}
       />
     </ProfileStackNav.Navigator>
   );

@@ -569,6 +569,14 @@ export default function ProfileScreen({ navigation }: any) {
           icon="help-buoy-outline"
           onPress={() => navigation.navigate('Ayuda')}
         />
+        {profile?.es_admin ? (
+          <Button
+            title="Moderación"
+            variant="ghost"
+            icon="shield-checkmark-outline"
+            onPress={() => navigation.navigate('Moderacion')}
+          />
+        ) : null}
 
         {/* Entrada fija (no descartable) para instalar la PWA: web-only,
             se oculta sola si ya está instalada. */}
