@@ -99,12 +99,22 @@ export async function activarWebPush(userId: string): Promise<EstadoWebPush> {
   return 'activada';
 }
 
-/** Desactiva: borra la fila en la base y cancela la suscripción del navegador. */
+/**
+ * Desactiva: borra la fila en la base y cancela la suscripción del navegador.
+ *
+ * Desuscribe el navegador incluso si el borrado en la base falla: mejor que
+ * el navegador deje de recibir pushes ya (lo que el usuario pidió) aunque la
+ * fila pueda quedar huérfana en `web_push_subscriptions`. Pero ese fallo del
+ * borrado SÍ se propaga (no se traga en silencio): quien llama necesita
+ * saber que la fila pudo no borrarse, para avisar o reintentar en vez de
+ * reportar éxito engañoso.
+ */
 export async function desactivarWebPush(): Promise<void> {
   if (!soportado()) return;
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return;
-  await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+  const { error } = await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
   await sub.unsubscribe();
+  if (error) throw error;
 }
