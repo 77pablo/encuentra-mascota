@@ -207,12 +207,16 @@ export async function deletePet(id: string, userId: string): Promise<void> {
   if (error) throw error;
 }
 
-// Cuenta reencuentros (reportes cerrados) para mostrar en la pantalla de Inicio.
+// Cuenta reencuentros confirmados para mostrar en la pantalla de Inicio.
+// Mismo criterio que la RPC `impacto_comunidad` (mig. 0039): reunida_en no nulo
+// y no oculto. Antes contaba `activo=false` a secas, lo que incluía reportes
+// cerrados por otros motivos y no calzaba con la tarjeta de impacto.
 export async function countReunidas(): Promise<number> {
   const { count, error } = await supabase
     .from('pets')
     .select('id', { count: 'exact', head: true })
-    .eq('activo', false);
+    .not('reunida_en', 'is', null)
+    .eq('oculto', false);
   if (error) throw error;
   return count ?? 0;
 }

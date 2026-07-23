@@ -71,8 +71,9 @@ begin
          public._denunciado_de(d.tipo, d.pet_id, d.objeto_id, d.usuario_denunciado), dp.nombre,
          d.objeto_id, d.pet_id,
          (select count(*)::int from public.denuncias d2
-            where d2.usuario_denunciado = d.usuario_denunciado
-              and d2.usuario_denunciado is not null),
+            where public._denunciado_de(d2.tipo, d2.pet_id, d2.objeto_id, d2.usuario_denunciado)
+                = public._denunciado_de(d.tipo, d.pet_id, d.objeto_id, d.usuario_denunciado)
+              and public._denunciado_de(d.tipo, d.pet_id, d.objeto_id, d.usuario_denunciado) is not null),
          case d.tipo
            when 'reporte'  then (select to_jsonb(x) from (
                                    select p.id, p.especie, p.descripcion, p.fotos, p.oculto

@@ -103,6 +103,7 @@ export default function NotificationPrefsScreen() {
   const alternarWebPush = async () => {
     if (webPushCargando || !webPushEstado) return;
     setWebPushCargando(true);
+    const activando = webPushEstado === 'inactiva';
     try {
       if (webPushEstado === 'activada') {
         await desactivarWebPush();
@@ -113,7 +114,13 @@ export default function NotificationPrefsScreen() {
     } catch {
       // Igual que en `alternar()` arriba: nada de jerga de Postgres/DOM en
       // pantalla, y refrescamos el estado real en vez de asumir que se aplicó.
-      notify('No se pudo activar', 'No pudimos activar las notificaciones en este dispositivo. Probá de nuevo.');
+      // El mensaje depende de qué se intentaba hacer: activar y desactivar
+      // fallan por razones distintas y no hay que confundir a quien lo lee.
+      if (activando) {
+        notify('No se pudo activar', 'No pudimos activar las notificaciones en este dispositivo. Probá de nuevo.');
+      } else {
+        notify('No se pudo desactivar', 'No pudimos desactivar las notificaciones en este dispositivo. Probá de nuevo.');
+      }
     } finally {
       cargarWebPush();
       setWebPushCargando(false);
