@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
+import { enviarWebPush } from '../_shared/webpush.ts';
 
 // Rate limiting en memoria: máx 10 solicitudes por IP por minuto.
 const WINDOW_MS = 60_000;
@@ -137,7 +138,36 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, enviados: messages.length }), {
+    // Web Push (VAPID), junto al de Expo de arriba — best-effort: un fallo acá
+    // (o directamente no tener VAPID configurado) nunca debe tumbar la
+    // respuesta 200 de esta función, el mensaje del chat ya se mandó igual.
+    // Mismo patrón que `send-notifications` (ver ese archivo para el detalle
+    // de por qué `enviarWebPush` no lanza).
+    let webEnviados = 0;
+    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+    const vapidSubject = Deno.env.get('VAPID_SUBJECT');
+    if (vapidPublicKey && vapidPrivateKey && vapidSubject) {
+      const { data: webSubs } = await supabase
+        .from('web_push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('user_id', toUserId);
+      const rutaWeb = typeof ruta === 'string' && ruta ? ruta : '/';
+      for (const s of (webSubs ?? []) as Array<{ endpoint: string; p256dh: string; auth: string }>) {
+        const r = await enviarWebPush(
+          { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
+          { title, body: body ?? '', ruta: rutaWeb },
+          { publicKey: vapidPublicKey, privateKey: vapidPrivateKey, subject: vapidSubject },
+        );
+        if (r.gone) {
+          await supabase.from('web_push_subscriptions').delete().eq('endpoint', s.endpoint);
+        } else if (r.ok) {
+          webEnviados++;
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, enviados: messages.length + webEnviados }), {
       status: 200,
       headers: HEADERS,
     });
