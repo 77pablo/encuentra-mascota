@@ -1,5 +1,76 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-22 (5) — Tanda "moderación + push web + fotos chat + impacto" (4 agentes en paralelo)
+
+Spec `docs/superpowers/specs/2026-07-22-tanda-moderacion-push-fotos-impacto-design.md`, plan
+`docs/superpowers/plans/2026-07-22-tanda-moderacion-push-fotos-impacto.md`. Subagent-driven con
+**4 implementadores en paralelo** (worktrees manuales `em-agente-a8/b/c/d`, junction de node_modules)
++ revisión por rama + fixers + **revisión final adversarial (opus)** + fix wave único.
+**799 tests / 77 suites, tsc limpio.** Fusionado en `feat/mvp-encuentra-mascota` (merges
+`88fef0e` D → `bc84c63` C → `75285bd` B → `15bf8c5` A; HEAD tras fixes `bb8d2fa`).
+
+**Lo nuevo (migraciones `0036`→`0040`):**
+1. **Panel de moderación (A):** `profiles.es_admin` + `suspendido_en`; `denuncias` gana ciclo de
+   estado (`estado`/`resuelto_en`/`resuelto_por`/`accion`). Funciones `security definer`
+   `es_admin()`/`estoy_suspendido()` (gate); las 6 policies de INSERT (pets/adoptions/pet_tips/
+   sightings/adoption_questions/messages) suman `and not estoy_suspendido()` conservando su
+   condición previa VERBATIM. RPCs `moderacion_bandeja()` (bandeja enriquecida con snapshot del
+   contenido + contador de reincidencia), `moderar_retirar`/`moderar_descartar`/`moderar_suspender`
+   (todas gatean `es_admin()` adentro). Helper `_denunciado_de(tipo,pet_id,objeto_id,usuario)`
+   resuelve el autor del contenido → "Suspender" funciona en los 7 tipos. `es_admin` expuesto por
+   `mi_perfil()` (recreada conservando `fecha_nacimiento` de 0024). `ModeracionScreen` en
+   `ProfileStack`, entrada en Perfil visible solo si `es_admin`. Migs `0036`/`0036c`/`0040`.
+2. **Push web real VAPID (B):** tabla `web_push_subscriptions` (mig `0037`, RLS solo-dueño),
+   `_shared/webpush.ts` con **`npm:web-push@3.6.7` (corre en Deno — spike verificado)**, handlers
+   `push`/`notificationclick` en `sw.js` (v2→v3), cliente `src/lib/webPush.ts`, botón "Activar
+   notificaciones en este dispositivo" en Perfil→Avisos (solo-web, 4 estados). `send-notifications`
+   y `send-push` despachan Web Push junto al Expo (best-effort, borran suscripciones 404/410).
+   Reusa el canal `canal_push` (no cambia targeting → notifyTargets intacto). `anonimizar_mi_cuenta()`
+   recreada limpia las suscripciones web.
+3. **Fotos en el chat (C):** `messages.imagen_url` (mig `0038`, CHECK `texto_o_imagen` permite
+   solo-foto/foto+texto); `sendMessage(...imagenUrl?)`; ChatScreen con botón adjuntar (cámara/
+   galería, reusa `uploadPetPhoto` que borra EXIF), burbuja con imagen tocable→visor fullscreen;
+   `resolverUrlFoto` (lib pura) evita re-subir en reintento; `mis_fotos_a_borrar()` recreada incluye
+   las fotos de chat.
+4. **Impacto de la comunidad (D):** RPC pública `impacto_comunidad()` (mig `0039`): reencuentros/
+   buscando/adopciones/aportes; tarjeta "Lo que logramos juntos" en Inicio, visible para invitados.
+
+**Lo que cazó la revisión (el patrón se repite — todo arreglado antes de mergear):**
+- A: "Suspender" no servía para 5/7 tipos (usuario_denunciado null) → helper `_denunciado_de`;
+  `denuncias.resuelto_por` sin `on delete set null` habría bloqueado el borrado de cuenta de un
+  admin; **fuga real**: el fix dejó `_denunciado_de` con grant a `authenticated` → leía `from_user`
+  de cualquier mensaje ajeno → cerrado (revoke total, solo lo usan funciones definer).
+- B: un fallo de la API de Expo hacía `throw` antes del bloque Web Push y cortaba el loop de
+  destinatarios → envuelto en try/catch (web corre siempre; solo re-lanza si nada entregó).
+- C: reintento tras `sendMessage` fallido re-subía la URL remota → foto huérfana en Storage →
+  `resolverUrlFoto` distingue uri local de URL ya subida.
+- Fix wave final: I-1 (`countReunidas` alineada a `reunida_en not null and oculto=false`, ya no
+  choca con la tarjeta de impacto), M-1 (contador de reincidencia cuenta por autor resuelto en los
+  7 tipos), M-2 (toast según activar/desactivar).
+
+**Diferidos anotados (follow-ups, NO bloquean):** I-2 **retirar un mensaje con foto no borra el
+archivo del bucket** (Storage no se borra desde SQL; necesita sumar un borrado vía Edge Function
+service_role al pipeline de moderación) — para reportes/adopciones el retiro sí oculta bien;
+M-3 dispositivo compartido (subscribe() ajeno → catch desuscribe, borde raro); M-4 "mascotas
+buscando" cuenta perdidas+encontradas (del brief); M-5 adjuntar foto con onSend en vuelo puede
+pisar (preexistente); M-6 suspendido puede subir foto huérfana antes del 42501; M-7 suspender NO
+oculta el contenido viejo del usuario (decisión de producto: suspensión ≠ remoción).
+
+**⚠️ PENDIENTE DE PABLO — orden de despliegue OBLIGATORIO:**
+1. **Generar claves VAPID** una vez: `npx web-push generate-vapid-keys`. La pública va al entorno
+   de build como `EXPO_PUBLIC_VAPID_PUBLIC_KEY`; la privada + un `mailto:` van como secretos de las
+   Edge Functions: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
+2. **Redesplegar** `send-notifications` + `send-push` (traen el canal Web Push).
+3. **Aplicar migraciones en orden de nombre:** `0036`→`0036c`→`0037`→`0038`→`0039`→`0040` (el
+   renombre de las RPCs de moderación a `0040` hace que el orden lexicográfico sea seguro: `0040`
+   referencia `messages.imagen_url` que crea `0038`).
+4. **Subir la web** (drag-and-drop de `dist` a Cloudflare) — con `EXPO_PUBLIC_VAPID_PUBLIC_KEY` en
+   el build; sin ella, el push web degrada a "no soportado" sin romper nada.
+5. **Hacerte admin:** `update profiles set es_admin=true where id='<tu uuid>'`. Sin eso, la fila
+   "Moderación" no aparece para nadie.
+Verificación E2E de las 4 funciones en la app real queda para post-despliegue (los RPC/columnas no
+existen en prod hasta aplicar las migraciones; la app degrada en silencio mientras tanto).
+
 ## 🗓️ SESIÓN 2026-07-22 (4) — Tanda "difusión + PWA" (3 agentes en paralelo)
 
 Spec `docs/superpowers/specs/2026-07-22-tanda-difusion-pwa-design.md`, plan
