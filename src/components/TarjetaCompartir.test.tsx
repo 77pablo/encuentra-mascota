@@ -86,7 +86,12 @@ test('renderiza banda, título y subtítulo del reporte perdido', async () => {
   act(() => {
     tree.unmount();
   });
-});
+  // Timeout explícito, como el test de abajo: este render arma la tarjeta
+  // completa de 1080×1080 CON foto, y con las 78 suites corriendo en paralelo
+  // los 5s por defecto de jest no alcanzan en una máquina cargada (aislado
+  // tarda ~1.7s). Falla intermitente, no un cuelgue: verificado corriendo la
+  // suite con y sin carga.
+}, 20000);
 
 test('avisa onListo cuando la tarjeta queda lista', async () => {
   // Timers REALES a propósito: los timers falsos de Jest chocan con el
