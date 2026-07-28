@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // GUARDRAIL ESTATICO de la migracion 0041 (cierre de la Tanda B).
@@ -24,15 +24,9 @@ function bloqueFuncion(nombre: string): string {
   return sql.slice(inicio, fin);
 }
 
-describe('0041 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(41);
-  });
-});
+// NOTA: el guardrail de "esta es la ultima migracion del repo" se mudo a
+// __tests__/db/migracion0042.test.ts al agregarse la 0042. Tiene que vivir
+// siempre con la ultima migracion, si no queda afirmando algo falso.
 
 describe('anonimizar_mi_cuenta() se lleva los bloqueos', () => {
   const cuerpo = bloqueFuncion('anonimizar_mi_cuenta()');
