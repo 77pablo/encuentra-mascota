@@ -439,10 +439,20 @@ export default function ChatScreen({ route, navigation }: any) {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const mine = item.from_user === me;
-            // Denunciar el mensaje ajeno con una pulsación larga. Solo los
-            // ajenos: denunciar el propio no le sirve a nadie y ensucia la
-            // bandeja de quien modera. `delayLongPress` un poco alto para no
-            // dispararlo por accidente al desplazar la lista.
+            // Denunciar el mensaje ajeno. Solo los ajenos: denunciar el propio
+            // no le sirve a nadie y ensucia la bandeja de quien modera.
+            //
+            // DOS caminos a la misma acción, y ninguno sobra:
+            //  · pulsación larga sobre la burbuja — natural con el dedo, y es
+            //    lo que ya conocía quien venía usando la app;
+            //  · botón ⋯ al lado — el único que funciona con TECLADO. La
+            //    pulsación larga vive en `onLongPress`, y la activación por
+            //    teclado de react-native-web pasa por `onPress`: verificado en
+            //    el navegador (Enter sobre un control con `onPress` lo dispara;
+            //    sobre la burbuja, que no lo tenía, no pasaba nada). Sin este
+            //    botón, denunciar un mensaje puntual era imposible sin mouse ni
+            //    pantalla táctil. `delayLongPress` alto para no dispararlo al
+            //    desplazar la lista.
             const abrirDenunciaDelMensaje = mine ? undefined : () => setMensajeADenunciar(item.id);
             return (
               <View style={[styles.bubbleRow, mine ? styles.bubbleRowMine : styles.bubbleRowOther]}>
@@ -451,8 +461,15 @@ export default function ChatScreen({ route, navigation }: any) {
                   disabled={mine}
                   onLongPress={abrirDenunciaDelMensaje}
                   delayLongPress={400}
-                  accessibilityLabel={mine ? undefined : 'Denunciar este mensaje'}
-                  accessibilityHint={mine ? undefined : 'Mantené apretado para denunciar este mensaje'}
+                  // La burbuja NO lleva `accessibilityLabel`: un label sobre un
+                  // elemento que envuelve contenido se convierte en su nombre
+                  // accesible y TAPA lo que hay adentro. Verificado en el árbol
+                  // de accesibilidad del navegador: con el label puesto, cada
+                  // mensaje ajeno se anunciaba "Denunciar este mensaje" en vez
+                  // del texto que la persona escribió. El label vive ahora en
+                  // el botón ⋯, que es el que de verdad hace la acción.
+                  // (`accessibilityHint` tampoco servía: react-native-web no lo
+                  // reenvía — no aparece en su tabla de props ni en su código.)
                   style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}
                 >
                   {item.imagen_url ? (
@@ -478,13 +495,28 @@ export default function ChatScreen({ route, navigation }: any) {
                     </AppText>
                   ) : null}
                 </TouchableOpacity>
+                {mine ? null : (
+                  <TouchableOpacity
+                    onPress={abrirDenunciaDelMensaje}
+                    accessibilityRole="button"
+                    accessibilityLabel="Denunciar este mensaje"
+                    // El ícono es chico a propósito (no queremos un chat lleno
+                    // de botones gritando), así que el área de toque se agranda
+                    // con hitSlop en vez de con relleno visible.
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.denunciarMensajeBtn}
+                  >
+                    <Ionicons name="ellipsis-horizontal" size={16} color={colors.muted} />
+                  </TouchableOpacity>
+                )}
               </View>
             );
           }}
         />
         {/* Denuncia de un mensaje puntual: se abre con la pulsación larga sobre
-            una burbuja ajena. Hoja simple con la MISMA lista cerrada de motivos
-            que el resto de la app. */}
+            una burbuja ajena o con su botón ⋯ (que es el camino con teclado).
+            Hoja simple con la MISMA lista cerrada de motivos que el resto de la
+            app. */}
         <Modal
           visible={mensajeADenunciar != null}
           transparent
@@ -701,6 +733,13 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   bubbleRow: {
     flexDirection: 'row',
+    // Al pie: el ⋯ queda a la altura de la última línea de la burbuja, no
+    // flotando al medio de un mensaje largo.
+    alignItems: 'flex-end',
+  },
+  denunciarMensajeBtn: {
+    paddingHorizontal: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   bubbleRowMine: {
     justifyContent: 'flex-end',

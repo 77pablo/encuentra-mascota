@@ -4,12 +4,24 @@ import { Text, TouchableOpacity } from 'react-native';
 import ChatScreen from '../../src/screens/ChatScreen';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';
 
-// DENUNCIAR UN MENSAJE PUNTUAL (pulsación larga sobre la burbuja).
+// DENUNCIAR UN MENSAJE PUNTUAL — por los DOS caminos.
 //
 // Es la pantalla donde mira quien revisa una denuncia, así que interesa probar
-// el cableado de verdad —que la pulsación larga termine llamando a
-// `denunciarMensaje` con el id correcto— y no que el archivo contenga la
-// palabra "onLongPress".
+// el cableado de verdad —que termine llamando a `denunciarMensaje` con el id
+// correcto— y no que el archivo contenga la palabra "onLongPress".
+//
+// Son dos caminos y ninguno sobra:
+//   · pulsación larga sobre la burbuja — natural con el dedo;
+//   · botón ⋯ al lado — el único que sirve con TECLADO, porque la activación
+//     por teclado de react-native-web pasa por `onPress` y la burbuja solo
+//     tiene `onLongPress`. Antes de agregarlo, denunciar un mensaje puntual
+//     era imposible sin mouse ni pantalla táctil.
+//
+// Ojo con una trampa que ya nos costó: la burbuja NO lleva
+// `accessibilityLabel`. Un label sobre un elemento que envuelve contenido pasa
+// a ser su nombre accesible y TAPA el texto del mensaje (verificado en el árbol
+// de accesibilidad del navegador). Por eso el label vive en el ⋯, y acá la
+// burbuja se busca por tener `onLongPress`, no por su etiqueta.
 
 // `@expo/vector-icons` arrastra `expo-font` → `expo-asset`, que no está en el
 // node_modules compartido de este repo (y no se puede instalar nada). Los íconos
@@ -117,19 +129,29 @@ beforeEach(() => {
   mockNotify.mockReset();
 });
 
-describe('ChatScreen — denunciar un mensaje con pulsación larga', () => {
-  it('la burbuja de un mensaje AJENO acepta pulsación larga y la propia no', async () => {
+/** Los botones ⋯, que son los que llevan la etiqueta y responden a `onPress`. */
+function botonesDenunciar(tree: any) {
+  return tree.root
+    .findAllByType(TouchableOpacity)
+    .filter((n: any) => n.props.accessibilityLabel === 'Denunciar este mensaje');
+}
+
+describe('ChatScreen — denunciar un mensaje', () => {
+  it('solo los mensajes AJENOS ofrecen denuncia, por los dos caminos', async () => {
     const tree = await montar();
     // Hay 3 mensajes: el mío no debe ofrecer denuncia; los dos ajenos sí (y el
     // de solo-foto suma su propio tactil interno para que la foto no se coma la
     // pulsación larga).
     const conLarga = tactilesConPulsacionLarga(tree);
     expect(conLarga.length).toBeGreaterThanOrEqual(3);
-    const etiquetas = tree.root
-      .findAllByType(TouchableOpacity)
-      .map((n: any) => n.props.accessibilityLabel)
-      .filter(Boolean);
-    expect(etiquetas.filter((e: string) => e === 'Denunciar este mensaje')).toHaveLength(2);
+
+    // Un ⋯ por mensaje ajeno, y ninguno en el propio.
+    const botones = botonesDenunciar(tree);
+    expect(botones).toHaveLength(2);
+    for (const b of botones) {
+      expect(typeof b.props.onPress).toBe('function');
+      expect(b.props.accessibilityRole).toBe('button');
+    }
     await act(async () => {
       tree.unmount();
     });
@@ -138,11 +160,54 @@ describe('ChatScreen — denunciar un mensaje con pulsación larga', () => {
     // TarjetaCompartir.test.tsx.
   }, 30000);
 
+  it('la burbuja no se pone una etiqueta que tape el texto del mensaje', async () => {
+    const tree = await montar();
+    // Regresión concreta: mientras la burbuja llevó `accessibilityLabel`, un
+    // lector de pantalla anunciaba "Denunciar este mensaje" en lugar del texto
+    // que la persona escribió.
+    const burbujas = tree.root
+      .findAllByType(TouchableOpacity)
+      .filter((n: any) => typeof n.props.onLongPress === 'function');
+    for (const b of burbujas) {
+      expect(b.props.accessibilityLabel).toBeUndefined();
+    }
+    await act(async () => {
+      tree.unmount();
+    });
+  }, 30000);
+
+  it('el botón ⋯ (camino con teclado) denuncia ESE mensaje', async () => {
+    const tree = await montar();
+    const boton = botonesDenunciar(tree)[0];
+    expect(boton).toBeTruthy();
+
+    await act(async () => {
+      boton.props.onPress();
+    });
+
+    const texto = textoDe(tree.root);
+    expect(texto).toContain('Denunciar este mensaje');
+    expect(texto).toContain('Estafa o pedido de dinero');
+
+    const candidatos = tree.root
+      .findAllByType(TouchableOpacity)
+      .filter((n: any) => textoDe(n).includes('Estafa o pedido de dinero'));
+    await act(async () => {
+      candidatos[candidatos.length - 1].props.onPress();
+    });
+    expect(mockDenunciarMensaje).toHaveBeenCalledWith('m-ajeno', 'yo', 'Estafa o pedido de dinero');
+
+    await act(async () => {
+      tree.unmount();
+    });
+  }, 30000);
+
   it('la pulsación larga abre los motivos y denuncia ESE mensaje', async () => {
     const tree = await montar();
-    const burbujaAjena = tree.root
-      .findAllByType(TouchableOpacity)
-      .find((n: any) => n.props.accessibilityLabel === 'Denunciar este mensaje');
+    // Se busca por el cableado, no por la etiqueta: la burbuja ya no la lleva.
+    // El primero con `onLongPress` es la burbuja del mensaje ajeno (la propia
+    // recibe `undefined` y queda fuera del filtro).
+    const burbujaAjena = tactilesConPulsacionLarga(tree)[0];
     expect(burbujaAjena).toBeTruthy();
 
     await act(async () => {
