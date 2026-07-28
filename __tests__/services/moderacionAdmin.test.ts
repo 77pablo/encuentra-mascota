@@ -1,4 +1,4 @@
-import { bandeja, descartar, retirar, suspender } from '../../src/services/moderacion';
+import { bandeja, descartar, retirar, suspender } from '../../src/services/moderacionAdmin';
 
 const mockRpc = jest.fn();
 

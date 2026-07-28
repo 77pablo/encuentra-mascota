@@ -3,7 +3,7 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
-import { bandeja, DenunciaPendiente, descartar, retirar, suspender } from '../services/moderacion';
+import { bandeja, DenunciaPendiente, descartar, retirar, suspender } from '../services/moderacionAdmin';
 import { AppText, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
 import { radius, spacing } from '../theme';
 import type { Colors } from '../theme';
