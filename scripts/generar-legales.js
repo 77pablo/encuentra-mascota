@@ -1,18 +1,27 @@
 #!/usr/bin/env node
-// Genera las páginas legales públicas desde docs/legal/*.md.
+// Genera, desde docs/legal/*.md, las TRES superficies donde viven los textos
+// legales:
 //
-// Por qué existe este script en vez de dos .html escritos a mano: Google Play
-// exige una URL pública de política de privacidad, y esos documentos los va a
-// revisar un abogado. Si el HTML fuera una copia del markdown, la primera
-// corrección del abogado dejaría las dos versiones distintas y la publicada
-// sería la vieja. Acá docs/legal/*.md es la ÚNICA fuente de verdad y el HTML
-// es un artefacto: se regenera y se commitea.
+//   docs/legal/*.md  (fuente)
+//        ├──→ public/privacidad/index.html · public/terminos/index.html
+//        └──→ src/content/legalGenerado.ts  → src/screens/LegalScreen.tsx
+//
+// Por qué existe este script en vez de escribir cada superficie a mano: Google
+// Play exige una URL pública de política de privacidad, y esos documentos los
+// va a revisar un abogado. Si el HTML y la pantalla de la app fueran copias del
+// markdown, la primera corrección del abogado dejaría tres versiones distintas
+// y las publicadas serían las viejas. Acá docs/legal/*.md es la ÚNICA fuente de
+// verdad y lo demás son artefactos: se regeneran y se commitean.
 //
 //   node scripts/generar-legales.js           → borrador (noindex + franja)
 //   node scripts/generar-legales.js --final   → publicable; FALLA si queda algo sin resolver
 //
 // Correr antes de `npx expo export --platform web`; los archivos salen a
 // public/, que expo copia a dist/ tal cual.
+//
+// Un solo lector de markdown, dos emisores: `analizar()` arma un árbol de
+// bloques y de ahí salen `aHtml()` (la web) y `construirApp()` (el módulo de
+// datos que renderiza la pantalla). Nadie parsea markdown por segunda vez.
 //
 // CommonJS a propósito (no .mjs): el repo no declara "type": "module", así que
 // un .js lo ejecuta node directo Y jest lo importa sin tocar jest.config.js.
@@ -73,6 +82,50 @@ const ETIQUETA = {
   URL_BORRADO: 'URL DE BORRADO',
 };
 
+// Lo mismo, pero para la app. La página web es un BORRADOR interno (noindex, no
+// enlazada, con una franja que lo dice): ahí un resaltado amarillo que grita
+// "CORREO DE CONTACTO" es exactamente lo que hay que ver. La pantalla de la app,
+// en cambio, la abre un usuario que se está registrando; no es un borrador para
+// un abogado. Ahí el mismo dato faltante se cuenta en castellano.
+//
+// No es una tercera versión del texto: es la MISMA información (el dato no
+// existe) dicha para dos públicos distintos.
+const SIN_DATO = {
+  NOMBRE_APP: 'Encuentra tu Mascota',
+  DOMINIO: 'todavía sin dominio definitivo',
+  CORREO_CONTACTO: 'todavía no hay uno publicado',
+  FECHA_PUBLICACION: 'sin publicar todavía',
+  RUT_RAZON_SOCIAL: 'RUT o razón social aún por definir',
+  DOMICILIO: 'domicilio aún por definir',
+  URL_BORRADO: 'la página de borrado del sitio web',
+};
+
+// ---------------------------------------------------------------------------
+// 1b. El canal de contacto
+// ---------------------------------------------------------------------------
+// `[[CANAL: para qué]]` es un marcador aparte, y existe por una razón concreta:
+// mientras CORREO_CONTACTO sea null, NINGUNA de las tres superficies puede
+// decirle al usuario "escríbenos". Un hueco amarillo en medio de la frase
+// ("escríbenos a ⟨CORREO DE CONTACTO⟩ y te respondemos") es peor que no decir
+// nada: promete un canal que hoy no atendería nadie.
+//
+// Así que el marcador no reemplaza un dato: reemplaza la FRASE entera, y tiene
+// dos redacciones según exista o no el correo. Sigue contando como dato
+// faltante, así que --final se sigue negando a publicar.
+
+function textoCanal(para, correo) {
+  if (correo) return 'Para ' + para + ', escríbenos a ' + correo + '. Contesta una persona.';
+  return (
+    'Todavía no publicamos un correo de contacto, y preferimos no prometerte un canal que hoy ' +
+    'no atenderíamos. Mientras tanto, lo que puedes resolver por tu cuenta está en la app: ' +
+    'Perfil → Editar perfil, Perfil → Avisos y Perfil → Borrar mi cuenta. Habrá un correo ' +
+    'publicado antes de que la app llegue a App Store y Google Play, porque ambas tiendas lo exigen.'
+  );
+}
+
+// El módulo de datos que consume src/screens/LegalScreen.tsx.
+const SALIDA_APP = 'src/content/legalGenerado.ts';
+
 const DOCS = [
   {
     md: 'docs/legal/politica-privacidad.md',
@@ -117,33 +170,57 @@ function unirMarcadores(md) {
 
 // Un marcador se convierte en el valor de CONFIG si es una sustitución
 // conocida y está resuelto; en un resaltado visible si no.
+//
+// Cada resultado lleva `html` (lo que ve la web) y `app` (lo que ve la
+// pantalla). `app: null` significa "esto no existe para el usuario" y el emisor
+// de la app lo saca del texto.
 function resolverMarcador(contenido, config) {
   const cfg = config || CONFIG;
-  const cuerpo = contenido.replace(/^PENDIENTE:\s*/, '').trim();
+  const crudo = contenido.trim();
+
+  if (/^CANAL:/i.test(crudo)) {
+    const para = crudo.replace(/^CANAL:\s*/i, '').trim();
+    const texto = textoCanal(para, cfg.CORREO_CONTACTO);
+    return {
+      tipo: cfg.CORREO_CONTACTO ? 'resuelto' : 'faltante',
+      clave: 'CORREO_CONTACTO',
+      cuerpo: para,
+      html: escaparHtml(texto),
+      app: texto,
+    };
+  }
+
+  const cuerpo = crudo.replace(/^PENDIENTE:\s*/, '').trim();
 
   for (const { empiezaCon, clave } of SUSTITUCIONES) {
     if (cuerpo.toLowerCase().startsWith(empiezaCon.toLowerCase())) {
       const valor = cfg[clave];
-      if (valor) return { tipo: 'resuelto', clave, html: escaparHtml(valor) };
+      if (valor) return { tipo: 'resuelto', clave, cuerpo, html: escaparHtml(valor), app: valor };
       return {
         tipo: 'faltante',
         clave,
+        cuerpo,
         html:
           '<mark class="falta" title="Dato pendiente: completar en CONFIG de scripts/generar-legales.js">' +
           escaparHtml(ETIQUETA[clave] || clave) +
           '</mark>',
+        app: SIN_DATO[clave] || null,
       };
     }
   }
 
-  // Pregunta abierta (para el abogado o para una decisión técnica).
+  // Pregunta abierta (para el abogado o para una decisión técnica). En la web
+  // sale resaltada; en la app no sale: son notas dirigidas a un abogado, no
+  // afirmaciones sobre lo que la app hace con tus datos.
   return {
     tipo: 'consulta',
     clave: null,
+    cuerpo,
     html:
       '<mark class="consulta"><span class="consulta-et">Pendiente de revisión</span> ' +
       escaparHtml(cuerpo) +
       '</mark>',
+    app: null,
   };
 }
 
@@ -163,17 +240,21 @@ function desescapar(s) {
     .replace(/&amp;/g, '&');
 }
 
-function inline(texto, estado, config) {
+// Devuelve el texto ya marcado (con <strong>, <em>, <code>, <a>) pero con los
+// marcadores todavía como sentinelas, más la lista de marcadores en orden. Es
+// el punto donde se bifurcan los dos emisores: la web mete el `html` de cada
+// marcador y la app mete su `app`. Una sola pasada de markdown para los dos.
+function inlineCrudo(texto, estado, config) {
   let s = escaparHtml(texto);
 
-  // Marcadores primero: su HTML ya viene armado y escapado por
-  // resolverMarcador, y no debe pasar por el resto de las reglas.
-  const trozos = [];
+  // Marcadores primero: su contenido ya viene resuelto por resolverMarcador y
+  // no debe pasar por el resto de las reglas.
+  const marcadores = [];
   s = s.replace(/\[\[([\s\S]*?)\]\]/g, function (_, dentro) {
     const r = resolverMarcador(desescapar(dentro), config);
     if (estado) estado.marcadores.push(r);
-    trozos.push(r.html);
-    return ABRE + (trozos.length - 1) + CIERRA;
+    marcadores.push(r);
+    return ABRE + (marcadores.length - 1) + CIERRA;
   });
 
   s = s
@@ -182,9 +263,19 @@ function inline(texto, estado, config) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
 
-  return s.replace(new RegExp(ABRE + '(\\d+)' + CIERRA, 'g'), function (_, i) {
-    return trozos[Number(i)];
+  return { s, marcadores };
+}
+
+const RE_SENTINELA = new RegExp(ABRE + '(\\d+)' + CIERRA, 'g');
+
+function aHtmlTexto(texto) {
+  return texto.s.replace(RE_SENTINELA, function (_, i) {
+    return texto.marcadores[Number(i)].html;
   });
+}
+
+function inline(texto, estado, config) {
+  return aHtmlTexto(inlineCrudo(texto, estado, config));
 }
 
 function slug(texto) {
@@ -217,7 +308,7 @@ function juntarItems(lineas, esItem) {
   return items;
 }
 
-function renderTabla(filas, estado, config) {
+function analizarTabla(filas, estado, config) {
   const celdas = (l) =>
     l
       .replace(/^\|/, '')
@@ -226,7 +317,7 @@ function renderTabla(filas, estado, config) {
       .map((c) => c.trim());
 
   const separador = filas.findIndex((l) => /^\|[\s:|-]+\|$/.test(l) && l.includes('-'));
-  if (separador === -1) return '';
+  if (separador === -1) return { t: 'tabla', vacia: true };
 
   const encabezado = filas.slice(0, separador).map(celdas);
   const cuerpo = filas.slice(separador + 1).map(celdas);
@@ -235,28 +326,20 @@ function renderTabla(filas, estado, config) {
   // es una lista de campo/valor. Sin esto saldría una fila vacía arriba.
   const tieneEncabezado = encabezado.some((f) => f.some((c) => c !== ''));
 
-  const thead = tieneEncabezado
-    ? '<thead>' +
-      encabezado
-        .map((f) => '<tr>' + f.map((c) => '<th>' + inline(c, estado, config) + '</th>').join('') + '</tr>')
-        .join('') +
-      '</thead>'
-    : '';
-
-  const tbody =
-    '<tbody>' +
-    cuerpo
-      .map((f) => '<tr>' + f.map((c) => '<td>' + inline(c, estado, config) + '</td>').join('') + '</tr>')
-      .join('') +
-    '</tbody>';
-
-  // El wrapper con scroll propio es obligatorio: son tablas de hasta 4 columnas
-  // de texto y la página se lee en un teléfono. Sin esto el body scrollea en
-  // horizontal y se rompe la lectura entera.
-  return '<div class="tabla-scroll"><table>' + thead + tbody + '</table></div>';
+  return {
+    t: 'tabla',
+    tieneEncabezado,
+    // Solo se analiza el encabezado si existe: si no, sus celdas vacías
+    // ensuciarían el orden de estado.marcadores.
+    encabezado: tieneEncabezado
+      ? encabezado.map((f) => f.map((c) => inlineCrudo(c, estado, config)))
+      : [],
+    cuerpo: cuerpo.map((f) => f.map((c) => inlineCrudo(c, estado, config))),
+  };
 }
 
-function renderizar(md, estado, config) {
+// Markdown → árbol de bloques. Es el único lugar que entiende markdown.
+function analizar(md, estado, config) {
   const st = estado || { marcadores: [], secciones: [] };
   const lineas = unirMarcadores(md).split(/\r?\n/);
   const salida = [];
@@ -271,7 +354,7 @@ function renderizar(md, estado, config) {
     }
 
     if (ES_REGLA(t)) {
-      salida.push('<hr />');
+      salida.push({ t: 'regla' });
       i++;
       continue;
     }
@@ -288,7 +371,7 @@ function renderizar(md, estado, config) {
       }
       const id = slug(texto);
       if (nivel === 2) st.secciones.push({ id, texto });
-      salida.push('<h' + nivel + ' id="' + id + '">' + inline(texto, st, config) + '</h' + nivel + '>');
+      salida.push({ t: 'titulo', nivel, id, texto: inlineCrudo(texto, st, config) });
       i++;
       continue;
     }
@@ -299,7 +382,7 @@ function renderizar(md, estado, config) {
         filas.push(lineas[i].trim());
         i++;
       }
-      salida.push(renderTabla(filas, st, config));
+      salida.push(analizarTabla(filas, st, config));
       continue;
     }
 
@@ -309,7 +392,7 @@ function renderizar(md, estado, config) {
         dentro.push(lineas[i].trim().replace(/^>\s?/, ''));
         i++;
       }
-      salida.push('<blockquote>' + renderizar(dentro.join('\n'), st, config) + '</blockquote>');
+      salida.push({ t: 'cita', bloques: analizar(dentro.join('\n'), st, config) });
       continue;
     }
 
@@ -325,16 +408,15 @@ function renderizar(md, estado, config) {
         i++;
       }
       const items = juntarItems(bloque, esItem);
-      const tag = ordenada ? 'ol' : 'ul';
-      // start= preserva la numeración: la lista de conductas prohibidas de los
+      // `inicio` preserva la numeración: la lista de conductas prohibidas de los
       // términos corre del 1 al 25 partida en cuatro subsecciones, y sin esto
       // cada subsección volvería a empezar en 1.
-      const inicio = ordenada ? ' start="' + parseInt(bloque[0].trim(), 10) + '"' : '';
-      salida.push(
-        '<' + tag + inicio + '>' +
-          items.map((it) => '<li>' + inline(it, st, config) + '</li>').join('') +
-          '</' + tag + '>',
-      );
+      salida.push({
+        t: 'lista',
+        ordenada,
+        inicio: ordenada ? parseInt(bloque[0].trim(), 10) : 1,
+        items: items.map((it) => inlineCrudo(it, st, config)),
+      });
       continue;
     }
 
@@ -348,10 +430,315 @@ function renderizar(md, estado, config) {
       parrafo.push(l);
       i++;
     }
-    salida.push('<p>' + inline(parrafo.join(' '), st, config) + '</p>');
+    salida.push({ t: 'parrafo', texto: inlineCrudo(parrafo.join(' '), st, config) });
   }
 
-  return salida.join('\n');
+  return salida;
+}
+
+// Emisor 1: el HTML de las páginas públicas.
+function aHtml(bloques) {
+  return bloques
+    .map((b) => {
+      if (b.t === 'regla') return '<hr />';
+
+      if (b.t === 'titulo') {
+        return '<h' + b.nivel + ' id="' + b.id + '">' + aHtmlTexto(b.texto) + '</h' + b.nivel + '>';
+      }
+
+      if (b.t === 'tabla') {
+        if (b.vacia) return '';
+        const thead = b.tieneEncabezado
+          ? '<thead>' +
+            b.encabezado
+              .map((f) => '<tr>' + f.map((c) => '<th>' + aHtmlTexto(c) + '</th>').join('') + '</tr>')
+              .join('') +
+            '</thead>'
+          : '';
+        const tbody =
+          '<tbody>' +
+          b.cuerpo
+            .map((f) => '<tr>' + f.map((c) => '<td>' + aHtmlTexto(c) + '</td>').join('') + '</tr>')
+            .join('') +
+          '</tbody>';
+        // El wrapper con scroll propio es obligatorio: son tablas de hasta 4
+        // columnas de texto y la página se lee en un teléfono. Sin esto el body
+        // scrollea en horizontal y se rompe la lectura entera.
+        return '<div class="tabla-scroll"><table>' + thead + tbody + '</table></div>';
+      }
+
+      if (b.t === 'cita') return '<blockquote>' + aHtml(b.bloques) + '</blockquote>';
+
+      if (b.t === 'lista') {
+        const tag = b.ordenada ? 'ol' : 'ul';
+        const inicio = b.ordenada ? ' start="' + b.inicio + '"' : '';
+        return (
+          '<' + tag + inicio + '>' +
+          b.items.map((it) => '<li>' + aHtmlTexto(it) + '</li>').join('') +
+          '</' + tag + '>'
+        );
+      }
+
+      return '<p>' + aHtmlTexto(b.texto) + '</p>';
+    })
+    .join('\n');
+}
+
+function renderizar(md, estado, config) {
+  return aHtml(analizar(md, estado, config));
+}
+
+// ---------------------------------------------------------------------------
+// 2b. Emisor 2: el módulo de datos que renderiza la app
+// ---------------------------------------------------------------------------
+// La pantalla no puede recibir HTML: React Native no lo renderiza. Recibe el
+// mismo árbol de bloques, con el texto partido en tramos con estilo, y lo pinta
+// con los componentes de src/ui.
+
+const ETIQUETA_TAG = { code: 'codigo', strong: 'fuerte', em: 'enfasis', a: 'enlace' };
+
+// Deshace el marcado en línea de inlineCrudo: recorre el texto con una pila de
+// estilos y corta un tramo cada vez que el estilo cambia. Es el reverso exacto
+// de lo que hizo el pipeline de regex, no un segundo parser de markdown.
+function aTramos(texto) {
+  const tramos = [];
+  const pila = [];
+  const s = texto.s;
+  let buf = '';
+  let i = 0;
+
+  const estilo = () => {
+    const e = {};
+    for (const p of pila) {
+      if (p.tipo === 'enlace') e.enlace = p.href;
+      else e[p.tipo] = true;
+    }
+    return e;
+  };
+  const cerrar = () => {
+    if (buf) {
+      tramos.push(Object.assign({ texto: desescapar(buf) }, estilo()));
+      buf = '';
+    }
+  };
+
+  while (i < s.length) {
+    if (s[i] === ABRE) {
+      const fin = s.indexOf(CIERRA, i);
+      cerrar();
+      tramos.push(Object.assign({ marcador: texto.marcadores[Number(s.slice(i + 1, fin))] }, estilo()));
+      i = fin + 1;
+      continue;
+    }
+
+    if (s[i] === '<') {
+      const m = /^<(\/?)(code|strong|em|a)(?:\s+href="([^"]*)")?>/.exec(s.slice(i));
+      if (m) {
+        cerrar();
+        const tipo = ETIQUETA_TAG[m[2]];
+        if (m[1]) {
+          // Cierra la apertura más reciente de ese tipo, no la última a secas:
+          // el pipeline de regex puede dejar anidados cruzados.
+          for (let k = pila.length - 1; k >= 0; k--) {
+            if (pila[k].tipo === tipo) {
+              pila.splice(k, 1);
+              break;
+            }
+          }
+        } else {
+          pila.push({ tipo, href: m[3] ? desescapar(m[3]) : undefined });
+        }
+        i += m[0].length;
+        continue;
+      }
+    }
+
+    buf += s[i];
+    i++;
+  }
+
+  cerrar();
+  return tramos;
+}
+
+const CLAVES_ESTILO = ['fuerte', 'enfasis', 'codigo', 'enlace'];
+
+function mismoEstilo(a, b) {
+  return CLAVES_ESTILO.every((k) => a[k] === b[k]);
+}
+
+// Aplica la política de marcadores de la app y deja el texto presentable.
+function limpiarTramos(tramos) {
+  const conMarcadoresResueltos = [];
+  let seCayoAlgo = false;
+  for (const tr of tramos) {
+    if (!tr.marcador) {
+      conMarcadoresResueltos.push(tr);
+      continue;
+    }
+    // `app: null` = consulta para el abogado. No existe para el usuario.
+    if (tr.marcador.app == null) {
+      seCayoAlgo = true;
+      continue;
+    }
+    const copia = Object.assign({}, tr, { texto: tr.marcador.app });
+    delete copia.marcador;
+    conMarcadoresResueltos.push(copia);
+  }
+
+  // Un espacio doble o una coma colgando son la huella de lo que se sacó.
+  const normalizados = conMarcadoresResueltos.map((tr) =>
+    Object.assign({}, tr, { texto: tr.texto.replace(/\s+/g, ' ') }),
+  );
+
+  const unidos = [];
+  for (const tr of normalizados) {
+    const ultimo = unidos[unidos.length - 1];
+    if (ultimo && mismoEstilo(ultimo, tr)) ultimo.texto += tr.texto;
+    else unidos.push(Object.assign({}, tr));
+  }
+
+  while (unidos.length && !unidos[0].texto.replace(/^\s+/, '')) unidos.shift();
+  if (unidos.length) unidos[0].texto = unidos[0].texto.replace(/^\s+/, '');
+
+  // Al final: los espacios siempre; los conectores que quedaron sin nada que
+  // conectar ("… de Supabase —", "… por defecto,") SOLO si acá se cayó una
+  // consulta. Si no, se comería los dos puntos legítimos de cualquier frase
+  // que presenta una lista ("Lo que hacemos al respecto:").
+  const sobra = seCayoAlgo ? /[\s,;:—–-]+$/ : /\s+$/;
+  while (unidos.length) {
+    const ultimo = unidos[unidos.length - 1];
+    ultimo.texto = ultimo.texto.replace(sobra, '');
+    if (ultimo.texto) break;
+    unidos.pop();
+  }
+
+  return unidos.filter((tr) => tr.texto !== '');
+}
+
+const limpio = (texto) => limpiarTramos(aTramos(texto));
+
+function aBloquesApp(bloques) {
+  const salida = [];
+
+  for (const b of bloques) {
+    if (b.t === 'regla') {
+      salida.push({ tipo: 'separador' });
+      continue;
+    }
+
+    if (b.t === 'titulo') {
+      const texto = limpio(b.texto);
+      if (texto.length) salida.push({ tipo: 'titulo', nivel: b.nivel, id: b.id, texto });
+      continue;
+    }
+
+    if (b.t === 'parrafo') {
+      const texto = limpio(b.texto);
+      if (texto.length) salida.push({ tipo: 'parrafo', texto });
+      continue;
+    }
+
+    if (b.t === 'lista') {
+      const items = b.items.map(limpio).filter((it) => it.length);
+      if (items.length) {
+        salida.push({ tipo: 'lista', ordenada: b.ordenada, inicio: b.inicio, items });
+      }
+      continue;
+    }
+
+    if (b.t === 'cita') {
+      const dentro = aBloquesApp(b.bloques);
+      if (dentro.length) salida.push({ tipo: 'nota', bloques: dentro });
+      continue;
+    }
+
+    if (b.t === 'tabla') {
+      if (b.vacia) continue;
+      const columnas = b.tieneEncabezado ? (b.encabezado[0] || []).map(limpio) : [];
+      const filas = b.cuerpo.map((f) => f.map(limpio)).filter((f) => f.some((c) => c.length));
+      if (filas.length) salida.push({ tipo: 'tabla', columnas, filas });
+      continue;
+    }
+  }
+
+  // Un separador solo vale si separa algo: sin esto la pantalla abre y cierra
+  // con una línea suelta, y quedan dos seguidas donde se cayó un bloque entero.
+  return salida.filter((b, i, todos) => {
+    if (b.tipo !== 'separador') return true;
+    if (i === 0 || i === todos.length - 1) return false;
+    return todos[i - 1].tipo !== 'separador';
+  });
+}
+
+// Serializador: compacto cuando entra en una línea, expandido cuando no. El
+// archivo se commitea y se diffea a mano cuando cambia el markdown.
+function literal(valor, sangria) {
+  const compacto = JSON.stringify(valor);
+  if (valor === null || typeof valor !== 'object' || compacto.length <= 96) return compacto;
+
+  const dentro = ' '.repeat(sangria + 2);
+  const fuera = ' '.repeat(sangria);
+
+  if (Array.isArray(valor)) {
+    return '[\n' + valor.map((v) => dentro + literal(v, sangria + 2)).join(',\n') + '\n' + fuera + ']';
+  }
+
+  return (
+    '{\n' +
+    Object.keys(valor)
+      .map((k) => dentro + JSON.stringify(k) + ': ' + literal(valor[k], sangria + 2))
+      .join(',\n') +
+    '\n' + fuera + '}'
+  );
+}
+
+const CABECERA_APP = [
+  '// GENERADO — no editar a mano.',
+  '// Fuente: docs/legal/*.md · Generador: scripts/generar-legales.js',
+  '// Regenerar: npm run legales',
+  '// Cualquier cambio hecho acá se pierde en la próxima corrida.',
+  '//',
+  '// Este módulo es la Política de privacidad y los Términos de uso convertidos',
+  '// a datos, para que src/screens/LegalScreen.tsx los pinte con los componentes',
+  '// de src/ui. La pantalla no tiene texto legal propio: si un abogado corrige el',
+  '// markdown, la app cambia con él.',
+  '',
+  'export interface TramoLegal {',
+  '  texto: string;',
+  '  fuerte?: boolean;',
+  '  enfasis?: boolean;',
+  '  codigo?: boolean;',
+  '  enlace?: string;',
+  '}',
+  '',
+  'export type BloqueLegal =',
+  "  | { tipo: 'titulo'; nivel: number; id: string; texto: TramoLegal[] }",
+  "  | { tipo: 'parrafo'; texto: TramoLegal[] }",
+  "  | { tipo: 'lista'; ordenada: boolean; inicio: number; items: TramoLegal[][] }",
+  "  | { tipo: 'nota'; bloques: BloqueLegal[] }",
+  "  | { tipo: 'tabla'; columnas: TramoLegal[][]; filas: TramoLegal[][][] }",
+  "  | { tipo: 'separador' };",
+  '',
+  'export interface DocumentoLegal {',
+  '  titulo: string;',
+  '  ruta: string;',
+  '  bloques: BloqueLegal[];',
+  '}',
+  '',
+].join('\n');
+
+function plantillaApp(documentos, cfg) {
+  return (
+    CABECERA_APP +
+    '\n' +
+    '/** `false` mientras no exista un correo de contacto publicado. La pantalla no\n' +
+    ' *  promete un canal que hoy no atendería nadie; el texto de reemplazo ya viene\n' +
+    ' *  resuelto adentro de los bloques. */\n' +
+    'export const HAY_CORREO_DE_CONTACTO = ' + (cfg.CORREO_CONTACTO ? 'true' : 'false') + ';\n' +
+    '\n' +
+    'export const DOCUMENTOS_LEGALES: DocumentoLegal[] = ' + literal(documentos, 0) + ';\n'
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -455,7 +842,8 @@ function construir(config) {
   return DOCS.map((doc) => {
     const md = readFileSync(join(RAIZ, doc.md), 'utf8');
     const estado = { marcadores: [], secciones: [] };
-    const contenido = renderizar(md, estado, cfg);
+    const bloques = analizar(md, estado, cfg);
+    const contenido = aHtml(bloques);
 
     const faltantes = estado.marcadores.filter((m) => m.tipo === 'faltante');
     const consultas = estado.marcadores.filter((m) => m.tipo === 'consulta');
@@ -473,6 +861,7 @@ function construir(config) {
     return {
       doc,
       html,
+      bloques,
       esBorrador,
       secciones: estado.secciones.length,
       consultas: consultas.length,
@@ -481,9 +870,23 @@ function construir(config) {
   });
 }
 
+// El módulo de datos de la app, a partir de los mismos bloques que produjeron el
+// HTML. Separado de generar() por lo mismo que construir(): que los tests puedan
+// comparar lo generado con lo que hay en disco sin pisar el archivo del repo.
+function construirApp(config) {
+  const cfg = config || CONFIG;
+  const documentos = construir(cfg).map((r) => ({
+    titulo: r.doc.titulo,
+    ruta: r.doc.ruta,
+    bloques: aBloquesApp(r.bloques),
+  }));
+  return plantillaApp(documentos, cfg);
+}
+
 function generar(opciones) {
   const final = !!(opciones && opciones.final);
-  const resultados = construir(opciones && opciones.config);
+  const cfg = (opciones && opciones.config) || CONFIG;
+  const resultados = construir(cfg);
 
   for (const r of resultados) {
     if (final && r.esBorrador) {
@@ -504,6 +907,10 @@ function generar(opciones) {
     writeFileSync(destino, r.html, 'utf8');
   }
 
+  const destinoApp = join(RAIZ, SALIDA_APP);
+  mkdirSync(dirname(destinoApp), { recursive: true });
+  writeFileSync(destinoApp, construirApp(cfg), 'utf8');
+
   return resultados.map((r) => ({
     salida: r.doc.salida,
     ruta: r.doc.ruta,
@@ -518,13 +925,20 @@ module.exports = {
   CONFIG,
   SUSTITUCIONES,
   ETIQUETA,
+  SIN_DATO,
   DOCS,
+  SALIDA_APP,
   escaparHtml,
   unirMarcadores,
   resolverMarcador,
+  textoCanal,
+  analizar,
+  aHtml,
+  aBloquesApp,
   renderizar,
   slug,
   construir,
+  construirApp,
   generar,
 };
 
@@ -539,6 +953,7 @@ if (require.main === module) {
         if (r.consultas) console.log('    puntos para el abogado: ' + r.consultas);
       }
     }
+    console.log('OK  ' + SALIDA_APP + '  (pantalla de la app)');
     if (!final) {
       console.log('\nCuando este todo resuelto: node scripts/generar-legales.js --final');
     }
