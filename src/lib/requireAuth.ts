@@ -11,6 +11,7 @@ export type AccionProtegida =
   | 'avistamiento'
   | 'novedad'
   | 'denunciar'
+  | 'bloquear'
   | 'reencuentro'
   | 'preguntar_adopcion'
   | 'guardar_busqueda';
@@ -23,6 +24,10 @@ export const MENSAJES: Record<AccionProtegida, string> = {
   avistamiento: 'Creá tu cuenta para avisar que la viste',
   novedad: 'Creá tu cuenta para contar una novedad',
   denunciar: 'Creá tu cuenta para denunciar este reporte',
+  // El bloqueo es una fila con tu id como `bloqueador` (tabla `bloqueos`, 0022):
+  // sin cuenta no hay a quién anclarlo. El texto vivía repetido a mano en las
+  // pantallas; acá suena parejo con el resto.
+  bloquear: 'Creá tu cuenta para bloquear a esta persona',
   reencuentro: 'Creá tu cuenta para marcar el reencuentro',
   preguntar_adopcion: 'Creá tu cuenta para preguntarle a quien la publicó',
   guardar_busqueda: 'Creá tu cuenta para guardar esta búsqueda y recibir avisos',

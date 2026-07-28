@@ -106,3 +106,52 @@ describe('mensajeDeErrorDb', () => {
     expect(m).toBe('Ya tenés guardada esa búsqueda.');
   });
 });
+
+// ------------------------------------------------------------
+// 42501 con contexto: el rechazo por bloqueo (RLS de la 0022)
+// ------------------------------------------------------------
+describe('permiso denegado al mandar un mensaje', () => {
+  // Lo que devuelve PostgREST cuando la policy de insert de `messages` rechaza
+  // (te bloqueó, la bloqueaste, o borró la cuenta: los tres dan lo mismo).
+  const rls = {
+    code: '42501',
+    message: 'new row violates row-level security policy for table "messages"',
+  };
+
+  it('con contexto "mensaje" da un texto propio y accionable', () => {
+    const m = mensajeDeErrorDb(rls, 'mensaje');
+    expect(m).toBe('No se pudo enviar el mensaje a esta persona.');
+  });
+
+  it('NUNCA revela que alguien te bloqueó', () => {
+    const m = mensajeDeErrorDb(rls, 'mensaje').toLowerCase();
+    // Ese dato es privado de quien bloquea: decirlo confirma el bloqueo y arma
+    // al acosador (ver el comentario largo de la migración 0022).
+    for (const filtracion of ['bloque', 'blocked', 'eliminó', 'borró la cuenta', 'row-level']) {
+      expect(m).not.toContain(filtracion);
+    }
+  });
+
+  it('reconoce el rechazo aunque venga sin código, solo por el texto', () => {
+    const m = mensajeDeErrorDb({ message: 'permission denied for table messages' }, 'mensaje');
+    expect(m).toBe('No se pudo enviar el mensaje a esta persona.');
+  });
+
+  it('SIN contexto se comporta igual que siempre (no se pisa el resto de la app)', () => {
+    // Borrar una pista ajena también da 42501, y ahí "No tenés permiso" es lo
+    // correcto: el texto del mensaje no tiene nada que ver con esa pantalla.
+    expect(mensajeDeErrorDb(rls)).toBe('No tenés permiso para hacer eso.');
+  });
+
+  it('el contexto no secuestra errores que no son de permisos', () => {
+    const m = mensajeDeErrorDb(
+      { code: '23514', message: 'violates check constraint "messages_texto_o_imagen"' },
+      'mensaje',
+    );
+    expect(m).toContain('muy largo');
+  });
+
+  it('un error sin nada reconocible sigue cayendo en el genérico', () => {
+    expect(mensajeDeErrorDb({ message: 'algo rarísimo' }, 'mensaje')).toBe(MENSAJE_GENERICO_DB);
+  });
+});

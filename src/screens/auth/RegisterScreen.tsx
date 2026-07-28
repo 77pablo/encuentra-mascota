@@ -59,8 +59,21 @@ export default function RegisterScreen({ navigation, route }: any) {
         // la guarde en `profiles.fecha_nacimiento` (columna privada, migracion
         // 0024). Si el registro no supera el corte de edad, nunca llegamos aca:
         // no se guarda nada del intento.
+        //
+        // `acepta_terminos` es un BOOLEANO, no una fecha: el trigger de la 0041
+        // sella `profiles.terminos_aceptados_en` con el `now()` del SERVIDOR.
+        // Una marca de tiempo escrita por el cliente no probaria nada el dia
+        // que haya un reclamo. Y solo llegamos aca si el schema valido que la
+        // casilla estuviera tildada, asi que mandar `true` es honesto.
+        //
+        // Mientras la 0041 no este aplicada, el trigger viejo simplemente
+        // ignora esta clave de mas: el registro sigue funcionando igual.
         options: {
-          data: { nombre: parsed.data.nombre, fecha_nacimiento: parsed.data.fechaNacimiento },
+          data: {
+            nombre: parsed.data.nombre,
+            fecha_nacimiento: parsed.data.fechaNacimiento,
+            acepta_terminos: true,
+          },
         },
       });
       if (error) {

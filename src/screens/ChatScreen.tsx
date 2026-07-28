@@ -243,12 +243,18 @@ export default function ChatScreen({ route, navigation }: any) {
           },
         })
         .catch((e) => console.warn('No se pudo mandar el aviso push del mensaje:', e));
-    } catch {
+    } catch (e: any) {
       // El insert falló. Si había foto, ya quedó subida (su URL sigue en
       // `urlSubida`, sin tocar): se restaura la uri LOCAL para el preview y
       // el reintento, que gracias a `urlSubida` no la vuelve a subir.
       setTexto(t);
       if (adjunta) setImagenAdjunta(adjunta);
+      // Antes esto fallaba EN SILENCIO: el mensaje volvía al compositor y no se
+      // decía nada, así que quien está bloqueado (o le escribe a una cuenta
+      // borrada) reintentaba para siempre sin entender. El texto del 42501 es
+      // neutro y simétrico a propósito: no revela que alguien te bloqueó (ver
+      // `ContextoError` en dbErrors.ts).
+      notify('No se pudo enviar', mensajeDeErrorDb(e, 'mensaje'));
     }
   };
 

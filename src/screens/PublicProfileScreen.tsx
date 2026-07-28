@@ -17,6 +17,7 @@ import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { useAuth } from '../hooks/useAuth';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
+import { mensajeDe } from '../lib/requireAuth';
 import { AppText, Badge, Button, Card, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -79,9 +80,12 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 
   useFocusEffect(cargar);
 
-  // Portero del modo invitado, en línea: no existe una acción 'bloquear' en el
-  // enum de requireAuth (vive en un archivo ajeno a esta tarea), así que
-  // replicamos el mismo gesto: avisar y empujar el registro.
+  // Portero del modo invitado, en línea (mismo gesto que `useRequireAuth`:
+  // avisar y empujar el registro). Se mantiene la forma con el mensaje como
+  // parámetro porque acá hacen falta DOS textos: 'bloquear' ya vive en el mapa
+  // de `requireAuth`, pero la denuncia de una PERSONA no —el 'denunciar' del
+  // mapa habla de un reporte, y decirle "denunciar este reporte" a alguien que
+  // está mirando un perfil sería peor que dejar esa línea suelta—.
   const pedirCuenta = (mensaje: string): boolean => {
     if (user) return true;
     notify(mensaje);
@@ -91,7 +95,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 
   const alternarBloqueo = async () => {
     if (!userId) return;
-    if (!pedirCuenta('Creá tu cuenta para bloquear a esta persona')) return;
+    if (!pedirCuenta(mensajeDe('bloquear'))) return;
     if (!bloqueado) {
       const ok = await confirmAction(
         '¿Bloquear a esta persona?',

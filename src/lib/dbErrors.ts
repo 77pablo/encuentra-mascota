@@ -86,13 +86,38 @@ const POR_TEXTO: { contiene: string; mensaje: string }[] = [
 
 export const MENSAJE_GENERICO_DB = 'Algo no salió bien. Probá de nuevo en un momento.';
 
+// Contexto opcional de la acción que falló. Sirve para darle a un error de
+// PERMISO (42501) un texto que se entienda sin revelar el motivo real.
+//
+// Hoy solo existe 'mensaje', y no es un detalle cosmético: la RLS de la 0022
+// rechaza el insert en `messages` con 42501 tanto cuando la otra persona te
+// bloqueó a vos como cuando vos la bloqueaste a ella (y también si borró su
+// cuenta). El genérico "No tenés permiso para hacer eso" suena a error de la
+// app; y cualquier texto más específico ("te bloqueó") sería revelar un dato
+// privado de quien bloquea y armar al acosador. Por eso el texto es neutro y
+// simétrico: no se puede deducir cuál de los tres casos es.
+export type ContextoError = 'mensaje';
+
+const MENSAJE_POR_CONTEXTO: Record<ContextoError, string> = {
+  mensaje: 'No se pudo enviar el mensaje a esta persona.',
+};
+
+// ¿Es un rechazo de permisos de Postgres/PostgREST? Se mira el código primero
+// (`42501` = insufficient_privilege) y, si no viene, el texto: PostgREST a veces
+// devuelve la violación de RLS sin código en `code`.
+function esPermisoDenegado(codigo: string, crudo: string): boolean {
+  if (codigo === '42501') return true;
+  const t = crudo.toLowerCase();
+  return t.includes('row-level security') || t.includes('permission denied');
+}
+
 // Errores que escribimos nosotros y que YA están redactados para el usuario
 // (por ejemplo "Este reporte ya no está disponible"). Sin esta marca, el
 // traductor no los reconocería y los reemplazaría por el mensaje genérico,
 // que dice bastante menos.
 export class ErrorAmigable extends Error {}
 
-export function mensajeDeErrorDb(error: unknown): string {
+export function mensajeDeErrorDb(error: unknown, contexto?: ContextoError): string {
   if (error instanceof ErrorAmigable) return error.message;
 
   const crudo =
@@ -101,6 +126,14 @@ export function mensajeDeErrorDb(error: unknown): string {
       : error && typeof error === 'object' && 'message' in error
         ? String((error as { message: unknown }).message ?? '')
         : '';
+  const codigo =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code: unknown }).code ?? '')
+      : '';
+
+  // Permiso denegado CON contexto: gana sobre todo lo demás. Va antes que el
+  // barrido por texto para que no lo pise el 'row-level security' genérico.
+  if (contexto && esPermisoDenegado(codigo, crudo)) return MENSAJE_POR_CONTEXTO[contexto];
 
   // Primero por nombre de restricción: es lo más preciso, porque nos deja decir
   // exactamente qué campo se pasó de largo.

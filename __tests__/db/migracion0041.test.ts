@@ -136,6 +136,23 @@ describe('terminos_aceptados_en', () => {
     expect(cuerpo).not.toContain("raw_user_meta_data->>'terminos_aceptados_en'");
   });
 
+  it('RegisterScreen manda EL MISMO booleano que el trigger espera', () => {
+    // Los dos extremos tienen que coincidir en el nombre de la clave: si uno
+    // cambia y el otro no, la columna queda en NULL para siempre y nadie se
+    // entera hasta que haga falta demostrar la aceptación.
+    const registro = readFileSync(
+      join(__dirname, '..', '..', 'src', 'screens', 'auth', 'RegisterScreen.tsx'),
+      'utf8',
+    );
+    // Solo la metadata que viaja en el signUp, no los comentarios del archivo.
+    const i = registro.indexOf('data: {');
+    expect(i).toBeGreaterThanOrEqual(0);
+    const metadata = registro.slice(i, registro.indexOf('},', i));
+    expect(metadata).toContain('acepta_terminos: true');
+    // Y NO manda una fecha propia: la marca de tiempo la pone el servidor.
+    expect(metadata).not.toContain('terminos_aceptados_en');
+  });
+
   it('no rompe el registro de quien no manda el booleano (queda NULL)', () => {
     const cuerpo = bloqueFuncion('handle_new_user()');
     expect(cuerpo).toContain('else null');
