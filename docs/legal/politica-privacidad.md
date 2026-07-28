@@ -2,9 +2,9 @@
 
 **App:** [[PENDIENTE: nombre de la app]] · **Última actualización:** [[PENDIENTE: fecha de publicación]] · **Versión:** 1.0
 
-> ⚠️ **Esto no es asesoría legal.** Es un borrador serio, escrito con la Ley 21.719 de Chile
-> a la vista, para que el dueño de la app lo revise. **Antes de publicarlo en las tiendas
-> debería revisarlo un abogado.**
+> ⚠️ **Esto no es asesoría legal.** Es un texto escrito en serio, con la Ley 21.719 de Chile
+> a la vista, para que se entienda de verdad cómo funciona la app y qué pasa con tus datos.
+> **Antes de publicarlo en las tiendas debería revisarlo un abogado.**
 
 ---
 
@@ -17,9 +17,9 @@
   y la precisa nunca se guarda.
 - La app es **gratis y sin publicidad**. No hacemos perfiles publicitarios ni te rastreamos
   entre sitios.
+- **Tus conversaciones del chat no las leemos.** Solo se revisa un hilo puntual si alguien
+  lo denuncia.
 - Puedes **borrar tu cuenta desde la app**, cuando quieras, sin pedirle permiso a nadie.
-- Si algo de esto no te cuadra, escríbenos a **[[PENDIENTE: correo de contacto]]** y te
-  respondemos en máximo 30 días.
 
 Lo que sigue es lo mismo, pero completo, porque la ley pide que esté todo escrito.
 
@@ -37,7 +37,9 @@ Lo que sigue es lo mismo, pero completo, porque la ley pide que esté todo escri
 | **Sitio web** | [[PENDIENTE: dominio definitivo]] (hoy: `https://encuentras-mascota.pages.dev`) |
 
 No hay un Delegado de Protección de Datos: la app la opera una sola persona, y esa persona
-es quien responde. Escribes al correo de arriba y te contesta Pablo.
+es quien responde.
+
+[[CANAL: cualquier duda sobre tus datos]]
 
 ---
 
@@ -117,13 +119,13 @@ Esta es la tabla que la ley pide. Está ordenada por lo que tú haces en la app.
 | **Tus preferencias de avisos** (qué te avisamos y por qué canal) | Mandarte solo lo que pediste | Ejecución del servicio | Mientras tengas cuenta |
 | **Tu zona de alerta** (centro y radio, si la configuras) | Avisarte cuando aparece un reporte cerca tuyo | Tu consentimiento — es opcional | Hasta que la borres o borres tu cuenta |
 | **Token de notificación push** del dispositivo | Mandarte el aviso al teléfono | Tu consentimiento (el sistema operativo te pregunta primero) | Mientras tengas la app instalada y los push activados |
-| **Cola interna de eventos** (qué aviso hay que mandar y a quién) | Que el aviso salga | Ejecución del servicio | [[PENDIENTE: fijar el plazo de borrado de la cola de avisos — hoy no se limpia; lo razonable es borrar lo ya procesado a los 30 días]] |
+| **Cola interna de eventos** (qué aviso hay que mandar y a quién) | Que el aviso salga | Ejecución del servicio | Mientras el aviso esté pendiente de salir. [[PENDIENTE: fijar el plazo de borrado de la cola de avisos — hoy no se limpia; lo razonable es borrar lo ya procesado a los 30 días]] |
 
 ### 2.5 Moderación y seguridad
 
 | Dato | Para qué | Base de licitud | Cuánto lo guardamos |
 |---|---|---|---|
-| **Denuncias** (qué denunciaste, por qué, cuándo) | Revisar y actuar sobre contenido o conductas que rompen las reglas | **Interés legítimo** en mantener la app segura, y cumplir lo que exigen las tiendas de apps | [[PENDIENTE: fijar plazo — recomendado 2 años, porque el registro de "actuamos rápido al ser notificados" es justamente lo que nos defiende si algo termina en tribunales]] |
+| **Denuncias** (qué denunciaste, por qué, cuándo) | Revisar y actuar sobre contenido o conductas que rompen las reglas | **Interés legítimo** en mantener la app segura, y cumplir lo que exigen las tiendas de apps | Mientras sirvan para sostener la decisión de moderación que motivaron. [[PENDIENTE: fijar plazo — recomendado 2 años, porque el registro de "actuamos rápido al ser notificados" es justamente lo que nos defiende si algo termina en tribunales]] |
 | **Registro de las acciones de moderación** (qué se retiró, cuándo, por qué) | Poder demostrar que actuamos con diligencia | Interés legítimo / defensa ante reclamos | Ídem |
 | **Registros técnicos** de Supabase y del hosting (IP, hora, tipo de petición) | Detectar abuso y ataques, y depurar errores | Interés legítimo en la seguridad del servicio | Lo que retenga cada proveedor por defecto. [[PENDIENTE: confirmar la retención de logs en el plan de Supabase y en Cloudflare y ponerla acá]] |
 
@@ -154,12 +156,12 @@ datos por encargo nuestro y solo para lo que le encargamos.
 
 | Proveedor | Qué hace | Qué datos toca | Dónde está |
 |---|---|---|---|
-| **Supabase** (base de datos, cuentas, fotos) | Es donde vive la app entera | Todos los de §2 | Servidores de **AWS fuera de Chile** — [[PENDIENTE: confirmar la región exacta del proyecto en el panel de Supabase y escribirla acá]] |
+| **Supabase** (base de datos, cuentas, fotos) | Es donde vive la app entera | Todos los de §2 | Servidores de **AWS fuera de Chile**. [[PENDIENTE: confirmar la región exacta del proyecto en el panel de Supabase y escribirla acá]] |
 | **Cloudflare Pages** | Sirve el sitio web | Datos técnicos de conexión | Red global de Cloudflare |
-| **[[PENDIENTE: confirmar si el envío de correos queda en Resend o pasa a Brevo]]** | Manda los correos de aviso y de recuperación de contraseña | Tu correo y el texto del aviso | **Resend: Estados Unidos.** Brevo: Unión Europea |
+| **Proveedor de correo** | Manda los correos de aviso y de recuperación de contraseña | Tu correo y el texto del aviso | **Resend: Estados Unidos.** Brevo: Unión Europea. [[PENDIENTE: confirmar si el envío de correos queda en Resend o pasa a Brevo]] |
 | **Expo (Expo Push Notifications)** | Manda las notificaciones al teléfono | El token del dispositivo y el texto del aviso | Estados Unidos |
 | **Google Play / App Store** | Distribuyen la app | Los datos de tu cuenta de tienda, que **nosotros no vemos** | Estados Unidos |
-| **Sentry** (solo si se activa) | Reporta errores de la app | Datos técnicos del error | [[PENDIENTE: hoy no está activado; si se activa, declarar región y qué datos manda]] |
+| **Sentry** (solo si se activa) | Reporta errores de la app | Datos técnicos del error | Hoy no está activado. [[PENDIENTE: si se activa, declarar región y qué datos manda]] |
 
 ### 3.3 Autoridades
 
@@ -232,9 +234,9 @@ No hay que escribir a nadie ni esperar.
 2. Lo que ya compartiste fuera de la app (un afiche que mandaste por WhatsApp, una captura
    de pantalla que alguien guardó) no lo podemos borrar. No está en nuestras manos.
 
-📄 **También puedes pedir el borrado sin instalar la app**, desde
-[[PENDIENTE: URL pública de solicitud de borrado — ver el spec, hay que crearla en
-`/borrar-cuenta`]], o escribiendo a [[PENDIENTE: correo de contacto]].
+📄 **También puedes pedir el borrado sin instalar la app**, desde la página pública de
+solicitud de borrado del sitio web: [[PENDIENTE: URL pública de solicitud de borrado — ver
+el spec, hay que crearla en `/borrar-cuenta`]].
 
 ---
 
@@ -245,18 +247,18 @@ veces que quieras.
 
 | Derecho | Qué significa | Cómo lo ejerces |
 |---|---|---|
-| **A**cceso | Saber qué datos tuyos tenemos y qué hacemos con ellos | En la app ves casi todo. Para el resto, escríbenos y te mandamos un archivo con tus datos |
-| **R**ectificación | Corregir datos equivocados o incompletos | Perfil → Editar. Tu nombre, foto, teléfono y red social los cambias tú, al instante. Si hay algo que no puedes editar, escríbenos |
-| **C**ancelación (supresión) | Que borremos tus datos | Perfil → **Borrar mi cuenta**, al instante. O escríbenos |
-| **O**posición | Que dejemos de tratar tus datos para una finalidad | Perfil → Avisos, para apagar los avisos por canal y por tipo. Para lo demás, escríbenos |
-| **P**ortabilidad | Que te entreguemos tus datos en un formato que puedas llevarte | Escríbenos y te mandamos un **JSON** con tus reportes, pistas, avistamientos y mensajes |
+| **A**cceso | Saber qué datos tuyos tenemos y qué hacemos con ellos | En la app ves casi todo, directamente. Lo que falte, por el canal de contacto |
+| **R**ectificación | Corregir datos equivocados o incompletos | Perfil → **Editar perfil**. Tu nombre, foto, teléfono y red social los cambias tú, al instante |
+| **C**ancelación (supresión) | Que borremos tus datos | Perfil → **Borrar mi cuenta**, al instante |
+| **O**posición | Que dejemos de tratar tus datos para una finalidad | Perfil → **Avisos**, para apagar los avisos por canal y por tipo |
+| **P**ortabilidad | Que te entreguemos tus datos en un formato que puedas llevarte | Por el canal de contacto: te mandamos un **JSON** con tus reportes, pistas, avistamientos y mensajes |
 
-**El canal:** [[PENDIENTE: correo de contacto]]
+**El canal:** [[CANAL: ejercer cualquiera de estos derechos]]
 
-**Cómo funciona:**
+**Qué te comprometemos cuando ese canal exista:**
 
-- Te acusamos recibo dentro de **5 días hábiles**.
-- Te respondemos **como máximo en 30 días corridos**, que es el plazo que fija la ley.
+- Acusar recibo dentro de **5 días hábiles**.
+- Responderte **como máximo en 30 días corridos**, que es el plazo que fija la ley.
   Normalmente vamos a ser mucho más rápidos: la app la opera una persona y casi todos estos
   pedidos ya están resueltos con un botón.
 - **Para confirmar que eres tú, respondemos al correo con el que está registrada la cuenta.**
@@ -299,9 +301,9 @@ Cómo lo aplicamos:
    suspendemos la cuenta, contactamos al correo registrado y, si no se acredita lo
    contrario, la eliminamos con el mismo procedimiento del §5. El detalle del procedimiento
    está en el spec de esta tanda.
-5. Si eres madre, padre o tutor y crees que un niño menor de 14 se creó una cuenta,
-   escríbenos a [[PENDIENTE: correo de contacto]] con el correo o el nombre de usuario. La
-   tratamos como prioritaria.
+5. Si eres madre, padre o tutor y crees que un niño menor de 14 se creó una cuenta, avísanos
+   por el canal de contacto (§12) con el correo o el nombre de usuario. La tratamos como
+   prioritaria.
 
 **Somos honestos sobre el límite de esto:** un niño puede escribir una fecha falsa. No le
 pedimos cédula ni verificamos la identidad de nadie, porque hacerlo significaría recolectar
@@ -382,7 +384,7 @@ Sí hay procesos automáticos, pero son mecánicos y no deciden nada sobre las p
   escribió), según las preferencias que tú configuraste.
 
 Las decisiones que sí afectan a una cuenta —suspenderla o eliminarla por incumplimiento— las
-revisa y las toma **una persona**, y se pueden apelar escribiendo al correo de contacto.
+revisa y las toma **una persona**, y se pueden apelar.
 
 ---
 
@@ -399,7 +401,4 @@ puede ver exactamente qué cambió y cuándo.
 
 ## 12. Contacto
 
-**[[PENDIENTE: correo de contacto]]**
-
-Escribe por lo que sea: ejercer un derecho, denunciar algo, avisar de un problema de
-seguridad o preguntar qué hacemos con un dato. Contesta una persona.
+[[CANAL: ejercer un derecho, denunciar algo o avisar de un problema de seguridad]]

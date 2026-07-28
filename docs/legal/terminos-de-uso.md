@@ -2,9 +2,10 @@
 
 **App:** [[PENDIENTE: nombre de la app]] · **Última actualización:** [[PENDIENTE: fecha de publicación]] · **Versión:** 1.0
 
-> ⚠️ **Esto no es asesoría legal.** Es un borrador serio, escrito con la ley chilena y las
-> reglas de Google Play y la App Store a la vista, para que el dueño de la app lo revise.
-> **Antes de publicarlo en las tiendas debería revisarlo un abogado.**
+> ⚠️ **Esto no es asesoría legal.** Es un texto escrito en serio, con la ley chilena y las
+> reglas de Google Play y la App Store a la vista, para que se entienda de verdad qué puedes
+> y qué no puedes hacer acá. **Antes de publicarlo en las tiendas debería revisarlo un
+> abogado.**
 
 ---
 
@@ -69,7 +70,7 @@ sin la autorización de su madre, padre o tutor.
   persona, por una organización, por una municipalidad ni por una veterinaria.
 - **Una persona, una cuenta.** No crees cuentas múltiples para inflar reportes, esquivar una
   suspensión o simular que varias personas vieron a la misma mascota.
-- Si sospechas que alguien entró a tu cuenta, cambia la contraseña y avísanos.
+- Si sospechas que alguien entró a tu cuenta, **cambia la contraseña de inmediato**.
 
 ---
 
@@ -151,7 +152,7 @@ cuenta.
 21. Usar **bots, scrapers o automatizaciones** para publicar, extraer datos masivamente o
     saturar el servicio.
 22. Intentar **saltarse los límites de la app, acceder a datos de otros usuarios, o atacar la
-    infraestructura**. Si encuentras una falla de seguridad, escríbenos en vez de explotarla:
+    infraestructura**. Si encuentras una falla de seguridad, avísanos en vez de explotarla:
     lo vamos a agradecer de verdad.
 23. Publicar **enlaces a malware, phishing o descargas engañosas**.
 24. Reutilizar el contenido de la app para armar **otro servicio, base de datos o directorio**.
@@ -197,7 +198,7 @@ elegimos ni destacamos reportes—, pero **sí actuamos cuando nos avisan o cuan
 detectamos**.
 
 **Cómo denunciar:** hay un botón de denuncia en los reportes, en los perfiles y dentro del
-chat. También puedes escribirnos a [[PENDIENTE: correo de contacto]].
+chat.
 
 **Nuestros compromisos de tiempo** — esto es lo que efectivamente nos obliga, así que está
 escrito en serio:
@@ -225,9 +226,11 @@ Vamos por los pasos 1 y 2 cuando parece un malentendido o un descuido, y directo
 casos graves (el punto 16 de la lista, estafas confirmadas, reincidencia después de una
 suspensión, o venta de animales después de una advertencia).
 
-**Puedes apelar.** Si crees que nos equivocamos, escribe a [[PENDIENTE: correo de contacto]] y
-lo revisa una persona. Te respondemos en un plazo máximo de **10 días hábiles**. Las
-decisiones no las toma un algoritmo.
+**Puedes apelar.** Si crees que nos equivocamos, lo revisa una persona: las decisiones no las
+toma un algoritmo. Cuando el canal de contacto exista, el compromiso es responder una
+apelación en un plazo máximo de **10 días hábiles**.
+
+[[CANAL: apelar una decisión de moderación]]
 
 ---
 
@@ -263,8 +266,8 @@ verdad, que es más útil para los dos.
 - De que un aviso llegue a tiempo, o llegue. El correo y el push dependen de tu proveedor de
   correo, de tu teléfono y de tus permisos.
 
-Si algo de esto te causa un problema, escríbenos igual. Preferimos conversarlo a que te
-quedes con un mal rato.
+Si algo de esto te causa un problema, dínoslo igual por el canal de contacto (§12).
+Preferimos conversarlo a que te quedes con un mal rato.
 
 ---
 
@@ -301,7 +304,4 @@ si es que conviene indicar alguna]]
 
 ## 12. Contacto
 
-**[[PENDIENTE: correo de contacto]]**
-
-Denuncias, apelaciones, dudas, fallas de seguridad, o simplemente decirnos que algo está mal
-escrito. Contesta una persona.
+[[CANAL: denuncias, apelaciones, dudas o fallas de seguridad]]
