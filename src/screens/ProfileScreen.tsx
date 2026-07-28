@@ -569,6 +569,14 @@ export default function ProfileScreen({ navigation }: any) {
           icon="help-buoy-outline"
           onPress={() => navigation.navigate('Ayuda')}
         />
+        {/* `Bloqueados` está registrada en ESTE mismo stack (ProfileStack), así
+            que el nombre pelado es correcto: no hay que anidar `App`/pestaña. */}
+        <Button
+          title="Personas bloqueadas"
+          variant="ghost"
+          icon="ban-outline"
+          onPress={() => navigation.navigate('Bloqueados')}
+        />
         {profile?.es_admin ? (
           <Button
             title="Moderación"

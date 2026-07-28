@@ -18,6 +18,7 @@ import AyudaScreen from '../screens/AyudaScreen';
 import VolvieronACasaScreen from '../screens/VolvieronACasaScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import GuiaEncontradaScreen from '../screens/GuiaEncontradaScreen';
+import LegalScreen from '../screens/LegalScreen';
 import { getOnboardingVisto } from '../lib/onboarding';
 import { navigationRef, consumirDestinoPendiente } from '../lib/navigationRef';
 
@@ -159,6 +160,21 @@ export default function RootNavigator() {
           name="VolvieronACasa"
           component={VolvieronACasaScreen}
           options={{ headerShown: true, title: 'Volvieron a casa' }}
+        />
+        {/* "Privacidad y términos" TAMBIÉN acá, no solo dentro de ProfileStack.
+            RegisterScreen vive en este stack raíz y su casilla de aceptación
+            linkea a esta pantalla: con la registración solo en ProfileStack, ese
+            `navigate('Legal')` no lo atendía NADIE (React Navigation resuelve un
+            nombre pelado hacia los ancestros, nunca hacia el stack de una
+            pestaña hermana) y el enlace no hacía nada — justo el enlace que las
+            dos tiendas exigen que se pueda LEER antes de aceptar.
+            Las dos registraciones conviven bien: desde Perfil gana la de
+            ProfileStack (el ancestro más cercano) y el "volver" sigue llevando
+            a donde estabas. */}
+        <Stack.Screen
+          name="Legal"
+          component={LegalScreen}
+          options={{ headerShown: true, title: 'Privacidad y términos' }}
         />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />

@@ -1,5 +1,6 @@
 import {
   bloquear,
+  listarBloqueados,
   desbloquear,
   bloqueEmitido,
   hayBloqueoCon,
@@ -14,6 +15,8 @@ function makeQueryBuilder(result: { data: any; error: any }) {
     delete: jest.fn(() => builder),
     select: jest.fn(() => builder),
     eq: jest.fn(() => builder),
+    order: jest.fn(() => builder),
+    in: jest.fn(() => builder),
     maybeSingle: jest.fn(() => Promise.resolve(result)),
     then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
   };
@@ -158,5 +161,76 @@ describe('idsBloqueados', () => {
     const builder = makeQueryBuilder({ data: null, error: { code: '42P01' } });
     mockFrom.mockReturnValue(builder);
     await expect(idsBloqueados()).resolves.toEqual(new Set());
+  });
+});
+
+// ------------------------------------------------------------
+// listarBloqueados — alimenta la pantalla "Personas bloqueadas"
+// ------------------------------------------------------------
+describe('listarBloqueados', () => {
+  const filas = [
+    { bloqueado: 'u2', creado_en: '2026-07-20T10:00:00Z' },
+    { bloqueado: 'u1', creado_en: '2026-07-10T10:00:00Z' },
+  ];
+
+  it('devuelve mis bloqueos con el nombre de cada persona, del mas nuevo al mas viejo', async () => {
+    const bloqueosB = makeQueryBuilder({ data: filas, error: null });
+    const perfilesB = makeQueryBuilder({
+      data: [{ id: 'u1', nombre: 'Ana' }, { id: 'u2', nombre: 'Beto' }],
+      error: null,
+    });
+    mockFrom.mockImplementation((tabla: string) => {
+      if (tabla === 'bloqueos') return bloqueosB;
+      if (tabla === 'profiles') return perfilesB;
+      throw new Error(`tabla inesperada: ${tabla}`);
+    });
+
+    const res = await listarBloqueados();
+    expect(res).toEqual([
+      { userId: 'u2', nombre: 'Beto', creadoEn: '2026-07-20T10:00:00Z' },
+      { userId: 'u1', nombre: 'Ana', creadoEn: '2026-07-10T10:00:00Z' },
+    ]);
+    // Ancla la lectura a MIS filas: la RLS de la 0022 no deja otra cosa, pero
+    // si el filtro se cayera la consulta seguiria "funcionando" (vacia) y nadie
+    // se enteraria.
+    expect(bloqueosB.eq).toHaveBeenCalledWith('bloqueador', 'yo');
+    expect(bloqueosB.order).toHaveBeenCalledWith('creado_en', { ascending: false });
+  });
+
+  it('si no se pueden leer los nombres igual devuelve las filas (rotulo generico)', async () => {
+    const bloqueosB = makeQueryBuilder({ data: filas, error: null });
+    const perfilesB = makeQueryBuilder({ data: null, error: { code: '42501' } });
+    mockFrom.mockImplementation((tabla: string) => {
+      if (tabla === 'bloqueos') return bloqueosB;
+      if (tabla === 'profiles') return perfilesB;
+      throw new Error(`tabla inesperada: ${tabla}`);
+    });
+
+    const res = await listarBloqueados();
+    // Sin esto, un fallo al leer nombres dejaria a la persona SIN poder
+    // desbloquear a nadie, que es peor que un nombre generico.
+    expect(res.map((p) => p.userId)).toEqual(['u2', 'u1']);
+    expect(res.every((p) => p.nombre === null)).toBe(true);
+  });
+
+  it('sin bloqueos no consulta perfiles', async () => {
+    const bloqueosB = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockImplementation((tabla: string) => {
+      if (tabla === 'bloqueos') return bloqueosB;
+      throw new Error(`tabla inesperada: ${tabla}`);
+    });
+    await expect(listarBloqueados()).resolves.toEqual([]);
+    expect(mockFrom).not.toHaveBeenCalledWith('profiles');
+  });
+
+  it('propaga el error al leer los bloqueos', async () => {
+    const bloqueosB = makeQueryBuilder({ data: null, error: { message: 'boom' } });
+    mockFrom.mockReturnValue(bloqueosB);
+    await expect(listarBloqueados()).rejects.toEqual({ message: 'boom' });
+  });
+
+  it('exige sesion abierta', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    await expect(listarBloqueados()).rejects.toThrow(/sesión/i);
   });
 });

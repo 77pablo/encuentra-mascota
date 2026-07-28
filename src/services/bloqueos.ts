@@ -89,6 +89,53 @@ export async function hayBloqueoCon(otroUserId: string): Promise<boolean> {
   return Boolean(data);
 }
 
+// Una persona que bloquee, con lo justo para mostrarla en la lista.
+export type PersonaBloqueada = {
+  userId: string;
+  // null = no se pudo leer el nombre (la pantalla muestra un rotulo generico).
+  nombre: string | null;
+  creadoEn: string;
+};
+
+// Las personas que YO bloquee, de la mas reciente a la mas vieja. Es lo que
+// alimenta la pantalla "Personas bloqueadas" del perfil: hasta ahora la unica
+// forma de desbloquear a alguien era volver a entrar a su perfil o a su chat,
+// que es justo lo que uno NO quiere hacer con alguien que bloqueo.
+//
+// Solo lee MIS filas (la RLS de la 0022 no deja otra cosa), asi que nunca
+// revela un bloqueo ajeno. Los nombres se piden aparte y son best-effort: si
+// esa consulta falla, la fila igual aparece con el rotulo generico en vez de
+// perderse la lista entera (que dejaria a la persona sin poder desbloquear).
+export async function listarBloqueados(): Promise<PersonaBloqueada[]> {
+  const yo = await miId();
+  const { data, error } = await supabase
+    .from('bloqueos')
+    .select('bloqueado, creado_en')
+    .eq('bloqueador', yo)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+
+  const filas = (data ?? []) as Array<{ bloqueado: string; creado_en: string }>;
+  if (filas.length === 0) return [];
+
+  const nombrePorId = new Map<string, string | null>();
+  const perfiles = await supabase
+    .from('profiles')
+    .select('id, nombre')
+    .in('id', filas.map((f) => f.bloqueado));
+  if (!perfiles.error) {
+    for (const p of (perfiles.data ?? []) as Array<{ id: string; nombre: string | null }>) {
+      nombrePorId.set(p.id, (p.nombre ?? '').trim() || null);
+    }
+  }
+
+  return filas.map((f) => ({
+    userId: f.bloqueado,
+    nombre: nombrePorId.get(f.bloqueado) ?? null,
+    creadoEn: f.creado_en,
+  }));
+}
+
 // Ids de las personas que YO bloquee. Se usa para ocultar su contenido en las
 // listas del cliente (pistas, avistamientos, novedades). Degrada a conjunto
 // vacio si la tabla todavia no existe o si no hay sesion: misma tolerancia que

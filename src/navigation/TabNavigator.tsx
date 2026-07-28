@@ -22,6 +22,7 @@ import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
+import BloqueadosScreen from '../screens/BloqueadosScreen';
 import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 import ModeracionScreen from '../screens/ModeracionScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -144,6 +145,14 @@ function ProfileStack() {
         name="NotificationPrefs"
         component={NotificationPrefsScreen}
         options={{ title: 'Avisos' }}
+      />
+      {/* Personas bloqueadas: vive DENTRO de ProfileStack (no en el raíz)
+          porque solo se entra desde Perfil, y así hereda el header con el botón
+          de volver como el resto de las sub-pantallas del perfil. */}
+      <ProfileStackNav.Screen
+        name="Bloqueados"
+        component={BloqueadosScreen}
+        options={{ title: 'Personas bloqueadas' }}
       />
       <ProfileStackNav.Screen
         name="Legal"
