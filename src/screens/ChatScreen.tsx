@@ -22,7 +22,7 @@ import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { resolverUrlFoto } from '../lib/fotoAdjuntaChat';
 import { supabase } from '../lib/supabase';
 import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
-import { denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
+import { denunciarMensaje, denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { AppText, AvisoEstafa, Button, Screen } from '../ui';
@@ -69,6 +69,12 @@ export default function ChatScreen({ route, navigation }: any) {
   const [procesandoBloqueo, setProcesandoBloqueo] = useState(false);
   const [mostrarMotivos, setMostrarMotivos] = useState(false);
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
+  // Denuncia de UN mensaje puntual (pulsación larga sobre la burbuja). Es
+  // distinta de "Denunciar conversación" del menú: acá quien revisa recibe el
+  // id del mensaje exacto, que es lo único que le permite actuar sobre algo que
+  // la RLS no lo deja leer. Guarda el id del mensaje elegido, o null.
+  const [mensajeADenunciar, setMensajeADenunciar] = useState<string | null>(null);
+  const [enviandoDenunciaMensaje, setEnviandoDenunciaMensaje] = useState(false);
 
   useEffect(() => {
     markThreadRead(ctx, me, otherUserId)
@@ -94,6 +100,7 @@ export default function ChatScreen({ route, navigation }: any) {
     setOtroNombre(null);
     setMenuAbierto(false);
     setMostrarMotivos(false);
+    setMensajeADenunciar(null);
     setBloqueado(false);
     // ¿Ya bloqueé a esta persona? Silencioso: si falla (tabla 0022 sin aplicar)
     // dejamos el chat como está.
@@ -305,6 +312,25 @@ export default function ChatScreen({ route, navigation }: any) {
     }
   };
 
+  // Denunciar el mensaje puntual que se dejó apretado. El aviso de recibido es
+  // el mismo que el de la denuncia de conversación: quien denuncia no tiene por
+  // qué distinguir dos "canales" de moderación.
+  const denunciarElMensaje = async (motivo: string) => {
+    const id = mensajeADenunciar;
+    if (!id) return;
+    setEnviandoDenunciaMensaje(true);
+    try {
+      await denunciarMensaje(id, me, motivo);
+      setMensajeADenunciar(null);
+      notify('Denuncia recibida', 'La revisaremos dentro de las próximas 24 horas.');
+    } catch (e: any) {
+      setMensajeADenunciar(null);
+      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+    } finally {
+      setEnviandoDenunciaMensaje(false);
+    }
+  };
+
   return (
     <Screen>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -407,13 +433,31 @@ export default function ChatScreen({ route, navigation }: any) {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const mine = item.from_user === me;
+            // Denunciar el mensaje ajeno con una pulsación larga. Solo los
+            // ajenos: denunciar el propio no le sirve a nadie y ensucia la
+            // bandeja de quien modera. `delayLongPress` un poco alto para no
+            // dispararlo por accidente al desplazar la lista.
+            const abrirDenunciaDelMensaje = mine ? undefined : () => setMensajeADenunciar(item.id);
             return (
               <View style={[styles.bubbleRow, mine ? styles.bubbleRowMine : styles.bubbleRowOther]}>
-                <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
+                <TouchableOpacity
+                  activeOpacity={mine ? 1 : 0.85}
+                  disabled={mine}
+                  onLongPress={abrirDenunciaDelMensaje}
+                  delayLongPress={400}
+                  accessibilityLabel={mine ? undefined : 'Denunciar este mensaje'}
+                  accessibilityHint={mine ? undefined : 'Mantené apretado para denunciar este mensaje'}
+                  style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}
+                >
                   {item.imagen_url ? (
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={() => setFotoGrande(item.imagen_url)}
+                      // La foto se come el toque del contenedor: sin repetir acá
+                      // el onLongPress, sobre una burbuja SOLO-foto no habría
+                      // forma de denunciarla (que es justo el caso más grave).
+                      onLongPress={abrirDenunciaDelMensaje}
+                      delayLongPress={400}
                     >
                       <Image source={{ uri: item.imagen_url }} style={styles.bubbleImage} />
                     </TouchableOpacity>
@@ -427,11 +471,49 @@ export default function ChatScreen({ route, navigation }: any) {
                       {item.texto}
                     </AppText>
                   ) : null}
-                </View>
+                </TouchableOpacity>
               </View>
             );
           }}
         />
+        {/* Denuncia de un mensaje puntual: se abre con la pulsación larga sobre
+            una burbuja ajena. Hoja simple con la MISMA lista cerrada de motivos
+            que el resto de la app. */}
+        <Modal
+          visible={mensajeADenunciar != null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setMensajeADenunciar(null)}
+        >
+          <View style={styles.hojaFondo}>
+            <View style={styles.hoja}>
+              <AppText weight="bold" size={15}>
+                Denunciar este mensaje
+              </AppText>
+              <AppText muted size={13} style={styles.hojaSubtitulo}>
+                ¿Por qué querés denunciarlo? Lo revisamos dentro de las próximas 24 horas.
+              </AppText>
+              {MOTIVOS_DENUNCIA.map((motivo) => (
+                <Button
+                  key={motivo}
+                  title={motivo}
+                  variant="secondary"
+                  loading={enviandoDenunciaMensaje}
+                  disabled={enviandoDenunciaMensaje}
+                  onPress={() => denunciarElMensaje(motivo)}
+                  style={styles.hojaBoton}
+                />
+              ))}
+              <Button
+                title="Cancelar"
+                variant="ghost"
+                disabled={enviandoDenunciaMensaje}
+                onPress={() => setMensajeADenunciar(null)}
+                style={styles.hojaBoton}
+              />
+            </View>
+          </View>
+        </Modal>
         {/* Visor a pantalla completa: tocar la foto de una burbuja la agranda. */}
         <Modal visible={fotoGrande != null} transparent animationType="fade" onRequestClose={() => setFotoGrande(null)}>
           <TouchableOpacity
@@ -641,6 +723,25 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   bubbleTextoConFoto: {
     marginTop: spacing.sm,
+  },
+  hojaFondo: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  hoja: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  hojaSubtitulo: {
+    marginBottom: spacing.xs,
+    lineHeight: 18,
+  },
+  hojaBoton: {
+    width: '100%',
   },
   visorFondo: {
     flex: 1,
