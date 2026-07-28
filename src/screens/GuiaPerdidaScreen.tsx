@@ -124,7 +124,10 @@ export default function GuiaPerdidaScreen({ navigation }: any) {
                 style={styles.row}
                 onPress={() => toggle(paso.id)}
                 accessibilityRole="checkbox"
+                // `aria-checked` además del state: en web, react-native-web 0.21
+                // ya no traduce `accessibilityState`. Ver RegisterScreen.
                 accessibilityState={{ checked: hecho }}
+                aria-checked={hecho}
                 accessibilityLabel={`Paso ${i + 1}: ${paso.titulo}`}
               >
                 <Ionicons

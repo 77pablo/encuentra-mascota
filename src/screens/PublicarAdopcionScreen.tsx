@@ -416,7 +416,10 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
           style={styles.confirmRow}
           onPress={() => setConfirmado((v) => !v)}
           accessibilityRole="checkbox"
+          // `aria-checked` además del state: en web, react-native-web 0.21 ya no
+          // traduce `accessibilityState`. Ver RegisterScreen.
           accessibilityState={{ checked: confirmado }}
+          aria-checked={confirmado}
           accessibilityLabel="Confirmo que la foto es de la mascota y respeta las reglas"
         >
           <Ionicons

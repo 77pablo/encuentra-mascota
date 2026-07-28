@@ -197,7 +197,20 @@ export default function RegisterScreen({ navigation, route }: any) {
                 style={styles.terminosFila}
                 onPress={() => setAceptaTerminos((v) => !v)}
                 accessibilityRole="checkbox"
+                // Las DOS props, a propósito, y ninguna sobra:
+                // `accessibilityState` es la que entienden VoiceOver/TalkBack en
+                // la app nativa; `aria-checked` es la que necesita la web.
+                // react-native-web dejó de traducir `accessibilityState` en la
+                // 0.19 (acá corre 0.21), y lo hace EN SILENCIO: no hay error, no
+                // hay warning, y `tsc` la acepta porque el tipo de React Native
+                // sigue existiendo. Verificado en producción el 28-jul: el DOM
+                // salía con `role="checkbox"` y sin `aria-checked`, o sea un
+                // lector de pantalla anunciaba "casilla" sin poder decir si
+                // estaba marcada. Ojo: `accessibilityLabel` SÍ se sigue
+                // traduciendo, así que ver el `aria-label` en el DOM no prueba
+                // que el estado también haya llegado.
                 accessibilityState={{ checked: aceptaTerminos }}
+                aria-checked={aceptaTerminos}
                 accessibilityLabel="Acepto los Términos y la Política de Privacidad"
               >
                 <Ionicons
