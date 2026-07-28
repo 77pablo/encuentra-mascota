@@ -45,11 +45,67 @@ export async function bandeja(): Promise<DenunciaPendiente[]> {
   }));
 }
 
+export interface ResultadoRetiro {
+  // true = el contenido se retiró, pero la foto sigue en el bucket. No es un
+  // fallo del retiro: la pantalla lo dice aparte y el barrido se reintenta solo.
+  fotoPendiente: boolean;
+}
+
+// Borra de Storage las fotos de los mensajes retirados (Edge Function
+// `moderar-borrar-foto`, migración 0043). Desde SQL no se puede borrar un
+// objeto del bucket, así que el retiro solo ENCOLA la ruta y esto la barre.
+//
+// BEST-EFFORT PERO NUNCA MUDO: devuelve false en vez de lanzar (el retiro ya
+// ocurrió y es lo importante), pero deja el motivo en la consola. Un
+// `.catch(() => {})` acá fue lo que escondió durante semanas que `send-push` ni
+// siquiera estaba desplegada. Como la cola no se vacía hasta que Storage
+// confirma, lo que falla hoy lo levanta el próximo retiro de mensaje.
+//
+// No recibe ni manda rutas: solo el id de la denuncia. La Edge Function corre
+// con service_role y se saltea la RLS de Storage; una ruta elegida por el
+// cliente sería borrarle archivos a cualquiera.
+export async function barrerFotosRetiradas(denunciaId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke('moderar-borrar-foto', {
+      body: { denunciaId },
+    });
+    if (error) {
+      console.error('moderar-borrar-foto falló', error);
+      return false;
+    }
+    if (!data?.ok) {
+      console.error('moderar-borrar-foto respondió sin ok', data);
+      return false;
+    }
+    // 200 con fotos sin confirmar = borrado parcial. Cuenta como pendiente: la
+    // foto sigue accesible por su URL hasta que un barrido posterior la saque.
+    if (typeof data.pendientes === 'number' && data.pendientes > 0) {
+      console.error(`moderar-borrar-foto dejó ${data.pendientes} fotos sin borrar`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    // La función puede no estar desplegada todavía: invoke lanza y el retiro no
+    // tiene por qué caerse con ella.
+    console.error('moderar-borrar-foto no se pudo invocar', e);
+    return false;
+  }
+}
+
 // Retira el contenido denunciado (oculta o borra segun el tipo), resuelve la
 // denuncia y cierra en lote las demas denuncias pendientes del mismo objeto.
-export async function retirar(id: string): Promise<void> {
+//
+// `tipo` es opcional y solo decide si además hay que barrer la foto del bucket:
+// el único contenido que deja un archivo huérfano al retirarse es el mensaje de
+// chat (su fila se borra; los reportes y adopciones solo se ocultan y conservan
+// sus fotos a propósito).
+export async function retirar(id: string, tipo?: string): Promise<ResultadoRetiro> {
   const { error } = await supabase.rpc('moderar_retirar', { p_denuncia_id: id });
   if (error) throw error;
+  // Después del RPC y nunca antes: si el retiro falla no hay nada encolado que
+  // barrer, y si el barrido falla el retiro ya está hecho igual.
+  if (tipo !== 'mensaje') return { fotoPendiente: false };
+  return { fotoPendiente: !(await barrerFotosRetiradas(id)) };
 }
 
 // Descarta la denuncia sin tocar el contenido (se revisó y no ameritaba accion).

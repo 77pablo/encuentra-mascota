@@ -64,11 +64,13 @@ export default function ModeracionScreen() {
 
   useFocusEffect(cargar);
 
-  const conAccion = async (id: string, accion: () => Promise<void>, mensaje: string) => {
+  // `accion` puede devolver un texto para reemplazar el mensaje de éxito: el
+  // retiro de un mensaje avisa distinto según haya podido borrar la foto o no.
+  const conAccion = async (id: string, accion: () => Promise<string | void>, mensaje: string) => {
     setActuandoId(id);
     try {
-      await accion();
-      notify('Listo', mensaje);
+      const propio = await accion();
+      notify('Listo', typeof propio === 'string' ? propio : mensaje);
       cargar();
     } catch (e: any) {
       notify('No se pudo completar', mensajeDeErrorDb(e));
@@ -77,8 +79,21 @@ export default function ModeracionScreen() {
     }
   };
 
+  // Retirar un mensaje de chat también saca su foto del bucket (0043). Si eso
+  // falla, el retiro NO se cae —ya está hecho— pero se dice en voz alta: la
+  // foto sigue siendo accesible por su URL hasta que un barrido posterior la
+  // borre, y quien modera tiene que saberlo.
   const onRetirar = (d: DenunciaPendiente) =>
-    conAccion(d.id, () => retirar(d.id), 'El contenido se retiró.');
+    conAccion(
+      d.id,
+      async () => {
+        const { fotoPendiente } = await retirar(d.id, d.tipo);
+        return fotoPendiente
+          ? 'El contenido se retiró, pero la foto sigue en el servidor. Se reintenta en el próximo retiro; si se repite, avisá.'
+          : 'El contenido se retiró.';
+      },
+      'El contenido se retiró.',
+    );
 
   const onDescartar = (d: DenunciaPendiente) =>
     conAccion(d.id, () => descartar(d.id), 'La denuncia se descartó.');
