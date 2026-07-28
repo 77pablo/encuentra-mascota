@@ -6,11 +6,16 @@ import MapView, { Marker } from '../components/PlatformMap';
 import ComunaPickerModal from '../components/ComunaPickerModal';
 import { petSchema } from '../schemas/pet';
 import { moderarTextoReporte } from '../lib/moderarTexto';
-import { uploadPetPhotos } from '../services/storage';
+import {
+  borrarFotosSubidas,
+  esRechazoDePermiso,
+  estoySuspendido,
+  uploadPetPhotos,
+} from '../services/storage';
 import { createPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { useRequireAuth } from '../hooks/useRequireAuth';
-import { mensajeDeErrorDb } from '../lib/dbErrors';
+import { ErrorAmigable, mensajeDeErrorDb } from '../lib/dbErrors';
 import { confirmAction, notify } from '../lib/notify';
 // F1 — oferta de "Compartir tarjeta" tras publicar (agente A). Bloque
 // autocontenido: el orquestador reconcilia si choca con la oferta de guía
@@ -232,11 +237,34 @@ export default function PublishScreen({ navigation, route }: any) {
     }
     setSaving(true);
     try {
+      // [M-6] Suspensión ANTES de subir, mismo criterio que el filtro de texto
+      // de arriba: si el insert va a rebotar, no gastamos una subida al bucket.
+      // La defensa real es la RLS (0036: `and not estoy_suspendido()` en la
+      // policy de INSERT de `pets`), que rechaza igual con o sin este chequeo;
+      // esto solo evita la foto huérfana y le dice a la persona qué pasa en vez
+      // del "No tenés permiso para hacer eso" genérico. Si la RPC no está
+      // aplicada o falla, degrada a `false` y decide la base.
+      if (await estoySuspendido()) {
+        throw new ErrorAmigable(
+          'Tu cuenta está suspendida: no podés publicar reportes por ahora. Escribinos si creés que es un error.',
+        );
+      }
       const urls = await uploadPetPhotos(fotoUris, user!.id);
       // `origenMyPet` (Función 2): si el reporte se publicó desde una ficha de
       // "Mi mascota", queda vinculado para que el QR del collar sepa que está
       // perdida. Es undefined en el flujo normal.
-      const nuevoPet = await createPet(parsed.data, urls, user!.id, origenMyPet);
+      //
+      // [M-6] Si el insert lo RECHAZA la base por permisos (suspensión llegada
+      // entre el chequeo y el insert, base sin la RPC, cualquier otra policy),
+      // las fotos recién subidas ya no las referencia nadie: se borran acá.
+      // Solo en ese caso — ver `esRechazoDePermiso` en services/storage.ts.
+      let nuevoPet: Pet;
+      try {
+        nuevoPet = await createPet(parsed.data, urls, user!.id, origenMyPet);
+      } catch (e: any) {
+        if (esRechazoDePermiso(e)) await borrarFotosSubidas(urls, user!.id);
+        throw e;
+      }
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
       // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.

@@ -356,6 +356,11 @@ export default function HomeScreen({ navigation }: any) {
                   reencuentros
                 </AppText>
               </View>
+              {/* `buscando` cuenta SOLO los reportes de mascotas perdidas
+                  (mig. 0044). Hasta la 0039 sumaba también las "encontradas"
+                  —mascotas que alguien HALLÓ, que no las busca nadie— y el
+                  número contradecía esta etiqueta. Si se cambia el texto, hay
+                  que cambiar el filtro de la RPC con él. */}
               <View style={styles.impactoItem}>
                 <Ionicons name="paw" size={18} color={colors.brand} />
                 <AppText weight="bold" size={20} style={styles.impactoNumero}>

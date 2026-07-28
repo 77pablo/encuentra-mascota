@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // GUARDRAIL ESTATICO de la migracion 0042 (Tanda D · pieza 3b: los indices de
@@ -134,15 +134,5 @@ describe('0042 se queda en lo barato y no se lleva puesto lo diferido', () => {
   });
 });
 
-// Este guardrail vivia en migracion0041.test.ts. Se mudo acá al agregar la
-// 0042: su sentido es avisar cuando aparece una migracion nueva sin que se
-// revise el orden de aplicacion, asi que tiene que vivir SIEMPRE con la ultima.
-describe('0042 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(42);
-  });
-});
+// El guardrail de "esta es la ultima migracion del repo" se mudo a
+// migracion0044.test.ts al agregar la 0043/0044. Viaja siempre con la ultima.
