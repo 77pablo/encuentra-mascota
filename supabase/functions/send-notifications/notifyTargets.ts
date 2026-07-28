@@ -71,10 +71,11 @@ export type Contexto = {
   // Solo se usan en 'reporte_nuevo'; en el resto va vacío.
   seguidoresComuna: string[];
   // userIds que tienen un bloqueo con el ACTOR del evento, en cualquiera de las
-  // dos direcciones (él los bloqueó, o ellos lo bloquearon a él). Ninguno recibe
-  // el aviso: un aviso es más invasivo que un mensaje —le hace sonar el teléfono
-  // a quien justamente pidió no saber nada de esa persona—, y del otro lado es
-  // el bloqueo funcionando (no se le avisa a quien bloqueaste).
+  // dos direcciones (él los bloqueó, o ellos lo bloquearon a él). Casi ninguno
+  // recibe el aviso: un aviso es más invasivo que un mensaje —le hace sonar el
+  // teléfono a quien justamente pidió no saber nada de esa persona—, y del otro
+  // lado es el bloqueo funcionando (no se le avisa a quien bloqueaste). La
+  // ÚNICA excepción es 'coincidencia': ver `elBloqueoApagaElAviso`.
   //
   // Los computa quien llama (`index.ts`, con service_role, que es lo único que
   // puede leer las filas de las dos direcciones sin romper la RLS asimétrica de
@@ -117,6 +118,30 @@ function quiereEsteTipo(p: Omit<Prefs, 'userId'>, tipo: TipoEvento): boolean {
   return p.pistas;
 }
 
+// ¿El bloqueo con el actor apaga este tipo de aviso?
+//
+// Para TODOS los tipos, sí — menos uno. 'coincidencia' llega igual aunque haya
+// bloqueo, y es una decisión tomada a conciencia:
+//
+//   · Un reporte de mascota es el pedido de auxilio de un animal, no contenido
+//     dirigido contra una persona. Silenciar la coincidencia no le quita nada
+//     al bloqueado: se lo quita a quien está buscando a su mascota, que pierde
+//     la única pista que la app tenía para darle.
+//   · Los reportes son PÚBLICOS: se ven sin cuenta. Esconder el aviso no
+//     protege de nada, porque el reporte del otro sigue ahí a la vista; lo
+//     único que cambia es que ahora hay que dar con él de casualidad.
+//   · Ya existía la decisión de diseño equivalente —bloquear NO esconde los
+//     reportes del bloqueado— y esto la vuelve coherente: si el reporte se ve,
+//     el aviso de que ese reporte podría ser tu mascota también tiene que
+//     llegar.
+//
+// Todo lo demás sigue filtrando bloqueados, acá (avistamiento, pista,
+// reporte_nuevo, escaneo de collar, búsqueda guardada) y fuera de acá (chat,
+// novedades, listas).
+export function elBloqueoApagaElAviso(tipo: TipoEvento): boolean {
+  return tipo !== 'coincidencia';
+}
+
 function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
   const canales: ('email' | 'push')[] = [];
   if (p.canalEmail) canales.push('email');
@@ -132,12 +157,18 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 //   referencia (ctx.duenoPetId).
 // - Nunca al actor; se deduplica por userId; se respeta el filtro de canales.
 // - NUNCA a alguien con bloqueo con el actor (ctx.bloqueadosConActor, en
-//   cualquier dirección): es el único filtro que ningún camino puede saltear.
+//   cualquier dirección), SALVO en 'coincidencia' (ver `elBloqueoApagaElAviso`).
+//   Donde aplica, ningún camino puede saltearlo.
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
-  // Bloqueo con el actor: nadie de este conjunto recibe nada, sea cual sea el
-  // tipo de evento. Se arma una sola vez, arriba de todo, para que ningún
-  // camino de los de abajo pueda saltearlo por olvido.
-  const bloqueados = new Set(ctx.bloqueadosConActor ?? []);
+  // Bloqueo con el actor: nadie de este conjunto recibe nada. Se arma una sola
+  // vez, arriba de todo, para que ningún camino de los de abajo pueda saltearlo
+  // por olvido — y por el mismo motivo la excepción de 'coincidencia' se aplica
+  // acá y en un solo lugar: el conjunto queda VACÍO, así que no hay ningún
+  // `if (tipo === ...)` desperdigado por los caminos de abajo que se pueda
+  // desincronizar.
+  const bloqueados = new Set(
+    elBloqueoApagaElAviso(evento.tipo) ? ctx.bloqueadosConActor ?? [] : [],
+  );
 
   // 'escaneo_collar' y 'busqueda_guardada': destinatario único y directo =
   // evento.targetUserId, NO el dueño de un reporte. Ninguno pasa por el

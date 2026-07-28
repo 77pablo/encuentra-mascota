@@ -178,11 +178,64 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       bloqueadosConActor: ['dueno'],
     },
   },
+  {
+    // LA EXCEPCIÓN: 'coincidencia' atraviesa el bloqueo. Si una de las dos
+    // copias se quedara con el filtro viejo, la app diría "te avisamos" y el
+    // correo/push no saldría (o al revés). Es justo el tipo de divergencia que
+    // este archivo existe para atrapar.
+    nombre: 'coincidencia con bloqueo: el aviso llega IGUAL (la excepción)',
+    evento: {
+      id: 'x4', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'encontrada', match_especie: 'perro' },
+    },
+    ctx: {
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
+      bloqueadosConActor: ['dueno'],
+    },
+  },
+  {
+    // La excepción no pisa el interruptor de tipo, en ninguna de las copias.
+    nombre: 'coincidencia con bloqueo pero con el interruptor `coincidencias` apagado',
+    evento: {
+      id: 'x5', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'perdida' },
+    },
+    ctx: {
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], seguidoresComuna: [],
+      bloqueadosConActor: ['dueno'],
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    },
+  },
+];
+
+// Todos los tipos del union, para exigirle a las dos copias la MISMA respuesta
+// sobre a cuáles les aplica el bloqueo. Escrito a mano a propósito: si alguien
+// agrega un tipo nuevo, el `TipoEvento` de abajo deja de compilar hasta que
+// decida de qué lado del bloqueo cae.
+const TODOS_LOS_TIPOS: app.TipoEvento[] = [
+  'reporte_nuevo',
+  'avistamiento',
+  'pista',
+  'coincidencia',
+  'escaneo_collar',
+  'busqueda_guardada',
 ];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {
   it('exporta los mismos valores por defecto', () => {
     expect(edge.PREFS_POR_DEFECTO).toEqual(app.PREFS_POR_DEFECTO);
+  });
+
+  it('coincide en a qué tipos les apaga el aviso el bloqueo', () => {
+    for (const tipo of TODOS_LOS_TIPOS) {
+      expect([tipo, edge.elBloqueoApagaElAviso(tipo as never)]).toEqual([
+        tipo,
+        app.elBloqueoApagaElAviso(tipo),
+      ]);
+    }
   });
 
   CASOS.forEach(({ nombre, evento, ctx }) => {
@@ -220,6 +273,24 @@ describe('la copia de la Edge Function filtra bloqueados de verdad', () => {
     };
     expect(edge.resolverDestinatarios(evento as never, ctx as never).map((d) => d.userId)).toEqual([
       'ana',
+    ]);
+  });
+
+  // El contrapunto del anterior, y por el mismo motivo: si las DOS copias se
+  // quedaran con el filtro viejo sobre 'coincidencia', la comparación de arriba
+  // seguiría en verde. Acá se le exige a la copia que despacha de verdad un
+  // resultado concreto: el aviso SALE.
+  it('pero deja pasar la coincidencia aunque haya bloqueo', () => {
+    const evento = {
+      id: 'z2', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+      datos: { match_pet_id: 'p2', match_estado: 'encontrada' },
+    };
+    const ctx = {
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
+      bloqueadosConActor: ['dueno'],
+    };
+    expect(edge.resolverDestinatarios(evento as never, ctx as never).map((d) => d.userId)).toEqual([
+      'dueno',
     ]);
   });
 });

@@ -1,4 +1,11 @@
-import { resolverDestinatarios, componerAviso, EventoAviso, Contexto } from '../../src/lib/notifyTargets';
+import {
+  resolverDestinatarios,
+  componerAviso,
+  elBloqueoApagaElAviso,
+  EventoAviso,
+  Contexto,
+  TipoEvento,
+} from '../../src/lib/notifyTargets';
 
 const ctxBase: Contexto = {
   duenoPetId: 'dueno',
@@ -556,5 +563,88 @@ describe('resolverDestinatarios - bloqueo con el actor', () => {
     expect(resolverDestinatarios(ev, sinCampo as Contexto)).toEqual([
       { userId: 'dueno', canales: ['email', 'push'] },
     ]);
+  });
+});
+
+// ------------------------------------------------------------
+// LA EXCEPCIÓN: 'coincidencia' llega IGUAL aunque haya bloqueo.
+//
+// Un reporte de mascota es el pedido de auxilio de un animal, no contenido
+// dirigido contra una persona; y los reportes son públicos (se ven sin cuenta),
+// así que callar el aviso no protege a nadie: solo le hace perder la pista de
+// su mascota a quien la busca. Es la misma decisión que ya regía en las listas
+// (bloquear NO esconde los reportes del bloqueado).
+// ------------------------------------------------------------
+describe('elBloqueoApagaElAviso', () => {
+  it('exceptúa solo a coincidencia', () => {
+    expect(elBloqueoApagaElAviso('coincidencia')).toBe(false);
+  });
+
+  it('sigue apagando todos los demás tipos', () => {
+    const resto: TipoEvento[] = [
+      'reporte_nuevo',
+      'avistamiento',
+      'pista',
+      'escaneo_collar',
+      'busqueda_guardada',
+    ];
+    for (const tipo of resto) expect(elBloqueoApagaElAviso(tipo)).toBe(true);
+  });
+});
+
+describe('resolverDestinatarios - la coincidencia atraviesa el bloqueo', () => {
+  const evCoincidencia: EventoAviso = {
+    id: 'c1', tipo: 'coincidencia', petId: 'p1', actorId: 'quienPublico',
+    datos: { match_pet_id: 'p2', match_estado: 'encontrada' },
+  };
+
+  it('le avisa al dueño aunque tenga bloqueo con quien publicó el reporte que calza', () => {
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['dueno'] };
+    expect(resolverDestinatarios(evCoincidencia, ctx)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('da exactamente el mismo resultado con bloqueo que sin bloqueo', () => {
+    const conBloqueo: Contexto = { ...ctxBase, bloqueadosConActor: ['dueno'] };
+    expect(resolverDestinatarios(evCoincidencia, conBloqueo)).toEqual(
+      resolverDestinatarios(evCoincidencia, ctxBase),
+    );
+  });
+
+  it('la excepción NO se contagia: el mismo par bloqueado sigue sin recibir el avistamiento', () => {
+    const ev: EventoAviso = { id: 'c2', tipo: 'avistamiento', petId: 'p1', actorId: 'quienPublico', datos: {} };
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['dueno'] };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([]);
+  });
+
+  it('la excepción NO pisa el interruptor `coincidencias`: si lo apagó, no recibe', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      bloqueadosConActor: ['dueno'],
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: false, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evCoincidencia, ctx)).toEqual([]);
+  });
+
+  it('la excepción NO pisa el filtro de canales: con los dos apagados no hay por dónde', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      bloqueadosConActor: ['dueno'],
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: false },
+      },
+    };
+    expect(resolverDestinatarios(evCoincidencia, ctx)).toEqual([]);
+  });
+
+  it('la excepción NO hace que el actor se auto-avise', () => {
+    const ev: EventoAviso = { ...evCoincidencia, id: 'c3', actorId: 'dueno' };
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['dueno'] };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([]);
   });
 });
