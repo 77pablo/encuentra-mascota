@@ -56,9 +56,20 @@ en el repo: **0040** → la nueva sería **0041**. HEAD legal: `d81c4b7`.
 
 7. **Correo de soporte / "Ayuda y contacto".** `LegalScreen.tsx` tiene `CORREO_CONTACTO=null`.
    Ambas tiendas exigen contacto del desarrollador → sigue bloqueando publicación real.
-8. **Páginas web `public/privacidad/index.html` y `public/terminos/index.html`.** Derivarlas de
-   `docs/legal/*.md` (que tienen 28 `[[PENDIENTE]]`). Play exige URL de política de privacidad.
-   Usar marcadores provisionales para nombre/dominio/correo, señalados para reemplazo.
+8. ✅ **HECHO (27-jul).** Páginas web `public/privacidad/` y `public/terminos/`, **generadas**
+   desde `docs/legal/*.md` con `scripts/generar-legales.js` (`npm run legales`) — el markdown
+   quedó como única fuente de verdad, porque esos documentos los va a corregir un abogado y una
+   copia a mano se desincroniza en la primera corrección. Un test compara el HTML commiteado
+   contra lo que produce el markdown y se pone rojo si alguien edita y no regenera.
+   - Los pendientes salen en dos clases: **datos que faltan** (amarillo, se completan en el
+     objeto `CONFIG` del generador: nombre, dominio, correo, fecha, RUT, domicilio) y
+     **preguntas para el abogado** (rojo, 9 en privacidad y 1 en términos).
+   - `npm run legales -- --final` **se niega a generar** mientras quede algo sin resolver; hasta
+     entonces las páginas salen con `noindex` y una franja de "borrador" arriba.
+   - `public/_worker.js` tiene el pase para `/privacidad` y `/terminos` (sin él el catch-all SPA
+     las pisa con index.html, igual que pasaba con `/borrar-cuenta`).
+   - **Sigue sin desbloquear las tiendas:** el correo de contacto es uno de los datos que faltan
+     y es justo lo que exige el punto 7. Y sin nombre de app no hay dominio ni correo propio.
 
 ## Deuda de mantenimiento detectada (no bloquea, anotar y limpiar de paso)
 
@@ -70,6 +81,12 @@ en el repo: **0040** → la nueva sería **0041**. HEAD legal: `d81c4b7`.
   `0025_denuncias_extendida.sql:35` dropeó → entrada muerta inocua.
 - `PublicProfileScreen` lista actividad/reportes/red social; la spec pedía perfil "mínimo"
   para no sumar superficie de acoso. Decisión de producto pendiente (no bloquea).
+- **Los textos legales existen TRES veces** (hallado el 27-jul al hacer el punto 8):
+  `docs/legal/*.md` (fuente), `public/privacidad|terminos/` (generadas desde el markdown, atadas
+  por un test) y **`src/screens/LegalScreen.tsx`, escrita a mano** — esta última no está atada a
+  nada. Si el abogado corrige el markdown, la pantalla de la app se queda con la versión vieja y
+  nadie se entera. Lo correcto sería que `LegalScreen` también salga del markdown (un generador
+  que emita un módulo de datos, no JSX a mano). Es una tanda propia, no bloquea.
 
 ## Cómo retomar
 

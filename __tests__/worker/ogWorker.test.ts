@@ -247,6 +247,54 @@ describe('worker fetch handler', () => {
     expect(html).toBe('<html>borrar-cuenta estático</html>');
   });
 
+  // Las páginas legales se generan con scripts/generar-legales.js desde
+  // docs/legal/*.md y salen a public/privacidad/ y public/terminos/. Google
+  // Play exige una URL pública de política de privacidad: si el catch-all SPA
+  // se las come, el revisor de la tienda ve la app en vez del documento y el
+  // envío se rechaza. Es exactamente el mismo pase que necesitó /borrar-cuenta.
+  it.each([
+    ['/privacidad', '<html>privacidad estática</html>'],
+    ['/privacidad/', '<html>privacidad estática</html>'],
+    ['/terminos', '<html>términos estáticos</html>'],
+    ['/terminos/', '<html>términos estáticos</html>'],
+  ])('%s pasa a env.ASSETS.fetch, no al fallback SPA', async (ruta, esperado) => {
+    const env = {
+      ASSETS: {
+        fetch: jest.fn(async (req: Request) => {
+          const u = new URL(req.url);
+          if (u.pathname.startsWith('/privacidad')) {
+            return new Response('<html>privacidad estática</html>', {
+              headers: { 'content-type': 'text/html; charset=utf-8' },
+            });
+          }
+          if (u.pathname.startsWith('/terminos')) {
+            return new Response('<html>términos estáticos</html>', {
+              headers: { 'content-type': 'text/html; charset=utf-8' },
+            });
+          }
+          return new Response(INDEX_HTML, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+        }),
+      },
+    };
+    const res = await worker.fetch(new Request('https://x.cl' + ruta), env);
+    const html = await res.text();
+    expect(html).toBe(esperado);
+    expect(html).not.toContain('href="/manifest.webmanifest"'); // no pasó por el fallback SPA
+  });
+
+  // El pase es por ruta exacta o con barra: una ruta que apenas EMPIEZA igual
+  // no debe escaparse del SPA, o cualquier pantalla futura de la app que se
+  // llame parecido dejaría de funcionar.
+  it.each(['/privacidad-de-datos', '/terminosyservicios'])(
+    '%s NO se toma como estático y sigue al fallback SPA',
+    async (ruta) => {
+      const env = envAssetsFalso();
+      const res = await worker.fetch(new Request('https://x.cl' + ruta), env);
+      const html = await res.text();
+      expect(html).toContain('<div id="root">');
+    },
+  );
+
   it('las respuestas HTML llevan Cache-Control: no-cache (que un intermediario no retenga OG viejas)', async () => {
     const env = envAssetsFalso();
     const req = new Request('https://x.cl/alguna-ruta');

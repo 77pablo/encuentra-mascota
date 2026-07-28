@@ -51,6 +51,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "legales": "node scripts/generar-legales.js",
     "test": "jest"
   },
   "private": true

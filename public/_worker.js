@@ -190,21 +190,30 @@ async function datosPublicos(tipo, id) {
 const RUTA_OG = /^\/(mascota|adopcion)\/([0-9a-f-]{36})$/;
 const TIENE_EXTENSION = /\.[a-z0-9]+$/i;
 
+// Páginas estáticas reales que NO tienen extensión en la URL. Sin este pase
+// explícito el fallback SPA del punto 2 las pisaría con index.html, y las tres
+// tienen que abrir sin login y sin la app instalada:
+//   /borrar-cuenta  → Google Play, Data safety → Data deletion.
+//   /privacidad     → Google Play exige una URL de política de privacidad.
+//   /terminos       → la referencian la política y la ficha de las tiendas.
+// Las dos últimas se generan con scripts/generar-legales.mjs desde
+// docs/legal/*.md; hoy salen en modo borrador (noindex).
+const ESTATICOS_SIN_EXTENSION = ['/borrar-cuenta', '/privacidad', '/terminos'];
+
+function esEstaticoSinExtension(pathname) {
+  return ESTATICOS_SIN_EXTENSION.some((base) => pathname === base || pathname.startsWith(base + '/'));
+}
+
 async function manejarFetch(request, env) {
   const url = new URL(request.url);
 
-  // 1) assets: extensión de archivo o prefijos conocidos → tal cual.
-  //    /borrar-cuenta (sin extensión) es un estático real exigido por Google
-  //    Play (Data safety → Data deletion, debe abrir sin login ni app) — sin
-  //    este pase explícito el fallback SPA del punto 2 lo pisaría con
-  //    index.html. Hoy no está publicado (falta [[CORREO_CONTACTO]]), pero
-  //    volverá, y en ese momento no debe quedar atrapado por el catch-all.
+  // 1) assets: extensión de archivo, prefijos conocidos, o una de las páginas
+  //    estáticas sin extensión (ver ESTATICOS_SIN_EXTENSION) → tal cual.
   if (
     TIENE_EXTENSION.test(url.pathname) ||
     url.pathname.startsWith('/_expo/') ||
     url.pathname.startsWith('/assets/') ||
-    url.pathname === '/borrar-cuenta' ||
-    url.pathname.startsWith('/borrar-cuenta/')
+    esEstaticoSinExtension(url.pathname)
   ) {
     const respAsset = await env.ASSETS.fetch(request);
     if (url.pathname.startsWith('/_expo/static/') && respAsset.ok) {
