@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { nombreDeAutor } from '../lib/cuentaEliminada';
+import { filtrarBloqueados, idsBloqueados } from './bloqueos';
 
 export interface Message {
   id: string;
@@ -114,12 +115,26 @@ export function paramsDeCtx(ctx: HiloCtx): { petId?: string; adoptionId?: string
   return {};
 }
 
+// El globito de "sin leer". NO cuenta los mensajes de gente que bloqueé: su
+// hilo ya no aparece en Conversaciones (ver `listConversations`), así que un
+// mensaje viejo sin leer de esa persona dejaría un globito que no hay forma de
+// apagar —no hay pantalla a la que entrar para marcarlo como leído—.
+//
+// (Un bloqueado no puede mandar mensajes nuevos: eso lo corta la RLS de la 0022.
+// Lo que se filtra acá son los que quedaron sin leer de ANTES del bloqueo.)
 export async function countUnread(me: string): Promise<number> {
-  const { count, error } = await supabase
+  const bloqueados = await idsBloqueados();
+  let query = supabase
     .from('messages')
     .select('id', { count: 'exact', head: true })
     .eq('to_user', me)
     .eq('leido', false);
+  if (bloqueados.size > 0) {
+    // `not(col, 'in', '(a,b)')` es la forma que PostgREST entiende para un
+    // NOT IN. Los ids son uuid que vienen de la base, no texto del usuario.
+    query = query.not('from_user', 'in', `(${[...bloqueados].join(',')})`);
+  }
+  const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
 }
@@ -263,7 +278,18 @@ export async function listConversations(me: string): Promise<Conversation[]> {
     // Página incompleta = era la última. Es lo que corta el bucle.
     if (pagina.length < PAGINA_MENSAJES) break;
   }
-  const base = [...threads.values()];
+  // Hilos de gente que bloqueé: desaparecen de la lista. Mismo patrón (y misma
+  // tolerancia) que pistas y avistamientos: el filtro es del CLIENTE y degrada a
+  // conjunto vacío si no hay sesión o la tabla 0022 todavía no existe. Se aplica
+  // ANTES de enriquecer, así tampoco se gasta el viaje de red por sus perfiles y
+  // reportes.
+  //
+  // Cosmético a propósito, como el resto del bloqueo en listas: el control de
+  // acceso real es la RLS de `messages` (0022), que ya impide que esa persona
+  // escriba. Esto es para no tener que ver su nombre cada vez que se abre la
+  // bandeja.
+  const bloqueados = await idsBloqueados();
+  const base = filtrarBloqueados([...threads.values()], bloqueados, (t) => t.otherUser);
   if (base.length === 0) return [];
 
   const userIds = [...new Set(base.map((t) => t.otherUser))];
