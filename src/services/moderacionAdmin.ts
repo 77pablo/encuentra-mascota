@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 //
 // Toda la logica de "quien puede ver/actuar" vive del lado del servidor
 // (RPCs security definer que chequean es_admin() por dentro, migracion
-// 0036b): un no-admin nunca llega a ejecutar el cuerpo de estas funciones,
+// 0040): un no-admin nunca llega a ejecutar el cuerpo de estas funciones,
 // asi que ni siquiera hace falta chequear el rol aca antes de llamar.
 
 export interface DenunciaPendiente {
@@ -60,7 +60,7 @@ export async function descartar(id: string): Promise<void> {
 
 // Suspende la cuenta del usuario denunciado: no vuelve a poder publicar ni
 // escribir (RLS de insert, migracion 0036) hasta que se levante a mano.
-// Recibe el id de la DENUNCIA (no el del usuario): la RPC (0036b) deriva el
+// Recibe el id de la DENUNCIA (no el del usuario): la RPC (0040) deriva el
 // usuario objetivo del lado del servidor -coalesce(usuario_denunciado, autor
 // del contenido segun tipo)- porque para reporte/pista/avistamiento/
 // adopcion/mensaje `usuario_denunciado` viene null y el cliente no tiene ese

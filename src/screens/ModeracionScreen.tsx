@@ -11,7 +11,7 @@ import { useColors } from '../theme/ThemeProvider';
 
 // PANEL DE MODERACION — solo accesible desde la fila condicional en
 // ProfileScreen (profile.es_admin). Toda la autorización real vive en el
-// servidor (RPCs security definer, migración 0036b): si alguien sin permiso
+// servidor (RPCs security definer, migración 0040): si alguien sin permiso
 // llega a esta pantalla igual, `bandeja()` rechaza con "no autorizado".
 
 const TIPO_LABEL: Record<string, string> = {
@@ -24,7 +24,7 @@ const TIPO_LABEL: Record<string, string> = {
   usuario: 'Usuario',
 };
 
-// El snapshot de `contenido` cambia de forma según `tipo` (ver 0036b): esta
+// El snapshot de `contenido` cambia de forma según `tipo` (ver 0040): esta
 // función junta los distintos nombres de columna en un texto y una foto para
 // no repetir el `switch` en el render de cada tarjeta.
 function textoDe(contenido: Record<string, unknown> | null): string | null {

@@ -1,7 +1,7 @@
 -- 0036_moderacion_admin.sql
 -- Admin, suspension de cuentas y ciclo de estado de las denuncias.
 -- El privilegio NO se abre con RLS ancha: todo pasa por RPC security definer
--- (0036b) que chequean es_admin() por dentro, el patron de mi_perfil().
+-- (0040) que chequean es_admin() por dentro, el patron de mi_perfil().
 
 -- 1) Bandera de admin y de suspension en profiles.
 alter table public.profiles add column if not exists es_admin boolean not null default false;
