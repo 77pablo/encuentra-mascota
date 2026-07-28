@@ -1,4 +1,4 @@
--- 0036b_moderacion_rpc.sql
+-- 0040_moderacion_rpc.sql
 -- Todas las RPC son security definer y abortan si el llamador no es admin.
 -- Leen saltandose RLS (por eso definer): un no-admin nunca llega al cuerpo.
 --
