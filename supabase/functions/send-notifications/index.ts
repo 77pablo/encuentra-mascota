@@ -215,10 +215,48 @@ async function enviarPush(
   return enviado;
 }
 
+// userIds con los que el ACTOR del evento tiene un bloqueo, en cualquiera de las
+// dos direcciones. Ninguno de ellos debe recibir el aviso (ver el comentario de
+// `bloqueadosConActor` en notifyTargets.ts).
+//
+// Esta consulta SOLO se puede hacer acá: la RLS de la 0022 es asimétrica a
+// propósito (nadie puede leer quién lo bloqueó), y esta función corre con la
+// service_role key, que se saltea RLS. La app nunca podría resolverlo.
+//
+// Degrada a lista vacía —o sea, "no filtra nada"— si no hay actor, si la
+// consulta falla o si la tabla `bloqueos` todavía no existe. Es la elección
+// deliberada: que la cola de avisos se trabe entera es peor que un aviso de más,
+// y esto NO es el control de acceso (ese vive en la RLS de `messages`).
+async function bloqueadosConElActor(supabase: Supa, actorId: string | null): Promise<string[]> {
+  if (!actorId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('bloqueos')
+      .select('bloqueador, bloqueado')
+      .or(`bloqueador.eq.${actorId},bloqueado.eq.${actorId}`);
+    if (error || !data) {
+      if (error) console.warn('no se pudieron leer los bloqueos del actor', error.message);
+      return [];
+    }
+    // De cada fila queda "el otro": el actor está en uno de los dos extremos.
+    return (data as Array<{ bloqueador: string; bloqueado: string }>).map((b) =>
+      b.bloqueador === actorId ? b.bloqueado : b.bloqueador,
+    );
+  } catch (e) {
+    console.warn('no se pudieron leer los bloqueos del actor', e);
+    return [];
+  }
+}
+
 // Arma el contexto que necesita `resolverDestinatarios`: dueño y nombre del
-// reporte, zonas de alerta activas (solo hacen falta para 'reporte_nuevo') y
-// las preferencias de todos los candidatos.
+// reporte, zonas de alerta activas (solo hacen falta para 'reporte_nuevo'),
+// las preferencias de todos los candidatos y con quién tiene bloqueo el actor.
 async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | null> {
+  // Se resuelve UNA vez, arriba de todo: los tres caminos de abajo (collar,
+  // búsqueda guardada, y el genérico por reporte) tienen que incluirlo, y
+  // calcularlo acá es lo que evita que uno se olvide.
+  const bloqueadosConActor = await bloqueadosConElActor(supabase, ev.actor_id);
+
   // 'escaneo_collar' NO tiene reporte (pet_id = null): el destinatario es directo
   // (ev.target_user_id, el dueño de la ficha) y el nombre viene en datos. Este
   // branch DEBE ir antes del `select` a pets, porque con pet_id=null esa consulta
@@ -245,7 +283,7 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
         canalPush: row.canal_push as boolean,
       };
     }
-    return { duenoPetId: target, nombrePet, zonas: [], prefs, seguidoresComuna: [] };
+    return { duenoPetId: target, nombrePet, zonas: [], prefs, seguidoresComuna: [], bloqueadosConActor };
   }
 
   // 'busqueda_guardada' SÍ tiene pet_id (el reporte recién publicado que calzó),
@@ -275,7 +313,7 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
         canalPush: row.canal_push as boolean,
       };
     }
-    return { duenoPetId: target, nombrePet: null, zonas: [], prefs, seguidoresComuna: [] };
+    return { duenoPetId: target, nombrePet: null, zonas: [], prefs, seguidoresComuna: [], bloqueadosConActor };
   }
 
   const { data: pet } = await supabase
@@ -341,7 +379,7 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
     }
   }
 
-  return { duenoPetId, nombrePet, zonas, prefs, seguidoresComuna };
+  return { duenoPetId, nombrePet, zonas, prefs, seguidoresComuna, bloqueadosConActor };
 }
 
 async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {

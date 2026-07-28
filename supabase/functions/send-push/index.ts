@@ -119,6 +119,37 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // BLOQUEO (0022). El chequeo de arriba no alcanza: pide que EXISTA un
+    // mensaje viejo del llamador hacia el destinatario, y eso sigue siendo
+    // cierto después de un bloqueo. Sin esto, alguien bloqueado que ya había
+    // hablado antes puede invocar esta función directo (con curl y su token) y
+    // hacerle sonar el teléfono a quien lo bloqueó, para siempre. La RLS de
+    // `messages` le impide MANDAR el mensaje, pero el push no pasa por ahí.
+    //
+    // Se pregunta con la RPC `hay_bloqueo_con` a través del cliente "anon +
+    // JWT": es security definer y compara contra `auth.uid()`, así que ve las
+    // dos direcciones sin romper la RLS asimétrica.
+    //
+    // La respuesta es un 200 con `enviados: 0`, NO un 403: un error distinto
+    // sería una forma de confirmarle a alguien que lo bloquearon (justo el dato
+    // privado que la 0022 protege). Es exactamente lo mismo que devuelve un
+    // destinatario que no tiene ningún dispositivo registrado.
+    //
+    // Si la RPC no existe todavía (proyecto sin la 0022 aplicada) el error se
+    // ignora y se sigue como siempre: degradar a "se avisa de más" es mejor que
+    // romper el aviso de todos los mensajes.
+    const { data: hayBloqueo, error: bloqueoError } = await callerClient.rpc('hay_bloqueo_con', {
+      p_otro: toUserId,
+    });
+    if (bloqueoError) {
+      console.warn('no se pudo consultar hay_bloqueo_con', bloqueoError.message);
+    } else if (hayBloqueo === true) {
+      return new Response(JSON.stringify({ ok: true, enviados: 0 }), {
+        status: 200,
+        headers: HEADERS,
+      });
+    }
+
     const { data: tokens } = await supabase
       .from('push_tokens')
       .select('token')

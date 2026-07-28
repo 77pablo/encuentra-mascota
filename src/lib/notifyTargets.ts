@@ -70,6 +70,19 @@ export type Contexto = {
   // llama (la Edge Function), consultando notification_prefs.comunas_seguidas.
   // Solo se usan en 'reporte_nuevo'; en el resto va vacío.
   seguidoresComuna: string[];
+  // userIds que tienen un bloqueo con el ACTOR del evento, en cualquiera de las
+  // dos direcciones (él los bloqueó, o ellos lo bloquearon a él). Ninguno recibe
+  // el aviso: un aviso es más invasivo que un mensaje —le hace sonar el teléfono
+  // a quien justamente pidió no saber nada de esa persona—, y del otro lado es
+  // el bloqueo funcionando (no se le avisa a quien bloqueaste).
+  //
+  // Los computa quien llama (la Edge Function, con service_role, que es lo único
+  // que puede leer las filas de las dos direcciones sin romper la RLS asimétrica
+  // de la 0022). OPCIONAL a propósito: si la consulta falla o la tabla `bloqueos`
+  // todavía no existe, se omite y los avisos siguen saliendo como siempre en vez
+  // de cortarse — degradar hacia "se avisa de más" es preferible a que la cola de
+  // avisos deje de funcionar entera.
+  bloqueadosConActor?: string[];
 };
 
 export type Destinatario = { userId: string; canales: ('email' | 'push')[] };
@@ -113,18 +126,28 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 // - 'avistamiento', 'pista' y 'coincidencia' van solo al dueño del reporte de
 //   referencia (ctx.duenoPetId).
 // - Nunca se le avisa al actor de su propio evento.
+// - NUNCA se le avisa a alguien que tiene un bloqueo con el actor (en cualquier
+//   dirección). Este filtro es el ÚLTIMO que se puede saltear: ni el opt-in de
+//   comuna ni el destinatario dirigido de 'escaneo_collar'/'busqueda_guardada'
+//   lo esquivan.
 // - Se deduplica por userId (una persona, un aviso): quien está en los dos caminos
 //   recibe uno solo.
 // - En todos los casos se respeta el filtro de canales (email/push).
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
+  // Bloqueo con el actor: nadie de este conjunto recibe nada, sea cual sea el
+  // tipo de evento. Se arma una sola vez, arriba de todo, para que ningún
+  // camino de los de abajo pueda saltearlo por olvido.
+  const bloqueados = new Set(ctx.bloqueadosConActor ?? []);
+
   // 'escaneo_collar' y 'busqueda_guardada': destinatario único y directo =
   // evento.targetUserId (el dueño de la ficha o de la búsqueda guardada), NO
   // el dueño de un reporte. Ninguno pasa por el interruptor de tipo: guardar
   // la búsqueda (o colgar la placa) YA es el opt-in explícito. Solo se
-  // respeta el filtro de canales.
+  // respeta el filtro de canales (y el bloqueo).
   if (evento.tipo === 'escaneo_collar' || evento.tipo === 'busqueda_guardada') {
     const target = evento.targetUserId ?? null;
     if (!target || target === evento.actorId) return [];
+    if (bloqueados.has(target)) return [];
     const canales = canalesDe(prefsDe(ctx, target));
     return canales.length === 0 ? [] : [{ userId: target, canales }];
   }
@@ -145,6 +168,10 @@ export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Desti
   for (const userId of candidatos) {
     if (!userId) continue;
     if (userId === evento.actorId) continue; // no me aviso a mí mismo
+    // Va ANTES del `optIn` de comuna a propósito: seguir una comuna es un
+    // opt-in a los reportes del barrio, nunca a que te avise alguien que
+    // bloqueaste (o que te bloqueó).
+    if (bloqueados.has(userId)) continue;
     if (vistos.has(userId)) continue;
     vistos.add(userId);
 

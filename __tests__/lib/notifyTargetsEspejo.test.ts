@@ -141,6 +141,43 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       },
     },
   },
+  {
+    // Bloqueo (0022): quien tiene bloqueo con el actor no recibe el aviso. Las
+    // dos copias tienen que filtrarlo igual — si una se olvida, el bloqueado le
+    // sigue haciendo sonar el teléfono a quien lo bloqueó desde la Edge Function.
+    nombre: 'bloqueo con el actor: el dueño no recibe el avistamiento',
+    evento: { id: 'x1', tipo: 'avistamiento', petId: 'p1', actorId: 'vecino', datos: {} },
+    ctx: {
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
+      bloqueadosConActor: ['dueno'],
+    },
+  },
+  {
+    // El opt-in de comuna NO puede saltear el bloqueo, en ninguna de las copias.
+    nombre: 'bloqueo con el actor: ni el opt-in de comuna lo saltea',
+    evento: {
+      id: 'x2', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+      datos: { lat: -33.45, lng: -70.66, especie: 'perro', comuna: 'Maipú' },
+    },
+    ctx: {
+      duenoPetId: 'autor', nombrePet: null, prefs: {},
+      zonas: [{ userId: 'ana', lat: -33.451, lng: -70.661, radioKm: 5 }],
+      seguidoresComuna: ['ana', 'bloqueada'],
+      bloqueadosConActor: ['bloqueada'],
+    },
+  },
+  {
+    // Destinatario dirigido: tampoco lo esquiva.
+    nombre: 'bloqueo con el actor: el escaneo de collar dirigido tampoco pasa',
+    evento: {
+      id: 'x3', tipo: 'escaneo_collar', petId: '', actorId: 'quienEscaneo',
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+    },
+    ctx: {
+      duenoPetId: 'otro', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
+      bloqueadosConActor: ['dueno'],
+    },
+  },
 ];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {
@@ -160,5 +197,29 @@ describe('el espejo de notifyTargets no se desincroniza', () => {
         app.componerAviso(evento, ctx),
       );
     });
+  });
+});
+
+// Los casos de arriba comparan las dos copias entre sí: si LAS DOS se olvidaran
+// del filtro de bloqueo, seguirían dando igual y el test pasaría igual. Esto lo
+// cierra: se le exige a la copia de la Edge Function —la que despacha de verdad
+// los correos y los push— un resultado concreto, no solo "lo mismo que la otra".
+describe('la copia de la Edge Function filtra bloqueados de verdad', () => {
+  it('deja fuera al destinatario bloqueado y adentro al que no lo está', () => {
+    const evento = {
+      id: 'z1', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+      datos: { lat: -33.45, lng: -70.66 },
+    };
+    const ctx = {
+      duenoPetId: 'autor', nombrePet: null, prefs: {}, seguidoresComuna: [],
+      zonas: [
+        { userId: 'ana', lat: -33.451, lng: -70.661, radioKm: 5 },
+        { userId: 'beto', lat: -33.451, lng: -70.661, radioKm: 5 },
+      ],
+      bloqueadosConActor: ['beto'],
+    };
+    expect(edge.resolverDestinatarios(evento as never, ctx as never).map((d) => d.userId)).toEqual([
+      'ana',
+    ]);
   });
 });

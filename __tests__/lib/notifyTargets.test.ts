@@ -482,3 +482,79 @@ describe('componerAviso', () => {
     expect(aviso.titulo).not.toContain('null');
   });
 });
+
+// ------------------------------------------------------------
+// BLOQUEO (0022): un aviso es más invasivo que un mensaje. Quien tiene un
+// bloqueo con el actor —en cualquier dirección— no recibe nada.
+// ------------------------------------------------------------
+describe('resolverDestinatarios - bloqueo con el actor', () => {
+  it('no le avisa al dueño que tiene bloqueo con quien dejó el avistamiento', () => {
+    const ev: EventoAviso = { id: 'b1', tipo: 'avistamiento', petId: 'p1', actorId: 'vecino', datos: {} };
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['dueno'] };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([]);
+  });
+
+  it('sigue avisando a quien NO está en la lista de bloqueos', () => {
+    const ev: EventoAviso = { id: 'b2', tipo: 'pista', petId: 'p1', actorId: 'vecino', datos: {} };
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['otroCualquiera'] };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('saca del reporte nuevo solo a los bloqueados, no a los demás vecinos', () => {
+    const ev: EventoAviso = {
+      id: 'b3', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+      datos: { lat: -33.45, lng: -70.66 },
+    };
+    const ctx: Contexto = {
+      ...ctxBase,
+      zonas: [
+        { userId: 'ana', lat: -33.451, lng: -70.661, radioKm: 5 },
+        { userId: 'beto', lat: -33.451, lng: -70.661, radioKm: 5 },
+      ],
+      bloqueadosConActor: ['beto'],
+    };
+    expect(resolverDestinatarios(ev, ctx).map((d) => d.userId)).toEqual(['ana']);
+  });
+
+  it('el opt-in de comuna NO saltea el bloqueo (seguir la comuna no es aceptar al acosador)', () => {
+    const ev: EventoAviso = {
+      id: 'b4', tipo: 'reporte_nuevo', petId: 'p1', actorId: 'autor',
+      datos: { lat: -33.45, lng: -70.66, comuna: 'Maipú' },
+    };
+    const ctx: Contexto = {
+      ...ctxBase,
+      zonas: [],
+      seguidoresComuna: ['sigueComuna', 'bloqueada'],
+      bloqueadosConActor: ['bloqueada'],
+    };
+    expect(resolverDestinatarios(ev, ctx).map((d) => d.userId)).toEqual(['sigueComuna']);
+  });
+
+  it('tampoco pasa por el destinatario dirigido de escaneo_collar', () => {
+    const ev: EventoAviso = {
+      id: 'b5', tipo: 'escaneo_collar', petId: '', actorId: 'quienEscaneo',
+      targetUserId: 'dueno', datos: { nombre_mascota: 'Pelusa' },
+    };
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['dueno'] };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([]);
+  });
+
+  it('tampoco pasa por el destinatario dirigido de busqueda_guardada', () => {
+    const ev: EventoAviso = {
+      id: 'b6', tipo: 'busqueda_guardada', petId: 'p1', actorId: 'quienPublico',
+      targetUserId: 'buscador', datos: { estado: 'perdida', especie: 'gato', comuna: 'Ñuñoa' },
+    };
+    const ctx: Contexto = { ...ctxBase, bloqueadosConActor: ['buscador'] };
+    expect(resolverDestinatarios(ev, ctx)).toEqual([]);
+  });
+
+  it('sin el campo (contexto viejo o consulta caída) avisa como siempre: degrada, no corta', () => {
+    const ev: EventoAviso = { id: 'b7', tipo: 'avistamiento', petId: 'p1', actorId: 'vecino', datos: {} };
+    const { bloqueadosConActor: _omitido, ...sinCampo } = { ...ctxBase, bloqueadosConActor: [] };
+    expect(resolverDestinatarios(ev, sinCampo as Contexto)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+});
