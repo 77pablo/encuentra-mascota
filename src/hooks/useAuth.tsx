@@ -19,12 +19,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [recovering, setRecovering] = useState(false);
 
+  // Registrar el token de push no debe tumbar la sesión si falla, pero tampoco
+  // puede fallar MUDO: un `.catch(() => {})` acá fue lo que dejó a `send-push`
+  // semanas sin desplegar sin que nadie se enterara. Se traga el error para no
+  // romper el arranque, y lo deja escrito.
+  const registrarPush = (userId: string) => {
+    registerPushToken(userId).catch((e) => {
+      console.error('No se pudo registrar el token de push:', e?.message ?? e);
+    });
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
       if (data.session?.user) {
-        registerPushToken(data.session.user.id).catch(() => {});
+        registrarPush(data.session.user.id);
       }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
@@ -33,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRecovering(true);
       }
       if (s?.user) {
-        registerPushToken(s.user.id).catch(() => {});
+        registrarPush(s.user.id);
       }
     });
     return () => sub.subscription.unsubscribe();
