@@ -108,7 +108,12 @@ export default function ChatScreen({ route, navigation }: any) {
       .then((b) => {
         if (vivo) setBloqueado(b);
       })
-      .catch(() => {});
+      .catch((e) => {
+        // Degrada a "no lo tengo bloqueado": el menú ofrece "Bloquear" aunque
+        // ya lo esté, y bloquear de nuevo no rompe nada. Se registra porque un
+        // fallo acá hace que el estado del bloqueo se vea al revés.
+        console.warn('No se pudo saber si ya bloqueaste a esta persona:', e?.message ?? e);
+      });
     // El builder de supabase es un PromiseLike, no un Promise completo (no
     // tiene `.catch`); lo envolvemos en Promise.resolve para poder atrapar el
     // rechazo sin dejar una promesa suelta. Se lee también el nombre para el

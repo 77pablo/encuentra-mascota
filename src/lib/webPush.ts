@@ -92,7 +92,14 @@ export async function activarWebPush(userId: string): Promise<EstadoWebPush> {
     // Si no se pudo guardar en la base, deshacemos la suscripción del
     // navegador: mejor "no activada" y consistente que una suscripción
     // fantasma que el dispatcher nunca encuentra.
-    await sub.unsubscribe().catch(() => {});
+    await sub.unsubscribe().catch((e) => {
+      // Si ni siquiera se pudo deshacer, queda una suscripción del navegador
+      // que la base no conoce: el dispatcher nunca le va a mandar nada y la
+      // persona creerá que activó los avisos. No se puede hacer más desde acá
+      // (el `throw error` de abajo ya le avisa que no se activó), pero esto
+      // NO puede desaparecer sin dejar rastro.
+      console.error('Quedó una suscripción de push huérfana en el navegador:', e?.message ?? e);
+    });
     throw error;
   }
 

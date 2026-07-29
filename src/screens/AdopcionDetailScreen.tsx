@@ -135,7 +135,12 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
       .then((n) => {
         if (vivo) setDuenoNombre(n);
       })
-      .catch(() => {});
+      .catch((e) => {
+        // Sin nombre la ficha se sigue leyendo entera, así que no se interrumpe
+        // a nadie. Pero queda escrito: si `getNombrePublico` se rompiera por
+        // permisos, "no aparece quién publicó" es un síntoma mudo.
+        console.warn('No se pudo leer el nombre de quien publicó:', e?.message ?? e);
+      });
     return () => {
       vivo = false;
     };

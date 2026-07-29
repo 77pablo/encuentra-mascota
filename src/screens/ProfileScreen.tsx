@@ -68,13 +68,25 @@ export default function ProfileScreen({ navigation }: any) {
     // para la ventana de despliegue en que la RPC todavia no existe.
     getMyProfile(user.id)
       .then(setProfile)
-      .catch(() => {});
+      .catch((e) => {
+        // `profile` queda en null. Eso NO pisa el contacto real al guardar:
+        // `camposDeContactoParaGuardar` omite teléfono y red social cuando el
+        // perfil es null o vino degradado —esa guarda existe justo por este
+        // camino, que ya fue un Critical—. Pero el silencio era el problema:
+        // la persona veía su perfil vacío sin ninguna explicación.
+        console.error('No se pudo leer tu perfil:', e?.message ?? e);
+      });
     listMyReports(user.id, true)
       .then(setMis)
-      .catch(() => {});
+      .catch((e) => {
+        // "No tenés reportes" y "no pudimos leerlos" se ven idénticos.
+        console.warn('No se pudieron leer tus reportes activos:', e?.message ?? e);
+      });
     listMyReports(user.id, false)
       .then(setReunidas)
-      .catch(() => {});
+      .catch((e) => {
+        console.warn('No se pudieron leer tus reencuentros:', e?.message ?? e);
+      });
   }, [user]);
 
   useFocusEffect(cargar);

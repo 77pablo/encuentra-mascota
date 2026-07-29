@@ -156,7 +156,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
       .then((n) => {
         if (vivo) setDuenoNombre(n);
       })
-      .catch(() => {});
+      .catch((e) => {
+        // Igual que en AdopcionDetail: el reporte se lee entero sin el nombre.
+        console.warn('No se pudo leer el nombre de quien publicó:', e?.message ?? e);
+      });
     return () => {
       vivo = false;
     };

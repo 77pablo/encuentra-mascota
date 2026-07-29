@@ -66,13 +66,21 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       })
       .catch(() => setNoDisponible(true))
       .finally(() => setLoading(false));
-    // Las listas degradan a vacío si fallan: no deben tumbar la pantalla.
-    listReportesPublicos(userId).then(setReportes).catch(() => {});
-    listReencuentrosPublicos(userId).then(setReencuentros).catch(() => {});
+    // Las listas degradan a vacío si fallan: no deben tumbar la pantalla. Pero
+    // "no publicó nada" y "no pudimos leer lo que publicó" se ven IGUAL en
+    // pantalla, así que la diferencia tiene que quedar al menos en el log.
+    listReportesPublicos(userId)
+      .then(setReportes)
+      .catch((e) => console.warn('No se pudieron leer sus reportes:', e?.message ?? e));
+    listReencuentrosPublicos(userId)
+      .then(setReencuentros)
+      .catch((e) => console.warn('No se pudieron leer sus reencuentros:', e?.message ?? e));
     // ¿Ya lo tengo bloqueado? Solo si hay sesión y no es mi propio perfil.
-    // Silencioso: si falla, dejamos el botón en "Bloquear".
+    // Degrada a "no bloqueado": el botón queda en "Bloquear".
     if (user && userId !== user.id) {
-      bloqueEmitido(userId).then(setBloqueado).catch(() => {});
+      bloqueEmitido(userId)
+        .then(setBloqueado)
+        .catch((e) => console.warn('No se pudo saber si ya lo bloqueaste:', e?.message ?? e));
     } else {
       setBloqueado(false);
     }

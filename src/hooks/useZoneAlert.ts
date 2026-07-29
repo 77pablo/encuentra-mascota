@@ -52,7 +52,13 @@ export function useZoneAlert(pets: Pet[]): ZoneAlertResult {
     setDismissed(true);
     markVisitedNow()
       .then((now) => setLastVisit(now))
-      .catch(() => {});
+      .catch((e) => {
+        // El banner ya se ocultó en esta sesión (`setDismissed`), así que la
+        // persona no ve nada raro ahora; lo que falla es RECORDARLO, y el
+        // aviso vuelve en la próxima visita. Sin este log, "el banner me
+        // aparece siempre" no tendría dónde diagnosticarse.
+        console.warn('No se pudo recordar que descartaste el aviso de zona:', e?.message ?? e);
+      });
   }, []);
 
   // Memoizado: recalcular el Haversine sobre toda la lista solo cuando cambian

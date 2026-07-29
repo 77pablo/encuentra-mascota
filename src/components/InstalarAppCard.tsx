@@ -84,13 +84,25 @@ export function InstalarAppCard({ variante = 'tarjeta' }: InstalarAppCardProps) 
     } else if (resultado === 'rechazada' && variante === 'tarjeta') {
       // No insistir en cada visita a Inicio si ya dijo que no.
       setDescartada(true);
-      setInstalarPwaDescartada().catch(() => {});
+      setInstalarPwaDescartada().catch((e) => {
+      // Si no se guarda el descarte, la tarjeta vuelve a aparecer en la próxima
+      // visita: molesto pero visible, así que no se le avisa a la persona. En
+      // el log sí queda: un catch mudo acá haría que "insiste aunque le dije
+      // que no" pareciera un capricho de la interfaz.
+      console.warn('No se pudo recordar que descartaste la instalación:', e?.message ?? e);
+    });
     }
   };
 
   const descartar = () => {
     setDescartada(true);
-    setInstalarPwaDescartada().catch(() => {});
+    setInstalarPwaDescartada().catch((e) => {
+      // Si no se guarda el descarte, la tarjeta vuelve a aparecer en la próxima
+      // visita: molesto pero visible, así que no se le avisa a la persona. En
+      // el log sí queda: un catch mudo acá haría que "insiste aunque le dije
+      // que no" pareciera un capricho de la interfaz.
+      console.warn('No se pudo recordar que descartaste la instalación:', e?.message ?? e);
+    });
   };
 
   if (variante === 'fila') {

@@ -32,7 +32,12 @@ export default function SeguirComunaButton({ comuna }: { comuna: string }) {
       .then((cs) => {
         if (vivo) setSigue(cs.includes(comuna));
       })
-      .catch(() => {});
+      .catch((e) => {
+        // Degrada a "no la sigo": el botón queda en "Seguir" y volver a
+        // seguirla no rompe nada. Pero que quede escrito, o un problema de
+        // permisos en `getComunasSeguidas` se ve como un botón caprichoso.
+        console.warn('No se pudo leer qué comunas seguís:', e?.message ?? e);
+      });
     return () => {
       vivo = false;
     };

@@ -27,10 +27,18 @@ export default function AlertZoneScreen() {
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radioKm, setRadioKm] = useState<Radio>(5);
   const [savedZone, setSavedZone] = useState<AlertZone | null>(null);
+  // "No pudimos leer tu zona" NO es lo mismo que "todavía no tenés zona", y
+  // confundirlas cuesta datos: si la lectura falla en silencio, la pantalla
+  // queda con los valores por defecto (5 km, activa) haciéndose pasar por tu
+  // configuración, y el primer "Guardar" los escribe ENCIMA de la zona real.
+  // Es la misma forma del bug que ya tuvimos en el perfil, donde un perfil
+  // degradado indistinguible de uno vacío guardaba '' sobre el teléfono.
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     if (!user) return;
     setLoading(true);
+    setErrorCarga(null);
     getMyZone(user.id)
       .then((z) => {
         setSavedZone(z);
@@ -40,7 +48,10 @@ export default function AlertZoneScreen() {
           if (z.lat !== null && z.lng !== null) setCenter({ lat: z.lat, lng: z.lng });
         }
       })
-      .catch(() => {})
+      .catch((e: any) => {
+        console.error('No se pudo leer la zona de alerta:', e?.message ?? e);
+        setErrorCarga(mensajeDeErrorDb(e));
+      })
       .finally(() => setLoading(false));
   }, [user]);
 
@@ -88,6 +99,27 @@ export default function AlertZoneScreen() {
 
   if (loading) {
     return <Loading />;
+  }
+
+  // Si no se pudo leer, se dice y se ofrece reintentar. NO se muestra el
+  // formulario: con los valores por defecto puestos parecería que esa es tu
+  // configuración, y guardar la pisaría.
+  if (errorCarga) {
+    return (
+      <Screen padded>
+        <View style={styles.errorCarga}>
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.muted} />
+          <Title size={18}>No pudimos leer tu zona</Title>
+          <AppText muted size={14} style={styles.errorCargaTexto}>
+            {errorCarga}
+          </AppText>
+          <AppText muted size={13} style={styles.errorCargaTexto}>
+            No la tocamos: sigue guardada tal como la dejaste.
+          </AppText>
+          <Button title="Reintentar" onPress={cargar} />
+        </View>
+      </Screen>
+    );
   }
 
   const tieneCentro = !!center;
@@ -201,6 +233,16 @@ export default function AlertZoneScreen() {
 }
 
 const crearEstilos = (colors: Colors) => StyleSheet.create({
+  errorCarga: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  errorCargaTexto: {
+    textAlign: 'center',
+  },
   content: {
     gap: spacing.md,
     paddingVertical: spacing.lg,
