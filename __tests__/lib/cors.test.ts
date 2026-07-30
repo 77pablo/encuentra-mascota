@@ -4,12 +4,42 @@
 // función a cualquier sitio de internet.
 import {
   cabecerasCors,
+  ORIGEN_PROD,
   ORIGENES_DEV,
   origenPermitido,
 } from '../../supabase/functions/_shared/cors';
 
 const PROD = 'https://encuentras-mascota.pages.dev';
 const PERMITIDOS = [PROD, ...ORIGENES_DEV];
+
+// ⚠️ Estos casos son los que faltaban, y su ausencia dejó el borrado de cuenta
+// roto en producción durante semanas con la suite entera en verde.
+//
+// El resto del archivo prueba con `PERMITIDOS`, que le INYECTA el dominio de
+// producción a la lista. Eso comprueba "si prod está en la lista, se acepta"
+// —una tautología— y nunca comprueba lo único que importaba: que en producción
+// ese dominio llegue a estar en la lista. No llegaba, porque salía de una
+// variable de entorno que nadie definió.
+//
+// Por eso acá NO se pasa `PERMITIDOS`: se pasa lo que la función tiene sin
+// ninguna configuración. Si alguien vuelve a exigir un subdominio en el comodín,
+// estos tres casos se ponen rojos.
+describe('el sitio de producción no depende de configuración opcional', () => {
+  it('acepta producción con la lista vacía', () => {
+    expect(origenPermitido(PROD, [])).toBe(true);
+  });
+
+  it('acepta producción cuando solo están los orígenes de desarrollo', () => {
+    expect(origenPermitido(PROD, ORIGENES_DEV)).toBe(true);
+    expect(cabecerasCors(PROD, ORIGENES_DEV)['Access-Control-Allow-Origin']).toBe(PROD);
+  });
+
+  it('la constante del sitio publicado es el origen que usa la app', () => {
+    // Si el dominio cambia (el día que haya nombre propio), esto avisa.
+    expect(ORIGEN_PROD).toBe(PROD);
+    expect(origenPermitido(ORIGEN_PROD, [])).toBe(true);
+  });
+});
 
 describe('origenPermitido', () => {
   it('acepta el sitio de producción y los orígenes de desarrollo', () => {

@@ -18,22 +18,40 @@ export const ORIGENES_DEV = [
   'http://127.0.0.1:8091',
 ];
 
+// El sitio publicado. Va acá dentro, y NO solamente en una variable de entorno,
+// por un error que estuvo vivo en producción y en silencio:
+//
+// El comodín de abajo exigía un subdominio (`abc123.` + el dominio), así que
+// cubría todas las vistas previas de Cloudflare pero NO el dominio pelado del
+// sitio real. Producción entraba a la lista únicamente si alguien se acordaba de
+// definir `EXPO_PUBLIC_WEB_URL` en los secretos de las Edge Functions — y nadie
+// lo hizo. Resultado: una vista previa inventada podía llamar a las funciones y
+// el sitio de verdad no, con lo cual **borrar mi cuenta no funcionaba en
+// producción** (requisito de Apple y Google, y derecho de supresión de la
+// Ley 21.719), igual que el push del chat y el borrado de fotos de moderación.
+//
+// La regla que queda: el camino principal no puede depender de configuración
+// opcional. `EXPO_PUBLIC_WEB_URL` se sigue respetando —sirve para el día que
+// haya dominio propio— pero ya no es lo único que sostiene al sitio real.
+export const ORIGEN_PROD = 'https://encuentras-mascota.pages.dev';
+
 /**
  * ¿Este origen puede llamar a la función?
  *
- * Acepta los orígenes de la lista y, además, cualquier subdominio de
- * `.pages.dev` del proyecto: Cloudflare Pages publica cada deploy en una URL
+ * Acepta los orígenes de la lista, el sitio de producción y cualquier subdominio
+ * de `.pages.dev` del proyecto: Cloudflare Pages publica cada deploy en una URL
  * de vista previa distinta (`abc123.encuentras-mascota.pages.dev`), así que
  * fijar solo la URL de producción rompería las vistas previas.
  *
  * Se compara el origen COMPLETO, nunca con `includes()`: `startsWith` o
  * `includes` sobre el dominio dejarían pasar a `encuentras-mascota.pages.dev.
- * atacante.com`, que es un dominio ajeno.
+ * atacante.com`, que es un dominio ajeno. El subdominio es opcional pero UNO
+ * SOLO: `x.y.encuentras-mascota.pages.dev` no es nuestro.
  */
 export function origenPermitido(origen: string | null, permitidos: string[]): boolean {
   if (!origen) return false;
   if (permitidos.includes(origen)) return true;
-  return /^https:\/\/[a-z0-9-]+\.encuentras-mascota\.pages\.dev$/.test(origen);
+  return /^https:\/\/([a-z0-9-]+\.)?encuentras-mascota\.pages\.dev$/.test(origen);
 }
 
 /**
