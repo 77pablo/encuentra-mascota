@@ -4,9 +4,12 @@ import { join } from 'path';
 // GUARDRAIL ESTATICO de la migracion 0042 (Tanda D · pieza 3b: los indices de
 // `messages`).
 //
-// La migracion todavia NO esta aplicada a Supabase (eso es un paso aparte,
-// supervisado), asi que esto no puede probar la base real. Lo que SI puede
-// hacer, y es lo que se rompe de verdad, es atar el indice a la consulta que lo
+// La migracion YA ESTA APLICADA en Supabase (verificado contra la base el
+// 28-jul-2026: los dos indices existen). No la reapliques: tomaria un lock de
+// escritura sobre `messages` sin necesidad. Este archivo no lee la base, asi
+// que no puede confirmarlo por su cuenta —para eso hay que consultar
+// `pg_indexes`—. Lo que SI puede hacer, y es lo que se rompe de verdad, es
+// atar el indice a la consulta que lo
 // necesita: si alguien cambia por que columnas filtra u ordena
 // `listConversations` y el indice se queda con las viejas, deja de servir y
 // nadie se entera —la consulta sigue andando, solo que barriendo la tabla—.
