@@ -1,5 +1,77 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 👉 DÓNDE RETOMAR (30-jul-2026)
+
+**Pasos de Pablo, en este orden:**
+1. **Aplicar la migración `0045`** (`supabase/migrations/0045_moderacion_reactivar.sql`). Es aditiva
+   —no toca tablas, policies ni datos— así que se puede aplicar antes o después de subir la web.
+   Se hace desde el **SQL Editor** de Supabase (sin token) o con la Management API + PAT.
+2. **Subir la web** (`npx expo export --platform web` → arrastrar `dist` a Cloudflare Pages). El
+   bundle en producción todavía no tiene el panel de reactivación.
+3. **Brevo:** escribirle a `contact@brevo.com` pidiendo la activación de la cuenta SMTP. La cadena de
+   avisos funciona entera y muere en un `403` de activación. Sin eso ningún correo sale.
+4. **Probar el panel de moderación**, que nadie usó nunca, y limpiar la denuncia de prueba que quedó.
+   Requiere entrar como `pdanielespinozavega@gmail.com` (ya tiene `es_admin = true`); **no sabemos la
+   contraseña**, hay que resetearla con "olvidé mi clave" desde ese Gmail (el SMTP en modo prueba
+   entrega justo a esa dirección).
+
+**Trabajo de código pendiente, decidido y sin empezar:** bajar de `docs/legal/*.md` la promesa de
+avisar por correo y de permitir apelar al suspender —hoy no pasa ninguna de las dos—, regenerar las
+páginas con `npm run legales` y sumar el caso al test `legalCoherencia`. Decisión de Pablo del 30-jul:
+no prometer un canal que no existe todavía (el correo de contacto depende del dominio, que depende del
+nombre de la app).
+
+**Sigue trabando todo lo demás:** el **nombre de la app** → dominio `.cl` → correo de contacto →
+páginas legales definitivas (28 marcadores `[[PENDIENTE]]`) → tiendas. Dominios `.cl` verificados
+libres: cerquita, volvio, volvi, pichicho. Y el camino crítico de Google son **~21 días** (12 testers
+reales durante 14 días seguidos), que no se acelera programando.
+
+## 🗓️ SESIÓN 2026-07-30 — Una suspensión se puede deshacer (migración 0045)
+
+Commit `da7d2a9`, TDD (cada test se vio fallar antes). **1139 tests / 98 suites, tsc 0.**
+⚠️ **En la rama: la `0045` NO está aplicada y la web NO está subida.**
+
+**El agujero:** `moderar_suspender` (0040) ponía `suspendido_en = now()` y **nada lo volvía a null**.
+El panel lo opera una sola persona a mano, con "Suspender" al lado de "Descartar": una suspensión
+equivocada solo se arreglaba entrando al SQL Editor. Y como al suspender la denuncia queda resuelta y
+sale de la bandeja, la cuenta suspendida **no aparecía en ninguna pantalla**, así que tampoco se podía
+saber a quién se había suspendido. No lo tenía anotado ninguna nota; salió de grepear el repo.
+
+**Lo nuevo (migración `0045`, aditiva):**
+- `moderacion_suspendidos()` → cuentas suspendidas, más reciente primero, **sin las eliminadas**
+  (una cuenta borrada deja su fila lápida de la 0017; sin ese filtro quedaría para siempre en la
+  bandeja y "reactivarla" no significaría nada).
+- `moderar_reactivar(p_usuario_id uuid)` → pone `suspendido_en = null`. **Exige que estuviera
+  suspendida y lanza si no cambió nada:** sin eso, reactivar un id inexistente devolvería éxito
+  habiendo hecho cero (la forma del bug de la 0017) y el panel diría "reactivada" sobre una cuenta
+  que sigue suspendida. Recibe el id del **usuario**, no de una denuncia: al reactivar ya no hay
+  denuncia de donde derivarlo.
+- Las dos son `security definer` con el gate `es_admin()` **adentro**, porque `authenticated` no puede
+  leer `profiles` (grants por columna desde la 0018) y `suspendido_en` de la 0036 no se le concedió a
+  nadie: una función definer es la única vía.
+- `ModeracionScreen` suma la sección "Cuentas suspendidas" con botón Reactivar. **"No se pudo leer" y
+  "no hay ninguna" son estados DISTINTOS**, con reintento — tercera aparición de la misma trampa (el
+  perfil degradado que guardaba `''` encima del teléfono real y `AlertZoneScreen` mostrando los
+  valores por defecto como si fueran la config guardada), y acá es peor porque al lado de la lista hay
+  un botón para actuar. Las dos lecturas son independientes: si falla la de suspendidos, la bandeja de
+  denuncias sigue funcionando (por ejemplo mientras la 0045 no esté aplicada).
+- **Comprobado contra mutación:** forzando el estado de fallo a `false`, 2 tests se ponen rojos.
+
+**Un flake propio, encontrado y cerrado:** el test nuevo pasaba en aislamiento y fallaba dentro de la
+suite completa. No era lógica: montar una pantalla real con todo el stack de react-native tarda ~5 s
+sueltos y llegó a 24 s bajo carga, o sea que se pasaba del **timeout de 5 s de jest**. Se fijó
+`jest.setTimeout(30000)` (los otros tests de pantalla del repo lo hacen con `}, 30000)` por test) y el
+montaje ahora espera a que el panel esté en pantalla en vez de suponer los ticks. Verificado con
+**5 corridas completas seguidas en verde**. Lección repetida: cuando un test falle de forma
+intermitente, leer el mensaje antes de teorizar — era un timeout, no una aserción.
+
+**Decisiones de producto confirmadas de paso** (estaban en el código, mi nota decía lo contrario):
+- **Bloqueo + coincidencias:** el aviso de `coincidencia` **llega igual** aunque haya bloqueo
+  (`notifyTargets.ts` lo exime a propósito; todo el resto sí filtra bloqueados).
+- **Bloquear NO esconde los reportes** del bloqueado.
+- **Suspender ≠ remover:** frena lo nuevo, el contenido anterior sigue visible. La pantalla ahora lo
+  dice con todas las letras en cada fila.
+
 ## 🗓️ SESIÓN 2026-07-29 (2) — El sitio real vuelve a poder llamar a las Edge Functions
 
 Cierre del bug de CORS que se encontró el mismo día pero quedó sin commitear ni desplegar.
