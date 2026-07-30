@@ -125,3 +125,37 @@ export async function suspender(denunciaId: string): Promise<void> {
   const { error } = await supabase.rpc('moderar_suspender', { p_denuncia_id: denunciaId });
   if (error) throw error;
 }
+
+export interface CuentaSuspendida {
+  id: string;
+  nombre: string | null;
+  suspendidoEn: string;
+}
+
+// Las cuentas suspendidas hoy, mas reciente primero (RPC de la 0045).
+//
+// Hace falta una pantalla propia porque al suspender, la denuncia queda resuelta
+// y sale de la bandeja: sin esta lista no habia forma de saber a quien se habia
+// suspendido, y por lo tanto tampoco de deshacerlo. `profiles` no se puede leer
+// directo (grants por columna desde la 0018, y `suspendido_en` de la 0036 no se
+// le concedio a nadie), asi que la RPC definer es la unica via.
+export async function suspendidos(): Promise<CuentaSuspendida[]> {
+  const { data, error } = await supabase.rpc('moderacion_suspendidos');
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    nombre: r.nombre,
+    suspendidoEn: r.suspendido_en,
+  }));
+}
+
+// Levanta la suspension: la persona vuelve a poder publicar y escribir.
+//
+// Recibe el id del USUARIO, no de una denuncia (ver `suspendidos`). La RPC lanza
+// si la cuenta no estaba suspendida en vez de no hacer nada, y ese error se
+// propaga a proposito: un "listo, reactivada" sobre una cuenta que sigue
+// suspendida es peor que un error a la vista.
+export async function reactivar(usuarioId: string): Promise<void> {
+  const { error } = await supabase.rpc('moderar_reactivar', { p_usuario_id: usuarioId });
+  if (error) throw error;
+}

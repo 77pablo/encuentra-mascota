@@ -3,7 +3,16 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
-import { bandeja, DenunciaPendiente, descartar, retirar, suspender } from '../services/moderacionAdmin';
+import {
+  bandeja,
+  CuentaSuspendida,
+  DenunciaPendiente,
+  descartar,
+  reactivar,
+  retirar,
+  suspender,
+  suspendidos,
+} from '../services/moderacionAdmin';
 import { AppText, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
 import { radius, spacing } from '../theme';
 import type { Colors } from '../theme';
@@ -51,16 +60,45 @@ export default function ModeracionScreen() {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [denuncias, setDenuncias] = useState<DenunciaPendiente[]>([]);
+  const [suspensiones, setSuspensiones] = useState<CuentaSuspendida[]>([]);
+  // "No se pudo leer" y "no hay ninguna" NO son lo mismo, y acá la diferencia
+  // importa el doble porque al lado de la lista hay un botón para actuar. Un
+  // fallo de lectura mostrado como lista vacía ya nos costó dos Critical (el
+  // perfil degradado y la zona de alerta).
+  const [falloSuspendidos, setFalloSuspendidos] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actuandoId, setActuandoId] = useState<string | null>(null);
 
+  const cargarSuspendidos = useCallback(
+    () =>
+      suspendidos()
+        .then((filas) => {
+          setSuspensiones(filas);
+          setFalloSuspendidos(false);
+        })
+        .catch((e) => {
+          // La lista vieja se descarta a propósito: dejarla en pantalla con su
+          // botón "Reactivar" sería ofrecer actuar sobre algo que no pudimos
+          // confirmar.
+          console.error('moderacion_suspendidos falló', e);
+          setSuspensiones([]);
+          setFalloSuspendidos(true);
+        }),
+    [],
+  );
+
   const cargar = useCallback(() => {
     setLoading(true);
-    bandeja()
-      .then(setDenuncias)
-      .catch((e) => notify('No se pudo cargar', mensajeDeErrorDb(e)))
-      .finally(() => setLoading(false));
-  }, []);
+    // Dos lecturas independientes: la bandeja es el trabajo principal del panel
+    // y no se cae porque la lista de suspendidos no se pueda leer (por ejemplo
+    // si la 0045 todavía no está aplicada).
+    Promise.all([
+      bandeja()
+        .then(setDenuncias)
+        .catch((e) => notify('No se pudo cargar', mensajeDeErrorDb(e))),
+      cargarSuspendidos(),
+    ]).finally(() => setLoading(false));
+  }, [cargarSuspendidos]);
 
   useFocusEffect(cargar);
 
@@ -109,6 +147,15 @@ export default function ModeracionScreen() {
     );
     if (!ok) return;
     await conAccion(d.id, () => suspender(d.id), 'El usuario quedó suspendido.');
+  };
+
+  const onReactivar = async (c: CuentaSuspendida) => {
+    const ok = await confirmAction(
+      `¿Reactivar a ${c.nombre ?? 'esta cuenta'}?`,
+      'Va a poder volver a publicar y a escribir mensajes.',
+    );
+    if (!ok) return;
+    await conAccion(c.id, () => reactivar(c.id), 'La cuenta volvió a estar activa.');
   };
 
   if (loading) return <Loading />;
@@ -195,6 +242,68 @@ export default function ModeracionScreen() {
             })}
           </View>
         )}
+
+        {/* Cuentas suspendidas. Va acá y no en otra pantalla porque suspender y
+            levantar la suspensión son la misma decisión mirada dos veces, y
+            porque al suspender la denuncia se resuelve: sin esta lista no hay
+            ningún lugar donde volver a encontrar a la persona. */}
+        <View style={styles.seccionSuspendidos}>
+          <Title size={18} style={styles.pageTitle}>
+            Cuentas suspendidas
+          </Title>
+
+          {falloSuspendidos ? (
+            <Card style={styles.card}>
+              <AppText size={14}>
+                No pudimos leer las cuentas suspendidas. La lista de arriba no está afectada.
+              </AppText>
+              <Button
+                title="Reintentar"
+                variant="secondary"
+                icon="refresh-outline"
+                onPress={cargarSuspendidos}
+                style={styles.reintentar}
+              />
+            </Card>
+          ) : suspensiones.length === 0 ? (
+            <AppText muted size={14}>
+              No hay cuentas suspendidas.
+            </AppText>
+          ) : (
+            <View style={styles.list}>
+              {suspensiones.map((c) => {
+                const actuando = actuandoId === c.id;
+                const desde = new Date(c.suspendidoEn);
+                return (
+                  <Card key={c.id} style={styles.card}>
+                    <AppText weight="bold" size={15}>
+                      {c.nombre ?? 'Cuenta sin nombre'}
+                    </AppText>
+                    {Number.isNaN(desde.getTime()) ? null : (
+                      <AppText muted size={12} style={styles.metaLine}>
+                        Suspendida el {desde.toLocaleDateString('es-CL')}
+                      </AppText>
+                    )}
+                    <AppText muted size={12} style={styles.metaLine}>
+                      No puede publicar ni escribir. Su contenido anterior sigue visible.
+                    </AppText>
+                    <View style={styles.accionesRow}>
+                      <Button
+                        title="Reactivar"
+                        variant="secondary"
+                        icon="refresh-outline"
+                        disabled={actuando}
+                        loading={actuando}
+                        onPress={() => onReactivar(c)}
+                        style={styles.accionBoton}
+                      />
+                    </View>
+                  </Card>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -232,5 +341,16 @@ const crearEstilos = (colors: Colors) =>
       flex: 1,
       minWidth: 100,
       paddingHorizontal: spacing.sm,
+    },
+    seccionSuspendidos: {
+      marginTop: spacing.xxl,
+      gap: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.line,
+      paddingTop: spacing.xl,
+    },
+    reintentar: {
+      marginTop: spacing.sm,
+      alignSelf: 'flex-start',
     },
   });

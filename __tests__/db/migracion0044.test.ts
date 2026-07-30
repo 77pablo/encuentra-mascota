@@ -4,9 +4,11 @@ import { join } from 'path';
 // GUARDRAIL ESTATICO de la migracion 0044 (M-4: «mascotas buscando» contaba
 // perdidas + encontradas).
 //
-// La migracion no esta aplicada a Supabase todavia, asi que esto no prueba la
-// base real. Lo que si ata, y es lo que se rompe de verdad, son las tres cosas
-// que tienen que moverse juntas o no moverse:
+// La migracion YA ESTA APLICADA en Supabase (28-jul-2026, verificado en prod:
+// la tarjeta de Inicio mostraba el conteo real de la tabla). No la reapliques.
+// Esto no lee la base, asi que no puede confirmarlo por su cuenta. Lo que si
+// ata, y es lo que se rompe de verdad, son las tres cosas que tienen que
+// moverse juntas o no moverse:
 //   1) el filtro de `buscando` en el SQL,
 //   2) la etiqueta que lee la persona en Inicio,
 //   3) `reencuentros` en el SQL vs. `countReunidas()` en el servicio (fix I-1
@@ -132,15 +134,5 @@ describe('el numero y la etiqueta que ve la persona dicen lo mismo', () => {
   });
 });
 
-// Este guardrail viaja SIEMPRE con la ultima migracion del repo (venia en
-// migracion0042.test.ts). Su sentido es avisar cuando aparece una migracion
-// nueva sin que se revise el orden de aplicacion.
-describe('0044 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(44);
-  });
-});
+// El guardrail de "ultima migracion del repo" se mudo a migracion0045.test.ts:
+// viaja siempre con la mas nueva, y ya cumplio su trabajo avisando de la 0045.
