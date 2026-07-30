@@ -1,5 +1,43 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 🗓️ SESIÓN 2026-07-29 (2) — El sitio real vuelve a poder llamar a las Edge Functions
+
+Cierre del bug de CORS que se encontró el mismo día pero quedó sin commitear ni desplegar.
+Commits `854914d` (arreglo + 3 tests) y `258dca3` (comentario del guardrail de la `0042`, que decía
+que la migración no estaba aplicada cuando sí lo está desde el 28-jul).
+**1114 tests / 96 suites, tsc 0**, revalidados antes de commitear.
+
+**Qué pasaba:** `_shared/cors.ts` aceptaba producción solo si venía en `permitidos`, que sale de
+`EXPO_PUBLIC_WEB_URL` — variable que nunca se definió. El comodín de respaldo exigía subdominio, así
+que cubría cualquier vista previa de Cloudflare pero **no el dominio pelado del sitio real**. O sea:
+`delete-account`, `send-push` y `moderar-borrar-foto` estaban rotas desde el sitio publicado,
+probablemente desde el 19-jul. Borrar la cuenta in-app es requisito de Apple 5.1.1(v) y de Google.
+
+**Desplegado y verificado en producción — medido, no razonado:**
+- Las 3 funciones redesplegadas. Matriz de `curl -X OPTIONS`: dominio real → `Allow-Origin` ✅ (antes
+  del deploy: 204 **sin** la cabecera), vista previa `abc123.` → ✅, `x.y.` → rechazado,
+  `…pages.dev.atacante.com` → rechazado. `POST` sin token → **401** en las 3.
+- **Prueba end-to-end del arreglo:** las 2 cuentas de prueba que ese mismo día **no habían podido
+  autoborrarse** por este bug se borraron desde el sitio real. El diálogo ahora dice **"Cuenta
+  borrada"** donde antes decía "No terminamos de borrarla". Controles: la clave vieja ya no entra en
+  ninguna de las dos (`auth.users` se borró de verdad) y "PRUEBA TECNICA" desapareció del feed.
+- **El 403 en consola al borrar la cuenta es esperado:** es `POST /auth/v1/logout?scope=global`, la
+  sesión cerrándose contra un usuario que la función ya borró. Identificado registrando toda respuesta
+  ≥400 con una cuenta descartable. `DeleteAccountScreen` ya lo trata a propósito (el `signOut()` va
+  fuera del `try`) y la sesión local se limpia igual. Cosmético pendiente si molesta:
+  `signOut({ scope: 'local' })` en ese camino — ojo que `ProfileScreen` hace `onPress={signOut}`, así
+  que sumarle un parámetro al hook le pasaría el evento del táctil.
+
+**Por qué la suite no lo vio, que es la lección:** `cors.test.ts` hacía `[PROD, ...ORIGENES_DEV]`, o
+sea le **inyectaba** producción a la lista y después comprobaba que la lista lo acepta. Los 3 tests
+nuevos pasan lista **vacía**. Regla: si un test tiene que armar la configuración que en producción
+viene de otro lado, no está probando producción. Y un allowlist se prueba con `curl` contra el origen
+real, no se razona.
+
+**Residuo a propósito:** cada borrado deja su fila lápida en `profiles` (por diseño: así el otro lado
+del chat ve "Cuenta eliminada"). Se sumaron 3 hoy — las 2 cuentas de prueba y una descartable que se
+usó para identificar el 403.
+
 ## 🗓️ SESIÓN 2026-07-22 (5) — Tanda "moderación + push web + fotos chat + impacto" (4 agentes en paralelo)
 
 Spec `docs/superpowers/specs/2026-07-22-tanda-moderacion-push-fotos-impacto-design.md`, plan
