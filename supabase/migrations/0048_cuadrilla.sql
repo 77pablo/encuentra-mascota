@@ -373,10 +373,23 @@ stable
 as $$
   select
     p.id,
-    p.nombre,
+    -- El contenido del reporte SOLO si sigue siendo publico.
+    --
+    -- `oculto` lo pone la moderacion (0003 / `moderar_ocultar` de la 0040), y la
+    -- lectura publica de `pets` lo respeta desde la 0004
+    -- (`using (activo = true and oculto = false)`). Esta funcion es definer, o
+    -- sea que se saltea esa policy: sin este filtro, una foto retirada por
+    -- moderacion se seguia sirviendo a cualquiera que tuviera el link de
+    -- invitacion —que para entonces ya dio la vuelta por WhatsApp— y sin
+    -- necesidad de cuenta. Es la misma forma del `using(true)` que expuso las
+    -- adopciones ocultas en su momento.
+    --
+    -- La fila se devuelve igual (la cuadrilla existe, y quien ya estaba adentro
+    -- tiene que poder entrar); lo que se corta es el contenido moderado.
+    case when p.oculto then null else p.nombre end,
     p.especie,
-    p.fotos[1],
-    p.comuna,
+    case when p.oculto then null else p.fotos[1] end,
+    case when p.oculto then null else p.comuna end,
     (p.activo and not p.oculto and p.reunida_en is null),
     (select count(*)::int from public.cuadrilla_miembros m where m.cuadrilla_id = c.id),
     (select count(*)::int from public.cuadrilla_tareas t

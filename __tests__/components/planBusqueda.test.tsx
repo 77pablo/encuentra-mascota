@@ -169,18 +169,21 @@ describe('lo que el dueño responde cambia el plan que ve', () => {
     expect(await getEstadoPlan(PERRO.id)).toMatchObject({ temperamento: 'sociable' });
   });
 
-  it('un gato que salía solo arranca por su ronda; uno de adentro, por los 100 m', async () => {
+  it('un gato de adentro arranca por los 100 m; uno que salía solo, por su ronda', async () => {
+    // Sin contestar, el gato se asume CON CALLE — el mismo default que
+    // `radioSugerido`, para que la tarjeta de arriba y el plan no digan cosas
+    // opuestas sobre el mismo animal (antes acá se asumía "interior").
     const arbol = await montar({ pet: GATO });
-    expect(textos(arbol)).toContain('No se fue lejos');
+    expect(textos(arbol)).toContain('Empezá por su ronda de siempre');
 
     await act(async () => {
-      chip(arbol, 'Salía solo').props.onPress();
+      chip(arbol, 'Vivía adentro').props.onPress();
     });
     await act(async () => {});
 
     const t = textos(arbol);
-    expect(t).toContain('Empezá por su ronda de siempre');
-    expect(t).not.toContain('No se fue lejos');
+    expect(t).toContain('No se fue lejos');
+    expect(t).not.toContain('Empezá por su ronda de siempre');
   });
 
   it('a una mascota que no es perro ni gato no se le hace una pregunta que no aplica', async () => {

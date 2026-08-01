@@ -221,10 +221,21 @@ describe('gato', () => {
     expect(ids(planCompleto(interior))).not.toContain('gato-su-ronda');
   });
 
-  it('sin dato de ámbito se asume interior: buscar lejos a un gato escondido al lado es la peor pérdida de tiempo', () => {
-    expect(ids(planCompleto({ especie: 'gato' }))).toEqual(ids(planCompleto(interior)));
+  it('sin dato de ámbito se asume CON CALLE, igual que el radio sugerido', () => {
+    // Este test decía lo contrario ("se asume interior") y estaba fijando por
+    // escrito una contradicción entre dos piezas de la MISMA pantalla:
+    // `radioSugerido.ts` asume "exterior" cuando no hay dato —para no achicarle
+    // la búsqueda a quien no contestó— y acá se asumía "interior", que hace
+    // decir "no se fue lejos, no sirve salir a recorrer cuadras". El dueño de un
+    // gato sin ámbito veía la tarjeta "Buscá 1 km a la redonda" y, veinte
+    // píxeles más abajo, el plan diciéndole que recorrer cuadras no servía.
+    //
+    // Los dos defaults eran defendibles por separado; juntos, no. Cuando el
+    // dueño SÍ contestó manda su respuesta y este default no se usa.
+    const conCalle: PerfilBusqueda = { especie: 'gato', ambito: 'exterior' };
+    expect(ids(planCompleto({ especie: 'gato' }))).toEqual(ids(planCompleto(conCalle)));
     expect(ids(planCompleto({ especie: 'gato', ambito: 'desconocido' }))).toEqual(
-      ids(planCompleto(interior)),
+      ids(planCompleto(conCalle)),
     );
   });
 

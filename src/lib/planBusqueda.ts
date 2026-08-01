@@ -258,11 +258,16 @@ export const PASOS_PLAN: readonly PasoCatalogo[] = [
     ventana: 'dia2',
     especies: ['perro'],
     titulo: 'Ampliá el radio',
+    // Sin cifra a propósito: el número lo dice UNA sola pieza, la tarjeta
+    // "Buscá X a la redonda" que está justo arriba (`ConsejoRadio`), y ahí se
+    // amplía sola con los días. Cuando acá había un "tres o cinco kilómetros"
+    // escrito a mano, al cuarto día la tarjeta sugería 12 km y este paso decía
+    // 3-5: dos números para lo mismo, uno encima del otro.
     detalle:
-      'Un perro suelto puede caminar varios kilómetros en un día. Estirá la búsqueda a ' +
-      'tres o cinco kilómetros y volvé a la misma hora en que se perdió: los que ' +
-      'trabajan en la calle a esa hora —repartidores, gente de la basura, quien saca a ' +
-      'pasear perros al amanecer— son los que lo van a haber visto.',
+      'Un perro suelto puede caminar varios kilómetros en un día. Estirá la búsqueda más ' +
+      'allá del círculo de los primeros días y volvé a la misma hora en que se perdió: ' +
+      'los que trabajan en la calle a esa hora —repartidores, gente de la basura, quien ' +
+      'saca a pasear perros al amanecer— son los que lo van a haber visto.',
   },
   {
     id: 'gato-revisa-de-nuevo',
@@ -304,11 +309,15 @@ export const PASOS_PLAN: readonly PasoCatalogo[] = [
     ventana: 'dia5',
     especies: ['gato'],
     titulo: 'Ahora sí empieza a moverse',
+    // Igual que en el paso del perro: la distancia la dice `ConsejoRadio`, no
+    // este texto. Acá decía "ampliá a unas tres cuadras" (~300 m) mientras la
+    // tarjeta de arriba ya venía recomendando 2 km — llamaba "ampliar" a algo
+    // siete veces más chico de lo que la app misma sugería.
     detalle:
       'Pasada la primera semana, el hambre y la sed lo sacan del escondite, y es justo ' +
-      'cuando más aparecen. Ampliá el círculo a unas tres cuadras, insistí de madrugada ' +
-      'y volvé a pasar por las casas donde ya preguntaste: ahora la respuesta puede ser ' +
-      'otra, porque recién ahora hay algo que ver.',
+      'cuando más aparecen. Ampliá el círculo, insistí de madrugada y volvé a pasar por ' +
+      'las casas donde ya preguntaste: ahora la respuesta puede ser otra, porque recién ' +
+      'ahora hay algo que ver.',
   },
   {
     id: 'perro-puede-estar-en-una-casa',
@@ -327,13 +336,24 @@ export const PASOS_PLAN: readonly PasoCatalogo[] = [
 
 const porIdEnLaGuia = new Map(GUIA_PERDIDA.map((p) => [p.id, p]));
 
-// Sin dato, asumimos lo conservador: el perro, asustadizo (perseguirlo es el
-// error caro); el gato, de interior (salir a buscar lejos a uno que está
-// escondido en el patio de al lado es la peor manera de gastar las primeras
-// horas).
+// Sin dato, el perro se asume ASUSTADIZO (perseguirlo es el error caro) y el
+// gato, CON CALLE.
+//
+// Lo del gato cambió y vale la pena el porqué: acá se había elegido "interior"
+// por conservador (no mandar a recorrer cuadras a alguien cuyo gato está
+// escondido en el patio de al lado), mientras `radioSugerido.ts` elegía
+// "exterior" por conservador también (no achicar la búsqueda de quien no
+// contestó). Los dos razonamientos son buenos por separado y juntos producían
+// una contradicción en la misma pantalla: la tarjeta de arriba decía "buscá
+// 1 km a la redonda" y el plan, veinte píxeles más abajo, "no se fue lejos, no
+// sirve salir a recorrer cuadras", sobre el mismo animal.
+//
+// Cuando el dueño contestó, manda su respuesta (`perfil.ambito`) y no hay nada
+// que adivinar. Cuando no contestó, las dos piezas asumen lo MISMO. Es peor
+// darle dos consejos opuestos que darle uno imperfecto.
 function normalizar(perfil: PerfilBusqueda) {
   const temperamento = perfil.temperamento === 'sociable' ? 'sociable' : 'asustadizo';
-  const ambito = perfil.ambito === 'exterior' ? 'exterior' : 'interior';
+  const ambito = perfil.ambito === 'interior' ? 'interior' : 'exterior';
   return { especie: perfil.especie, temperamento, ambito } as const;
 }
 

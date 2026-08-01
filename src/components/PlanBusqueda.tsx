@@ -32,7 +32,11 @@ import { useColors } from '../theme/ThemeProvider';
 // columna nueva. Si el almacenamiento falla, el plan se ve igual, desmarcado.
 
 export interface PlanBusquedaProps {
-  pet: Pick<Pet, 'id' | 'especie' | 'creado_en'>;
+  // `ambito` entra acá porque el dueño ya pudo haberlo contestado al publicar
+  // (`SelectorAmbito` → `pets.ambito`, migración 0046). Sin esto, el plan
+  // preguntaba lo mismo por segunda vez y podía mostrar el chip contrario al
+  // que la persona había elegido cinco minutos antes.
+  pet: Pick<Pet, 'id' | 'especie' | 'creado_en'> & { ambito?: Ambito | null };
   /** Convención del repo: el reloj entra por parámetro, nunca `new Date()` adentro. */
   ahora?: Date;
   navigation?: { navigate: (name: string, params?: Record<string, unknown>) => void };
@@ -58,12 +62,18 @@ export function PlanBusqueda({ pet, ahora, navigation, onAfiche }: PlanBusquedaP
       if (!vivo) return;
       setHechos(new Set(e.hechos));
       setTemperamento(e.temperamento);
-      setAmbito(e.ambito);
+      // Lo guardado en el reporte gana sobre lo local: es lo que el dueño
+      // contestó explícitamente al publicar. Lo local solo completa cuando el
+      // reporte no tiene el dato (reportes de antes de la 0046, o la migración
+      // todavía sin aplicar).
+      setAmbito(e.ambito ?? pet.ambito ?? undefined);
     });
     return () => {
       vivo = false;
     };
-  }, [pet.id]);
+    // `pet.ambito` en las dependencias: si el dueño lo edita, el plan tiene que
+    // acompañar en vez de quedarse con la respuesta vieja.
+  }, [pet.id, pet.ambito]);
 
   const plan = useMemo(
     () =>

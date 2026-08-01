@@ -38,24 +38,42 @@ export default function EditPetScreen({ route, navigation }: any) {
   const [raza, setRaza] = useState(pet.raza ?? '');
   const [nombre, setNombre] = useState(pet.nombre ?? '');
   const [descripcion, setDescripcion] = useState(pet.descripcion ?? '');
-  // Interruptor, no una cifra (ver lib/recompensa.ts). Un reporte VIEJO con
-  // "$50.000" guardado arranca encendido: el dato no se toca ni se pierde, y solo
-  // se reescribe con el centinela si la persona guarda cambios.
+  // Interruptor, no una cifra (ver lib/recompensa.ts).
   const [ofreceRecompensa, setOfreceRecompensa] = useState(tieneRecompensa(pet.recompensa));
-  const recompensa = ofreceRecompensa ? RECOMPENSA_SI : '';
+  // Si el interruptor sigue como estaba, se reescribe el MISMO valor que había.
+  //
+  // Antes esto era `ofreceRecompensa ? RECOMPENSA_SI : ''`, y eso pisaba la
+  // cifra de los reportes viejos: alguien con "$50.000" guardado corregía una
+  // coma de la descripción y la columna pasaba a 'sí', perdiendo el monto para
+  // siempre. Sacar la cifra de la VISTA es la decisión de producto; borrarla de
+  // la base a espaldas del dueño, no.
+  const recompensa = !ofreceRecompensa
+    ? ''
+    : tieneRecompensa(pet.recompensa)
+      ? (pet.recompensa ?? RECOMPENSA_SI)
+      : RECOMPENSA_SI;
   // Seña secreta (migración 0047). Se cargan aparte porque no viven en `pets`.
   const [sena1, setSena1] = useState('');
   const [sena2, setSena2] = useState('');
+  // `null` = todavía no sabemos qué había guardado. Es un tercer estado y hace
+  // falta: sin él, "no pudimos leerla" y "no tenés ninguna" se ven igual (dos
+  // casillas vacías) y al guardar se BORRABA la seña real. Es la misma trampa
+  // del perfil degradado que escribía '' encima del teléfono.
+  const [senasLeidas, setSenasLeidas] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let vivo = true;
-    // No tira nunca: sin migración, sin fila o sin permiso devuelve null y las
-    // casillas quedan vacías, listas para escribir la seña por primera vez.
+    // No tira nunca: sin migración, sin fila o sin permiso devuelve null.
     obtenerSenasPrivadas(pet.id).then((s) => {
-      if (!vivo || !s) return;
-      setSena1(s.sena1 ?? '');
-      setSena2(s.sena2 ?? '');
+      if (!vivo) return;
+      if (s) {
+        setSena1(s.sena1 ?? '');
+        setSena2(s.sena2 ?? '');
+      }
+      // `s === null` es ambiguo por diseño del servicio (no hay fila / no hay
+      // migración / falló la red). Ante la duda NO tocamos lo guardado.
+      setSenasLeidas(s !== null);
     });
     return () => {
       vivo = false;
@@ -92,10 +110,19 @@ export default function EditPetScreen({ route, navigation }: any) {
     setSaving(true);
     try {
       await updatePet(pet.id, { estado, especie, raza, nombre, descripcion, recompensa });
-      // Acá SÍ se deja propagar el error (a diferencia de al publicar): la
-      // persona apretó "Guardar cambios" y tiene que enterarse si su seña no
-      // quedó. Sin la migración 0047 devuelve false, sin ruido.
-      await guardarSenasPrivadas(pet.id, pet.user_id, sena1, sena2);
+      // La seña SOLO se toca si primero pudimos leer qué había.
+      //
+      // Dos vacías significan "borrala" para el servicio, y eso es correcto
+      // cuando el dueño las vació a propósito. Pero si la lectura falló —red
+      // caída medio segundo, o Guardar apretado antes de que resolviera— las
+      // casillas también están vacías, y guardar habría BORRADO la seña real
+      // sin decir nada. El dueño seguiría creyendo que tiene con qué verificar
+      // a quien lo llame, que es justo lo que esta función existe para evitar.
+      if (senasLeidas) {
+        // Acá SÍ se deja propagar el error (a diferencia de al publicar): la
+        // persona apretó "Guardar cambios" y tiene que enterarse si no quedó.
+        await guardarSenasPrivadas(pet.id, pet.user_id, sena1, sena2);
+      }
       notify('Guardado', 'Tu reporte se actualizó.');
       navigation.goBack();
     } catch (e: any) {
@@ -188,12 +215,28 @@ export default function EditPetScreen({ route, navigation }: any) {
             algo que hace. Cuando alguien te escriba diciendo que la tiene, pedile que
             te las describa. Solo las ves vos.
           </AppText>
-          <Input placeholder="Ej: cicatriz chica en la panza" value={sena1} onChangeText={setSena1} />
-          <Input
-            placeholder="Ej: se sienta cuando le decís «cama»"
-            value={sena2}
-            onChangeText={setSena2}
-          />
+          {senasLeidas === false ? (
+            // Dos casillas vacías podrían querer decir "no tenés ninguna" o "no
+            // pudimos leerla", y confundirlas hacía que guardar borrara la seña
+            // real. Se dice cuál de las dos es y no se toca nada guardado.
+            <AppText muted size={12} style={styles.ayuda}>
+              No pudimos leer tu seña ahora mismo, así que la dejamos como estaba: guardar
+              este formulario no la va a cambiar. Probá de nuevo más tarde.
+            </AppText>
+          ) : (
+            <>
+              <Input
+                placeholder="Ej: cicatriz chica en la panza"
+                value={sena1}
+                onChangeText={setSena1}
+              />
+              <Input
+                placeholder="Ej: se sienta cuando le decís «cama»"
+                value={sena2}
+                onChangeText={setSena2}
+              />
+            </>
+          )}
         </Card>
 
         <Button

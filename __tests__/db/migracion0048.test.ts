@@ -272,6 +272,24 @@ describe('el link de invitacion: se puede MIRAR sin cuenta, sumarse no', () => {
     expect(devuelve).toContain('ayudantes int');
   });
 
+  it('NO sirve el contenido de un reporte ocultado por moderacion', () => {
+    // La funcion es `security definer`, o sea que se saltea la policy de la
+    // 0004 (`using (activo = true and oculto = false)`). Sin filtrar `oculto` a
+    // mano, una foto retirada por moderacion se seguia sirviendo a cualquiera
+    // que tuviera el link de invitacion —que para entonces ya circulo por
+    // WhatsApp— y sin necesidad de cuenta. Es la misma forma del `using(true)`
+    // que expuso las adopciones ocultas.
+    //
+    // La fila se devuelve igual (la cuadrilla existe y quien ya estaba adentro
+    // tiene que poder entrar); lo que se corta es el contenido moderado.
+    const cuerpo = cuerpoDe('cuadrilla_por_invitacion');
+    for (const campo of ['p.nombre', 'p.fotos[1]', 'p.comuna']) {
+      expect({ campo, protegido: cuerpo.includes(`case when p.oculto then null else ${campo} end`) }).toEqual(
+        { campo, protegido: true },
+      );
+    }
+  });
+
   it('sumarse pasa SI O SI por la RPC: miembros no tiene policy de insert', () => {
     // Si existiera un insert directo, alcanzaria con adivinar/ver un
     // cuadrilla_id para meterse sin tener el token.
