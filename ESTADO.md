@@ -47,6 +47,60 @@ la 0011 pero `send-push` no la leía nunca. La decisión vive en `_shared/prefsP
 desde jest (las Edge Functions están fuera del typecheck y de la suite). Humo en producción:
 `OPTIONS` → 204 con el origen real permitido, `POST` sin credenciales → 401.
 
+## 🗓️ TANDA 10 — radio por especie · plan de búsqueda · antiestafa · cuadrilla (1-ago)
+
+4 implementadores en paralelo + revisión adversarial + fix wave. **1503 → 1890 tests, 121 → 143
+suites**, `tsc` 0. HEAD `ce59c8f`. **Migraciones `0046`, `0047` y `0048` APLICADAS y verificadas.**
+⚠️ **Falta que Pablo suba el `dist`** (`index-acc465e69e1efe0671f036553b172001.js`).
+
+- **Radio calibrado por especie** (`lib/radioSugerido.ts`, mig `0046`): 200 m un gato de interior,
+  1 km uno con calle, 3 km un perro, ampliándose con los días. Sale del estudio de Queensland
+  (medianas de 50 m y 315 m). Chip de 1 km nuevo en Explorar. Se **sugiere**, no se impone.
+- **Plan de búsqueda con reloj** (`lib/planBusqueda.ts`): qué hacer en las próximas 2 h, hoy, día 2,
+  día 5+, distinto por especie y temperamento. Trae el criterio rescatista que no teníamos: no
+  perseguir, no gritar, no mirarlo a los ojos; un gato de interior se busca puerta por puerta y a ras
+  del suelo, no recorriendo cuadras. Progreso local, sin migración.
+- **Antiestafa** (mig `0047`): seña secreta que **no se publica** (tabla aparte, no columna en `pets`,
+  porque `pets` se lee con `select('*')` en media app), recompensa **sin monto visible**, y aviso en
+  el chat ante un pedido de dinero por adelantado (conservador: exige co-ocurrencia y tiene red de
+  negaciones).
+- **Cuadrilla** (mig `0048`): invitar vecinos por link de WhatsApp, tareas con estado, tablero por
+  reporte. Mirar la invitación **no** pide cuenta; sumarse sí (deja estado compartido: una tarea
+  tomada por un anónimo no se le puede sacar a nadie).
+
+**Los 4 Criticals de la revisión final** (todos entre tareas, ninguna revisión por tarea podía verlos):
+1. **La seña secreta se borraba sola al editar.** La lectura devuelve `null` ante cualquier problema
+   → casillas vacías → y dos vacías significan "borrala". Abrir Editar con mala señal y corregir una
+   coma borraba la seña, en silencio. Misma forma que el perfil degradado que escribía `''` encima
+   del teléfono.
+2. **El monto de la recompensa se pisaba** en cada guardado. Sacar la cifra de la vista es la
+   decisión; borrarla de la base a espaldas del dueño, no.
+3. **La invitación a la cuadrilla servía fotos ocultadas por moderación** (RPC definer que se salteaba
+   la policy de la 0004). Misma forma del `using(true)` de las adopciones ocultas.
+4. **Dos fuentes de verdad para el mismo gato:** `radioSugerido` asumía "exterior" sin dato y
+   `planBusqueda` "interior", así que la tarjeta decía "buscá 1 km" y el plan, 20 px más abajo, "no se
+   fue lejos". Había **dos tests verdes fijando la contradicción**. Ahora el plan lee `pets.ambito`.
+
+**Verificado contra la base real** (no razonado): las tres migraciones ejecutadas dentro de
+`begin…rollback` antes de aplicarlas —la 0048 además **consultando** las tablas, porque una policy
+recursiva no falla al crearse sino al leer—; y después de aplicarlas, el ataque a la seña privada con
+**control**: con una seña real insertada, un usuario ajeno ve **0 filas** mientras el control confirma
+que la fila existía (sin ese control, el cero podría ser una tabla vacía).
+
+### 🔧 Pendientes que dejó la revisión (medios y menores, NO arreglados)
+- **El plan le ofrece "Publicá el reporte" dentro de su propio reporte ya publicado** (reusa un paso
+  de la guía que no aplica en ese contexto).
+- **La seña se ofrece también en reportes "encontrada"**, donde los roles están invertidos y el
+  consejo del chat queda al revés.
+- **Orden de la ficha:** la cuadrilla —lo que más reencuentros consigue— quedó debajo del mapa, las
+  coincidencias y el botón de reencuentro, después de scrollear el plan entero.
+- **Dos checklists paralelas** para el mismo dueño (el plan y las tareas de la cuadrilla se solapan
+  casi punto por punto, con estados separados y sin mencionarse).
+- **El barrido antiPostgREST de la 0046 no ve los `select` con constante** (`.select(COLUMNAS)`), un
+  patrón que el propio repo ya usa.
+- `ExplorarScreen` dice "achicamos a unas cuadras" mientras aplica 5 km; un test tautológico en
+  `planBusqueda.test.ts`; la 0048 sin `revoke` explícito (la RLS lo tapa, pero rompe el fail-closed).
+
 ### 📋 TANDA 11 — elegida por Pablo el 1-ago, pendiente de arrancar
 Va **después** de cerrar la tanda 10 (radio por especie · plan de búsqueda · antiestafa · Cuadrilla),
 porque se solapan: "avisar sin cuenta" comparte terreno con la Cuadrilla (las dos tratan la escritura
