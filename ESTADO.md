@@ -1,25 +1,36 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (1-ago-2026)
+## 👉 DÓNDE RETOMAR (1-ago-2026, madrugada — sesión autónoma)
 
-**Pasos de Pablo, en este orden:**
-1. ✅ **La migración `0045` está APLICADA y VERIFICADA en producción (1-ago-2026).** Se comprobó
-   ejecutando las funciones de verdad como admin dentro de `begin … rollback`, 6/6 y sin residuo:
-   la bandeja ve la cuenta suspendida · reactivar un id inexistente **lanza** en vez de devolver
-   éxito mudo · el camino feliz funciona · reactivar dos veces lanza la segunda · deja de aparecer
-   en la bandeja · `suspendido_en` queda realmente en `null`. Además `anon` no puede ejecutar
-   ninguna de las dos y ambas son `security definer`.
-   ⚠️ Ojo para la próxima: llamar estas funciones desde la Management API **no** prueba el guardrail
-   interno, porque entra como `postgres`, no es admin, y `es_admin()` corta antes. Hay que simular
-   al admin con `set local role authenticated` + `set local request.jwt.claims`.
-2. **Subir la web** (`npx expo export --platform web` → arrastrar `dist` a Cloudflare Pages). El
-   bundle en producción todavía no tiene el panel de reactivación.
+Pablo se fue a dormir y la tanda 9 se hizo entera sin aprobaciones intermedias, a pedido suyo.
+**Todo lo de esta sesión está commiteado y pusheado** (`41b8334` en `feat/mvp-encuentra-mascota`).
+Cada decisión que tomé solo está marcada como **[decisión mía]** en
+`docs/superpowers/specs/2026-08-01-tanda-9-retencion-y-agujeros-design.md`.
+
+**Lo único que te toca a vos, en este orden:**
+1. 🔴 **Subir la web.** El `dist` ya está exportado en el repo: entrá a Cloudflare Pages → proyecto
+   `encuentras-mascota` → Deployments → Create new deployment → rama `main` → arrastrá la carpeta
+   `dist`. **Es lo único que no puedo hacer yo**, y hasta que lo hagas producción no tiene NADA de
+   esta tanda ni el panel de reactivación de la 0045.
+2. **Elegir el nombre.** Informe completo en `docs/nombre-de-la-app.md`. Recomendación: **Cerquita**
+   (`cerquita.cl` libre, verificado hoy en NIC Chile). ⚠️ **Antes de comprar, mirá INAPI a mano** —
+   es el riesgo más caro y no se puede verificar automáticamente. Instrucciones exactas en ese doc.
 3. **Brevo:** escribirle a `contact@brevo.com` pidiendo la activación de la cuenta SMTP. La cadena de
    avisos funciona entera y muere en un `403` de activación. Sin eso ningún correo sale.
 4. **Probar el panel de moderación**, que nadie usó nunca, y limpiar la denuncia de prueba que quedó.
    Requiere entrar como `pdanielespinozavega@gmail.com` (ya tiene `es_admin = true`); **no sabemos la
-   contraseña**, hay que resetearla con "olvidé mi clave" desde ese Gmail (el SMTP en modo prueba
-   entrega justo a esa dirección).
+   contraseña**, hay que resetearla con "olvidé mi clave" desde ese Gmail.
+5. **Revocá el token de Supabase** que me pasaste (<https://supabase.com/dashboard/account/tokens>).
+   Yo borré el archivo, pero estaba en OneDrive, así que se sincronizó a la nube.
+
+✅ **La migración `0045` está APLICADA y VERIFICADA en producción.** Se comprobó ejecutando las
+funciones de verdad como admin dentro de `begin … rollback`, 6/6 y sin residuo: la bandeja ve la
+cuenta suspendida · reactivar un id inexistente **lanza** en vez de devolver éxito mudo · el camino
+feliz funciona · reactivar dos veces lanza la segunda · deja de aparecer en la bandeja ·
+`suspendido_en` queda realmente en `null`. Además `anon` no puede ejecutar ninguna de las dos.
+⚠️ Ojo para la próxima: llamar estas funciones desde la Management API **no** prueba el guardrail
+interno, porque entra como `postgres`, no es admin, y `es_admin()` corta antes. Hay que simular al
+admin con `set local role authenticated` + `set local request.jwt.claims`.
 
 **Trabajo de código pendiente, decidido y sin empezar:** bajar de `docs/legal/*.md` la promesa de
 avisar por correo y de permitir apelar al suspender —hoy no pasa ninguna de las dos—, regenerar las
@@ -27,10 +38,99 @@ páginas con `npm run legales` y sumar el caso al test `legalCoherencia`. Decisi
 no prometer un canal que no existe todavía (el correo de contacto depende del dominio, que depende del
 nombre de la app).
 
+**Lo primero de la próxima tanda** (las dos necesitan migración, por eso quedaron fuera):
+**la bandeja de avisos in-app** —hoy nada en la app lee `notification_events`, así que si el push y
+el correo fallan el aviso se pierde para siempre— y **las señas estructuradas** (color, tamaño,
+sexo, chip, fecha de pérdida), que es lo único que subiría la CALIDAD del matching en vez de su
+plomería: hoy una coincidencia es "misma especie + 15 km".
+Y hay una tercera, nueva, que salió de la investigación de competencia y es más grande que las dos:
+**organizar la búsqueda física del barrio** (ver abajo).
+
 **Sigue trabando todo lo demás:** el **nombre de la app** → dominio `.cl` → correo de contacto →
 páginas legales definitivas (28 marcadores `[[PENDIENTE]]`) → tiendas. Dominios `.cl` verificados
 libres: cerquita, volvio, volvi, pichicho. Y el camino crítico de Google son **~21 días** (12 testers
 reales durante 14 días seguidos), que no se acelera programando.
+
+## 🗓️ SESIÓN 2026-08-01 — Tanda 9: retención y agujeros (sesión autónoma)
+
+Pablo fijó el encuadre (retención + cerrar agujeros; retener a los tres públicos; avisos solo por
+**hechos reales** más un resumen apagable, **nada de "hace rato que no entrás"**) y se fue a dormir.
+El resto lo hice solo. **1139 tests / 98 suites → 1475 tests / 117 suites**, `tsc` 0 errores.
+Commits `721e93d` → `41b8334`. **Pusheado.**
+
+**Recorte que hice por presupuesto:** Pablo tenía 71% de la cuota semanal consumida (se reinicia el
+3-ago). Bajé de 4 implementadores a **3** y saqué el revisor dedicado por rama, pero **mantuve la
+revisión final adversarial**, que es la que siempre encuentra lo que se cae entre las tareas. Trabajé
+en orden de valor decreciente y commiteando en cada paso, para que un corte por cuota dejara todo
+entero en vez de tres cosas a medias.
+
+**El hallazgo que ordenó la tanda:** los agujeros y la retención eran el mismo problema. Nada de esto
+era una función faltante, eran promesas incumplidas.
+
+**Lo que se arregló:**
+- 🔴 **El botón "Contactar" de la página pública estaba MUERTO.** Navegaba al tab `'Mapa'`, que dejó
+  de existir en la reorganización de 5 pestañas de julio. Es el destino de **todo push de reporte y
+  todo link compartido**: o sea el vecino que escanea el QR de un afiche, tiene al animal en la mano,
+  toca "Contactar" y no pasa nada. **Sexta aparición** de esta familia de bug.
+- **"Ya apareció" desde el Perfil no registraba el reencuentro** (solo `activo=false`, sin
+  `reunida_en`), así que no sumaba al contador de Inicio, ni a la tarjeta de impacto, ni a la galería
+  "Volvieron a casa". Con la base casi vacía, cada reencuentro perdido era prueba social que no
+  teníamos. Y el Perfil etiquetaba **"REUNIDA"** a cualquier reporte cerrado, fuera cual fuera el
+  motivo.
+- **Inicio mentía dos veces:** "Cerca de ti" pedía reportes sin ubicación (mostraba todo Chile) y los
+  cuatro chips no filtraban nada.
+- **El vacío culpaba al usuario:** una comuna sin datos recibía "soltá algún filtro" en vez de una
+  salida. Ahora ofrece seguir la comuna, publicar o ampliar.
+- Retry real donde no había ninguno: **el QR del collar** (la única pantalla del repo sin reintento,
+  y la más urgente), "Encontré una mascota" (un error la dejaba **en blanco e irreintentable**),
+  "Mis búsquedas" y el Perfil.
+- **Una denuncia que sí se registró se informaba como fallida** (el `bloquear` iba dentro del `try`
+  de `denunciar`), lo que llevaba a denunciar de nuevo.
+- Nuevas: **"Mis comunas"** (seguías comunas, te llegaban avisos y no había dónde verlas ni sacarlas),
+  **insignias propias** en el Perfil (solo se veían en el perfil AJENO), **agradecer a los vecinos**
+  que ayudaron en un reencuentro, **banner de vigencia** del reporte, y **salir de la pantalla** tras
+  borrar la cuenta.
+
+**Los tres Criticals que encontró la revisión final** (ninguna revisión por tarea podía verlos,
+viven en las costuras — es el mismo patrón que en todas las tandas anteriores):
+1. **Se apagó el aviso de zona de alerta.** `ZoneAlertBanner` se alimentaba de la misma consulta que
+   la tira de Inicio, y esa consulta pasó a estar acotada a 25 km **del teléfono** y ordenada por
+   distancia. La zona de alerta es un lugar **fijo** —la casa— y ahí importa lo más **nuevo**: quien
+   abría la app desde el trabajo dejaba de recibir el aviso de un reporte publicado al lado de su
+   casa. Ahora son dos consultas, porque son dos preguntas distintas.
+2. **Borrado fantasma de avistamientos.** `deleteSighting` no comprobaba haber borrado algo, y cuando
+   la RLS rechaza un delete **PostgREST no devuelve error**: borra 0 filas y responde 204. Con la
+   baja optimista de la pantalla, una sesión vencida sacaba el dato de la lista, no avisaba nada, y
+   seguía ahí para todo el mundo. El gemelo `borrarTip` ya estaba arreglado por esto mismo.
+3. **El guardián de navegación no cazaba destinos inexistentes**, que es exactamente cómo sobrevivió
+   el bug de `'Mapa'`. Necesitaba su propio parser: el que había matchea cualquier `.push('x')`, o
+   sea también un `array.push` común. Ahora caza las dos formas (pelada y anidada), comprobado
+   contra mutación.
+
+**Un rojo que no era de la tanda:** `__tests__/legales.test.js` fallaba en cualquier **clon nuevo**.
+Comparaba byte a byte un archivo del disco contra la salida del generador (que emite LF), y sin
+`.gitattributes` y con `core.autocrlf=true` un checkout limpio los materializa con CRLF. Pasaban acá
+por accidente histórico. Lo encontró un agente al medir la línea de base en su worktree y dar
+1137/1139 donde yo había medido 1139/1139 en el principal. Arreglado normalizando los dos lados;
+comprobado que sigue poniéndose rojo si alguien edita `docs/legal/*.md` sin regenerar.
+*(Un agente diagnosticó esto como "el contenido legal está desfasado". Lo verifiqué corriendo
+`npm run legales`: no genera ningún cambio. No había desfase.)*
+
+**Verificado en el navegador** (Playwright, no solo tests): Inicio ya no promete cercanía sin
+ubicación · el vacío ya no dice "soltá algún filtro" · **el collar con la red caída dice "No pudimos
+conectarnos" con botón Reintentar** en vez de "esta placa no existe" · "Mis comunas" aparece en el
+Perfil con sesión · **cero errores JS** en todo el recorrido.
+
+**Documentos nuevos:**
+- `docs/nombre-de-la-app.md` — investigación de naming. **Cerquita** recomendado, `cerquita.cl` libre
+  verificado en el WHOIS de NIC Chile. Con lo que **no** se pudo verificar (INAPI e Instagram) bien
+  separado, para que la decisión no se tome creyendo que está todo chequeado.
+- `docs/competencia-y-oportunidades.md` — **reordena la estrategia del producto.** La búsqueda física
+  del barrio resuelve el **30-49%** de los casos y la base de datos el **2-6%**: somos muy buenos en
+  lo segundo y no tenemos casi nada de lo primero. También deja por escrito por qué **no** vamos a
+  hacer reconocimiento de hocico (el "99%" sale de un paper coescrito por el CTO del proveedor; el
+  único benchmark independiente da 86,67% AUC) y quién es el competidor real en Chile: **SOSAFE**,
+  con 2,5M de usuarios y 27 comunas, que no es una app de mascotas.
 
 ## 🗓️ SESIÓN 2026-07-30 — Una suspensión se puede deshacer (migración 0045)
 
