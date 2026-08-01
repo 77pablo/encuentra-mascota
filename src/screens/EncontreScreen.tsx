@@ -20,6 +20,19 @@ export default function EncontreScreen({ navigation }: any) {
   const [resultados, setResultados] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(false);
   const [buscado, setBuscado] = useState(false);
+  const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
+  // Contador de intentos: además de `especie`, dispara la búsqueda. Sin esto,
+  // volver a tocar la MISMA especie no re-dispara nada (el efecto solo mira
+  // `especie`, que no cambió) y el que encontró al animal se queda mirando una
+  // pantalla vacía sin ninguna forma de volver a intentar.
+  const [intento, setIntento] = useState(0);
+
+  const elegirEspecie = (key: 'perro' | 'gato' | 'otro') => {
+    setEspecie(key);
+    setIntento((n) => n + 1);
+  };
+
+  const reintentar = () => setIntento((n) => n + 1);
 
   // Nota: la foto es solo de referencia visual para el usuario, no se
   // analiza ni compara automáticamente; el "match" es a simple vista.
@@ -28,6 +41,7 @@ export default function EncontreScreen({ navigation }: any) {
     let cancelled = false;
     setLoading(true);
     setBuscado(false);
+    setErrorBusqueda(null);
     listLostBySpecies(especie)
       .then((pets) => {
         if (cancelled) return;
@@ -36,8 +50,14 @@ export default function EncontreScreen({ navigation }: any) {
       })
       .catch((e: any) => {
         if (cancelled) return;
-        notify('No se pudo buscar', mensajeDeErrorDb(e));
+        const mensaje = mensajeDeErrorDb(e);
+        notify('No se pudo buscar', mensaje);
         setResultados([]);
+        // La búsqueda TERMINÓ (mal, pero terminó): sin esto los dos bloques de
+        // salida —resultados y vacío— dependen de `buscado` y no se dibuja
+        // nada, ni siquiera un reintento.
+        setBuscado(true);
+        setErrorBusqueda(mensaje);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -45,7 +65,7 @@ export default function EncontreScreen({ navigation }: any) {
     return () => {
       cancelled = true;
     };
-  }, [especie]);
+  }, [especie, intento]);
 
   const onTakePhoto = async () => {
     const uri = await takePhoto();
@@ -110,7 +130,7 @@ export default function EncontreScreen({ navigation }: any) {
                 key={o.key}
                 label={o.label}
                 active={especie === o.key}
-                onPress={() => setEspecie(o.key)}
+                onPress={() => elegirEspecie(o.key)}
               />
             ))}
           </View>
@@ -122,7 +142,25 @@ export default function EncontreScreen({ navigation }: any) {
           </AppText>
         ) : null}
 
-        {!loading && buscado && resultados.length > 0 ? (
+        {/* La búsqueda falló: se dice qué pasó y se ofrece volver a intentar.
+            Antes acá no se dibujaba NADA y el flujo quedaba sin salida. */}
+        {!loading && errorBusqueda ? (
+          <View style={styles.section}>
+            <EmptyState
+              emoji="😿"
+              title="No pudimos traer los reportes"
+              subtitle={errorBusqueda}
+            />
+            <Button
+              title="Reintentar"
+              icon="refresh"
+              onPress={reintentar}
+              style={styles.actionButton}
+            />
+          </View>
+        ) : null}
+
+        {!loading && !errorBusqueda && buscado && resultados.length > 0 ? (
           <View style={styles.section}>
             <Title size={17}>¿Es alguna de estas?</Title>
             <AppText muted size={13} style={styles.resultsSubtitle}>
@@ -138,7 +176,7 @@ export default function EncontreScreen({ navigation }: any) {
           </View>
         ) : null}
 
-        {!loading && buscado && resultados.length === 0 ? (
+        {!loading && !errorBusqueda && buscado && resultados.length === 0 ? (
           <View style={styles.section}>
             <EmptyState
               emoji="🐾"

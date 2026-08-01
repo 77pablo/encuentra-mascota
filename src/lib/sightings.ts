@@ -16,6 +16,21 @@ export function latestSighting(sightings: Sighting[]): Sighting | null {
   return sortByRecency(sightings)[0] ?? null;
 }
 
+// Quién puede BORRAR un avistamiento: el que lo dejó o el dueño del reporte.
+// Mismo criterio que la RLS de la migración 0007 ("borrar mi avistamiento o el
+// dueño del reporte"), que existía desde el principio pero no la llamaba nadie:
+// hasta ahora, lo único que el dueño podía hacer con una pista falsa en SU
+// reporte era denunciarla y esperar a que una persona la mirara a mano.
+// El invitado (userId nulo) nunca puede.
+export function puedeBorrarAvistamiento(
+  s: Pick<Sighting, 'user_id'>,
+  userId: string | null,
+  duenoDelReporte: string,
+): boolean {
+  if (!userId) return false;
+  return userId === s.user_id || userId === duenoDelReporte;
+}
+
 // Distancia en km desde el punto del reporte hasta un avistamiento.
 export function sightingDistanceKm(origin: LatLng, s: Pick<Sighting, 'lat' | 'lng'>): number {
   return distanceKm(origin, { lat: s.lat, lng: s.lng });

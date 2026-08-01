@@ -1,6 +1,7 @@
 import {
   sortByRecency,
   latestSighting,
+  puedeBorrarAvistamiento,
   sightingDistanceKm,
   summaryLabel,
 } from '../../src/lib/sightings';
@@ -92,5 +93,28 @@ describe('summaryLabel', () => {
 
   it('devuelve null cuando no hay avistamientos', () => {
     expect(summaryLabel(origin, [], now)).toBeNull();
+  });
+});
+
+// Espeja la RLS de la migración 0007 ("borrar mi avistamiento o el dueño del
+// reporte"), que estaba escrita desde el principio y no la usaba nadie.
+describe('puedeBorrarAvistamiento', () => {
+  const s = sighting({ user_id: 'quien-lo-dejo' });
+
+  it('puede el que lo dejó', () => {
+    expect(puedeBorrarAvistamiento(s, 'quien-lo-dejo', 'la-dueña')).toBe(true);
+  });
+
+  it('puede el dueño del reporte (pistas falsas en SU reporte)', () => {
+    expect(puedeBorrarAvistamiento(s, 'la-dueña', 'la-dueña')).toBe(true);
+  });
+
+  it('no puede un tercero', () => {
+    expect(puedeBorrarAvistamiento(s, 'cualquiera', 'la-dueña')).toBe(false);
+  });
+
+  it('no puede el invitado, aunque el reporte no tenga dueño resoluble', () => {
+    expect(puedeBorrarAvistamiento(s, null, 'la-dueña')).toBe(false);
+    expect(puedeBorrarAvistamiento(s, null, '')).toBe(false);
   });
 });

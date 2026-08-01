@@ -305,7 +305,11 @@ export default function AdopcionDetailScreen({ route, navigation }: any) {
     // y ahí NO existe la pantalla `Chat`. Un `navigate('Chat')` a secas burbujea
     // hacia arriba y queda sin manejar (CTA muerto). Hay que direccionar de forma
     // anidada y absoluta hasta el `Chat` que vive dentro de la pestaña Adopción,
-    // igual que `PublicPetScreen` salta a la pestaña Mapa para abrir su chat.
+    // igual que `PublicPetScreen` salta a la pestaña Explorar para abrir el suyo.
+    // (Ojo: este comentario decía "pestaña Mapa" y citaba como ejemplo correcto
+    // un código que estaba roto —esa pestaña no existe desde julio—. Así se
+    // propaga esta familia de bug: verificá el destino contra TabNavigator.tsx,
+    // que es lo que ahora hace __tests__/navigation/navegacionDesdeElRaiz.)
     navigation.navigate('App', {
       screen: 'Adopcion',
       params: {

@@ -76,8 +76,18 @@ export default function PublicPetScreen({ route, navigation }: any) {
   const irAContactar = () => {
     if (user) {
       // Ya hay sesión: llevar al flujo normal de contacto (chat).
+      //
+      // Esta pantalla vive en el stack RAÍZ (link público `mascota/:id`, que es
+      // lo que abre el QR de un afiche y todo push de reporte), y ahí NO existe
+      // `Chat`: hay que direccionar de forma anidada y ABSOLUTA hasta el `Chat`
+      // que vive dentro del stack de una pestaña.
+      //
+      // La pestaña es `Explorar`, que desde julio absorbió a Mapa/Lista/
+      // Comunidad. Durante meses acá decía `'Mapa'`, una pestaña que ya no
+      // existe: el botón "Contactar" no hacía absolutamente nada, justo para el
+      // vecino que acababa de escanear el afiche con el animal en brazos.
       navigation.navigate('App', {
-        screen: 'Mapa',
+        screen: 'Explorar',
         params: { screen: 'Chat', params: { petId: pet.id, otherUserId: pet.user_id } },
       });
     } else {

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { mascotaPorCollar, avisarEscaneoCollar, MascotaCollar } from '../services/myPets';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
-import { AppText, Button, Card, EmptyState, Input, Loading, Screen, Title } from '../ui';
+import { AppText, Button, Card, EmptyState, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { Colors, radius, spacing } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 
@@ -77,8 +77,22 @@ export default function CollarScreen({ route, navigation }: any) {
 
   if (loading) return <Loading />;
 
-  // Token inválido / inexistente: estado vacío amable, sin filtrar nada.
-  if (error || !mascota) {
+  // NO PUDIMOS LEERLA ≠ NO EXISTE. Este es el flujo más urgente del producto
+  // (alguien tiene al animal en la mano y acaba de escanear el QR): decirle
+  // "esta placa no existe" cuando lo único que pasó fue que se cortó el
+  // internet lo manda a su casa creyendo que no hay nada que hacer. Un fallo de
+  // red/base muestra el error con REINTENTAR (`cargar` es idempotente).
+  if (error) {
+    return (
+      <Screen padded>
+        <ErrorState message={error} onRetry={cargar} />
+      </Screen>
+    );
+  }
+
+  // Token inválido / inexistente: estado vacío amable, sin filtrar nada. Acá sí
+  // sabemos que la placa no está: la consulta respondió y vino vacía.
+  if (!mascota) {
     return (
       <Screen padded>
         <EmptyState

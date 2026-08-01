@@ -134,12 +134,26 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     setMostrarMotivos((v) => !v);
   };
 
+  // DOS PASOS, DOS `try` SEPARADOS. Con el bloqueo adentro del `try` de la
+  // denuncia, un fallo al bloquear se informaba como "No se pudo denunciar":
+  // se le miente a quien denunció una denuncia que SÍ quedó registrada, y la
+  // persona vuelve a denunciar lo mismo (ruido para moderación y, peor, la
+  // sensación de que la app no la escuchó). Una vez que `denunciarUsuario`
+  // devolvió sin error, nada de lo que pase después puede decir lo contrario.
   const denunciar = async (motivo: string) => {
     if (!userId || !user) return;
     setEnviandoDenuncia(true);
     try {
       await denunciarUsuario(userId, user.id, motivo);
+    } catch (e: any) {
       setMostrarMotivos(false);
+      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+      setEnviandoDenuncia(false);
+      return;
+    }
+    // A partir de acá la denuncia YA ESTÁ REGISTRADA.
+    setMostrarMotivos(false);
+    try {
       // Denunciar y bloquear son el mismo impulso: se ofrece bloquear acá mismo.
       if (!bloqueado) {
         const ok = await confirmAction(
@@ -149,13 +163,16 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         if (ok) {
           await bloquear(userId);
           setBloqueado(true);
+          notify('Listo', 'Denuncia enviada y persona bloqueada.');
         }
       } else {
         notify('Denuncia recibida', 'La revisaremos dentro de las próximas 24 horas.');
       }
     } catch (e: any) {
-      setMostrarMotivos(false);
-      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+      notify(
+        'No pudimos bloquearla',
+        `Tu denuncia sí quedó registrada, no hace falta repetirla. ${mensajeDeErrorDb(e)}`,
+      );
     } finally {
       setEnviandoDenuncia(false);
     }
