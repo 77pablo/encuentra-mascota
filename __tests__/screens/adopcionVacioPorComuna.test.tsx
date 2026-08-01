@@ -79,6 +79,11 @@ function botones(arbol: any): any[] {
   return arbol.root.findAllByType(Button);
 }
 
+// Los árboles montados, para desmontarlos al terminar cada test: el FlatList
+// agenda trabajo que, si el árbol sigue vivo, cae DESPUÉS del test y jest lo
+// reporta como "Cannot log after tests are done" ensuciando toda la corrida.
+const montados: any[] = [];
+
 async function montar() {
   let arbol: any;
   await act(async () => {
@@ -89,6 +94,7 @@ async function montar() {
     );
   });
   await act(async () => {});
+  montados.push(arbol);
   return arbol;
 }
 
@@ -113,7 +119,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => {});
+  await act(async () => {
+    while (montados.length) montados.pop().unmount();
+  });
 });
 
 describe('adopción · el vacío de una comuna sin publicaciones', () => {

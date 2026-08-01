@@ -73,6 +73,11 @@ function botones(arbol: any): any[] {
   return arbol.root.findAllByType(Button);
 }
 
+// Los árboles montados, para desmontarlos al terminar cada test: el FlatList
+// agenda trabajo que, si el árbol sigue vivo, cae DESPUÉS del test y jest lo
+// reporta como "Cannot log after tests are done" ensuciando toda la corrida.
+const montados: any[] = [];
+
 async function montarLista(filtros: any, props: any = {}) {
   let arbol: any;
   await act(async () => {
@@ -87,11 +92,18 @@ async function montarLista(filtros: any, props: any = {}) {
     );
   });
   await act(async () => {});
+  montados.push(arbol);
   return arbol;
 }
 
 beforeEach(() => {
   mockNavigate.mockReset();
+});
+
+afterEach(async () => {
+  await act(async () => {
+    while (montados.length) montados.pop().unmount();
+  });
 });
 
 describe('EmptyState sabe llevar una acción', () => {

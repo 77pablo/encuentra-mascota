@@ -72,6 +72,11 @@ jest.mock('../../src/lib/notify', () => ({
   confirmAction: () => Promise.resolve(false),
 }));
 
+// Los árboles montados, para desmontarlos al terminar cada test: el FlatList de
+// la lista agenda trabajo que, si el árbol sigue vivo, cae DESPUÉS del test y
+// jest lo reporta como "Cannot log after tests are done".
+const montados: any[] = [];
+
 async function montar(params?: any) {
   let arbol: any;
   await act(async () => {
@@ -85,6 +90,7 @@ async function montar(params?: any) {
     );
   });
   await act(async () => {});
+  montados.push(arbol);
   return arbol;
 }
 
@@ -103,7 +109,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => {});
+  await act(async () => {
+    while (montados.length) montados.pop().unmount();
+  });
 });
 
 describe('Explorar aplica los filtros con los que se llega', () => {
