@@ -18,6 +18,7 @@ import PublicProfileScreen from '../screens/PublicProfileScreen';
 import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
 import MisBusquedasScreen from '../screens/MisBusquedasScreen';
+import MisComunasScreen from '../screens/MisComunasScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
@@ -140,6 +141,13 @@ function ProfileStack() {
         name="MisBusquedas"
         component={MisBusquedasScreen}
         options={{ title: 'Mis búsquedas' }}
+      />
+      {/* "Mis comunas": mismo trato que "Mis búsquedas" — solo se entra desde
+          Perfil, así que vive acá y hereda el header con el botón de volver. */}
+      <ProfileStackNav.Screen
+        name="MisComunas"
+        component={MisComunasScreen}
+        options={{ title: 'Mis comunas' }}
       />
       <ProfileStackNav.Screen
         name="NotificationPrefs"
