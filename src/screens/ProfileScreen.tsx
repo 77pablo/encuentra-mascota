@@ -780,6 +780,16 @@ export default function ProfileScreen({ navigation }: any) {
           icon="map-outline"
           onPress={() => navigation.navigate('MisComunas')}
         />
+        {/* El equivalente de "Mis reportes" para la otra mitad de la app:
+            `listMyAdoptions` existía hace tandas sin un solo llamador, así que
+            se podía publicar un animal en adopción y después no tener dónde
+            verlo, ni saber si seguía visible. */}
+        <Button
+          title="Mis publicaciones en adopción"
+          variant="ghost"
+          icon="heart-outline"
+          onPress={() => navigation.navigate('MisAdopciones')}
+        />
         <Button
           title="Avisos"
           variant="ghost"

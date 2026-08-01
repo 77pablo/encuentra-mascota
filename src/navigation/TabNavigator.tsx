@@ -19,6 +19,7 @@ import GuardadosScreen from '../screens/GuardadosScreen';
 import AlertZoneScreen from '../screens/AlertZoneScreen';
 import MisBusquedasScreen from '../screens/MisBusquedasScreen';
 import MisComunasScreen from '../screens/MisComunasScreen';
+import MisAdopcionesScreen from '../screens/MisAdopcionesScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
@@ -148,6 +149,14 @@ function ProfileStack() {
         name="MisComunas"
         component={MisComunasScreen}
         options={{ title: 'Mis comunas' }}
+      />
+      {/* "Mis publicaciones" de adopción: el equivalente de "Mis reportes" para
+          la otra mitad de la app. Vive acá y no en AdopcionStack porque se
+          entra desde el Perfil, junto al resto de "lo mío". */}
+      <ProfileStackNav.Screen
+        name="MisAdopciones"
+        component={MisAdopcionesScreen}
+        options={{ title: 'Mis publicaciones' }}
       />
       <ProfileStackNav.Screen
         name="NotificationPrefs"
