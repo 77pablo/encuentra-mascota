@@ -16,7 +16,10 @@ export type TipoEvento =
   | 'pista'
   | 'coincidencia'
   | 'escaneo_collar'
-  | 'busqueda_guardada';
+  | 'busqueda_guardada'
+  // Lo encola alguien SIN CUENTA desde la pantalla pública del reporte
+  // (`avistar_sin_cuenta`, migración 0050). Único tipo con actorId siempre null.
+  | 'avistamiento_anonimo';
 
 export type EventoAviso = {
   id: string;
@@ -41,6 +44,9 @@ export type EventoAviso = {
     match_especie?: string;
     // 'escaneo_collar': datos de la ficha del collar y del escaneo.
     nombre_mascota?: string;
+    // La nota que dejó quien avisó. La usan 'escaneo_collar' y
+    // 'avistamiento_anonimo'; en este último es lo ÚNICO que el dueño va a
+    // tener, porque no queda ninguna fila en `sightings` que mirar.
     nota?: string;
     // 'busqueda_guardada': el reporte recién publicado que calzó con la
     // búsqueda guardada de alguien (ver enqueue_busquedas_guardadas, 0031).
@@ -106,7 +112,9 @@ function prefsDe(ctx: Contexto, userId: string): Omit<Prefs, 'userId'> {
 // Interruptor de tipo que le corresponde a cada evento.
 function quiereEsteTipo(p: Omit<Prefs, 'userId'>, tipo: TipoEvento): boolean {
   if (tipo === 'reporte_nuevo') return p.zona;
-  if (tipo === 'avistamiento') return p.avistamientos;
+  // El anónimo es un avistamiento: que lo deje alguien sin cuenta no lo
+  // convierte en otra cosa. Quien apagó `avistamientos` pidió no recibirlo.
+  if (tipo === 'avistamiento' || tipo === 'avistamiento_anonimo') return p.avistamientos;
   if (tipo === 'coincidencia') return p.coincidencias;
   return p.pistas;
 }
@@ -275,6 +283,23 @@ export function componerAviso(
   }
 
   const ruta = `/mascota/${evento.petId}`;
+
+  // 'avistamiento_anonimo' (0050): lo dejó alguien sin cuenta, parado en la
+  // calle. A diferencia de un avistamiento normal NO queda ninguna fila en
+  // `sightings`: lo que esa persona escribió viaja en el propio aviso, porque
+  // es todo lo que el dueño va a tener. Sin este branch cae en el `return` de
+  // pista de más abajo, que además de mentir ("dejaron una pista") pierde la
+  // nota entera.
+  if (evento.tipo === 'avistamiento_anonimo') {
+    const nota = evento.datos.nota?.trim();
+    return {
+      titulo: `Alguien vio a ${suya}`,
+      cuerpo: nota
+        ? `"${nota}" · Entrá a ver dónde fue.`
+        : 'Alguien avisó que la vio, sin dejar sus datos. Entrá a ver dónde fue.',
+      ruta,
+    };
+  }
 
   if (evento.tipo === 'reporte_nuevo') {
     const especie = evento.datos.especie === 'gato' ? 'un gato' : evento.datos.especie === 'perro' ? 'un perro' : 'una mascota';

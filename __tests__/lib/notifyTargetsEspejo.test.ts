@@ -142,6 +142,34 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
     },
   },
   {
+    // Avistamiento anónimo (Tanda 11, migración 0050): lo encola alguien SIN
+    // cuenta desde la pantalla pública; actorId es null siempre. La copia de la
+    // Edge Function es la que arma el correo que le llega al dueño: si se
+    // separan, la app promete un texto y el correo dice otro.
+    nombre: 'avistamiento anónimo con nota (sin cuenta, actor null)',
+    evento: {
+      id: 'an1', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+      targetUserId: 'dueno', datos: { nota: 'está en la plaza', lat: -33.45, lng: -70.66 },
+    },
+    ctx: {
+      duenoPetId: 'dueno', nombrePet: 'Pelusa', zonas: [], prefs: {}, seguidoresComuna: [],
+    },
+  },
+  {
+    nombre: 'avistamiento anónimo sin nota y con el interruptor de avistamientos apagado',
+    evento: {
+      id: 'an2', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+      targetUserId: 'dueno', datos: {},
+    },
+    ctx: {
+      duenoPetId: 'dueno', nombrePet: null, zonas: [], seguidoresComuna: [],
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: false, pistas: true,
+                 coincidencias: true, canalEmail: true, canalPush: true },
+      },
+    },
+  },
+  {
     // Bloqueo (0022): quien tiene bloqueo con el actor no recibe el aviso. Las
     // dos copias tienen que filtrarlo igual — si una se olvida, el bloqueado le
     // sigue haciendo sonar el teléfono a quien lo bloqueó desde la Edge Function.
@@ -222,6 +250,7 @@ const TODOS_LOS_TIPOS: app.TipoEvento[] = [
   'coincidencia',
   'escaneo_collar',
   'busqueda_guardada',
+  'avistamiento_anonimo',
 ];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {
