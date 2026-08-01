@@ -8,10 +8,13 @@ Cada decisión que tomé solo está marcada como **[decisión mía]** en
 `docs/superpowers/specs/2026-08-01-tanda-9-retencion-y-agujeros-design.md`.
 
 **Lo único que te toca a vos, en este orden:**
-1. 🔴 **Subir la web.** El `dist` ya está exportado en el repo: entrá a Cloudflare Pages → proyecto
-   `encuentras-mascota` → Deployments → Create new deployment → rama `main` → arrastrá la carpeta
-   `dist`. **Es lo único que no puedo hacer yo**, y hasta que lo hagas producción no tiene NADA de
-   esta tanda ni el panel de reactivación de la 0045.
+1. ✅ **WEB SUBIDA Y VERIFICADA EN PRODUCCIÓN (1-ago-2026).** Pablo la subió y se comprobó contra el
+   sitio real: el bundle servido es exactamente el exportado
+   (`index-3ba0ee06703d7af84028a8bf43452176.js`), Inicio ya **no** promete "Cerca de ti" sin
+   ubicación —dice "Lo último publicado" y ofrece "Usar mi ubicación"—, los 4 chips salen apagados
+   como corresponde sin ubicación, el QR de una placa inexistente da el mensaje correcto,
+   `/privacidad` se sigue sirviendo, un deep link a una mascota que no existe no rompe nada, y
+   **0 errores JS** y ninguna respuesta ≥400 inesperada en todo el recorrido.
 2. **Elegir el nombre.** Informe completo en `docs/nombre-de-la-app.md`. Recomendación: **Cerquita**
    (`cerquita.cl` libre, verificado hoy en NIC Chile). ⚠️ **Antes de comprar, mirá INAPI a mano** —
    es el riesgo más caro y no se puede verificar automáticamente. Instrucciones exactas en ese doc.
