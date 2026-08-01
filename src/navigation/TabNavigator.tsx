@@ -21,6 +21,7 @@ import MisBusquedasScreen from '../screens/MisBusquedasScreen';
 import MisComunasScreen from '../screens/MisComunasScreen';
 import MisAdopcionesScreen from '../screens/MisAdopcionesScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
+import AvisosScreen from '../screens/AvisosScreen';
 import EditPetScreen from '../screens/EditPetScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import LegalScreen from '../screens/LegalScreen';
@@ -162,6 +163,17 @@ function ProfileStack() {
         name="NotificationPrefs"
         component={NotificationPrefsScreen}
         options={{ title: 'Avisos' }}
+      />
+      {/* La BANDEJA de avisos (migración 0051), distinta de `NotificationPrefs`
+          —que es dónde se elige qué llega y por qué canal—. Vive acá y no en el
+          stack raíz porque solo se entra desde el Perfil: así hereda el header
+          con el botón de volver, igual que "Mis búsquedas". Y porque desde acá
+          se abre `PetDetail`, que es hermana suya en este mismo stack (nombre
+          pelado, sin navegación anidada). */}
+      <ProfileStackNav.Screen
+        name="MisAvisos"
+        component={AvisosScreen}
+        options={{ title: 'Tus avisos' }}
       />
       {/* Personas bloqueadas: vive DENTRO de ProfileStack (no en el raíz)
           porque solo se entra desde Perfil, y así hereda el header con el botón
