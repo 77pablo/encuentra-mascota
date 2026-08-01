@@ -4,8 +4,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { closePet, deletePet, listMyReports, Pet, renovarReporte } from '../services/pets';
+import { markReunited } from '../services/reunions';
 import { vencido } from '../lib/cicloVida';
+import { isReunited } from '../lib/reunion';
+import { insigniasDe } from '../lib/insignias';
 import { camposDeContactoParaGuardar, getMyProfile, Profile, updateMyProfile } from '../services/profile';
+import { getPerfilPublico } from '../services/perfilPublico';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
 import { confirmAction, notify } from '../lib/notify';
@@ -48,8 +52,25 @@ export default function ProfileScreen({ navigation }: any) {
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mis, setMis] = useState<Pet[]>([]);
-  const [reunidas, setReunidas] = useState<Pet[]>([]);
+  // Todos los reportes cerrados. Se parten en pantalla entre los que tienen
+  // reencuentro registrado y los que se cerraron por otro motivo: la lista
+  // cruda mezcla las dos cosas (`listMyReports` filtra solo por `activo`).
+  const [cerrados, setCerrados] = useState<Pet[]>([]);
   const [celebrating, setCelebrating] = useState(false);
+  // Estadísticas propias, solo para las insignias. Es la MISMA fuente que el
+  // perfil público (la RPC `perfil_publico`), así que lo que ve el vecino y lo
+  // que ves vos no pueden desincronizarse.
+  const [stats, setStats] = useState<{ reencuentros: number; reportes: number; aportes: number } | null>(null);
+
+  // "No pudimos leerlo" tiene que verse DISTINTO de "no tenés nada". Cada
+  // lectura lleva su propio error: que se caiga la de los cerrados no debe
+  // borrar de la pantalla los activos, que es el trabajo principal del perfil.
+  const [errorMis, setErrorMis] = useState<string | null>(null);
+  const [errorCerrados, setErrorCerrados] = useState<string | null>(null);
+
+  // Reporte cuyo panel "¿volvió a casa?" está abierto (null = ninguno).
+  const [cerrandoId, setCerrandoId] = useState<string | null>(null);
+  const [guardandoCierre, setGuardandoCierre] = useState(false);
 
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -76,16 +97,40 @@ export default function ProfileScreen({ navigation }: any) {
         // la persona veía su perfil vacío sin ninguna explicación.
         console.error('No se pudo leer tu perfil:', e?.message ?? e);
       });
+    // Cada lectura limpia SU error antes de reintentar y lo deja puesto si
+    // falla. Antes las dos degradaban a un `console.warn` y la persona
+    // terminaba viendo el mismo "no tienes nada" de cuando de verdad no hay
+    // nada: es la cuarta vez que aparece este patrón en el proyecto (ver
+    // AlertZoneScreen y ModeracionScreen, donde ya se resolvió así).
+    setErrorMis(null);
     listMyReports(user.id, true)
-      .then(setMis)
+      .then((lista) => {
+        setMis(lista);
+        setErrorMis(null);
+      })
       .catch((e) => {
-        // "No tenés reportes" y "no pudimos leerlos" se ven idénticos.
         console.warn('No se pudieron leer tus reportes activos:', e?.message ?? e);
+        setErrorMis(mensajeDeErrorDb(e));
       });
+    setErrorCerrados(null);
     listMyReports(user.id, false)
-      .then(setReunidas)
+      .then((lista) => {
+        setCerrados(lista);
+        setErrorCerrados(null);
+      })
       .catch((e) => {
-        console.warn('No se pudieron leer tus reencuentros:', e?.message ?? e);
+        console.warn('No se pudieron leer tus reportes cerrados:', e?.message ?? e);
+        setErrorCerrados(mensajeDeErrorDb(e));
+      });
+    // Insignias del perfil propio. Esta SÍ degrada en silencio-con-log a
+    // propósito: sin insignias la pantalla se lee entera, y no hay ningún dato
+    // que se pueda pisar por no haberlas leído.
+    getPerfilPublico(user.id)
+      .then((p) => {
+        if (p) setStats({ reencuentros: p.reencuentros, reportes: p.reportes, aportes: p.aportes });
+      })
+      .catch((e) => {
+        console.warn('No se pudieron leer tus estadísticas:', e?.message ?? e);
       });
   }, [user]);
 
@@ -140,11 +185,45 @@ export default function ProfileScreen({ navigation }: any) {
     );
   }
 
-  const marcar = async (id: string) => {
-    await closePet(id);
-    setCelebrating(true);
-    notify('¡Genial!', 'Reporte cerrado.');
-    cargar();
+  // CERRAR UN REPORTE DESDE EL PERFIL — dos finales muy distintos.
+  //
+  // Antes este botón llamaba a `closePet`, que solo pone `activo=false`. Un
+  // reencuentro cerrado por acá no sumaba en "Ya van N vueltas a casa", no
+  // entraba en `impacto_comunidad` ni en la galería "Volvieron a casa", y no
+  // dejaba ni fecha ni rastro. Por eso ahora se pregunta antes: no es lo mismo
+  // "volvió a casa" que "lo cierro por otro motivo", y la app no puede
+  // adivinarlo. Las dos columnas (`reunida_en` y compañía) ya existen desde la
+  // migración 0008: no hace falta nada nuevo, solo escribir en ellas.
+  const marcarVolvioACasa = async (id: string) => {
+    setGuardandoCierre(true);
+    try {
+      // El mismo camino que el detalle: escribe `reunida_en`. La nota y la foto
+      // del final feliz se pueden agregar desde la ficha; acá no se piden para
+      // que confirmar el reencuentro sea un solo toque.
+      await markReunited(id);
+      setCerrandoId(null);
+      setCelebrating(true);
+      notify('¡Qué alegría!', 'Sumamos este reencuentro a los de la comunidad.');
+      cargar();
+    } catch (e: any) {
+      notify('No se pudo guardar', mensajeDeErrorDb(e));
+    } finally {
+      setGuardandoCierre(false);
+    }
+  };
+
+  const cerrarPorOtroMotivo = async (id: string) => {
+    setGuardandoCierre(true);
+    try {
+      await closePet(id);
+      setCerrandoId(null);
+      notify('Reporte cerrado', 'Dejó de aparecer en las búsquedas.');
+      cargar();
+    } catch (e: any) {
+      notify('No se pudo cerrar', mensajeDeErrorDb(e));
+    } finally {
+      setGuardandoCierre(false);
+    }
   };
 
   const editar = (item: Pet) => {
@@ -241,6 +320,12 @@ export default function ProfileScreen({ navigation }: any) {
       setSavingPerfil(false);
     }
   };
+
+  // Un cierre común NO es un reencuentro: `isReunited` pide `reunida_en`, el
+  // mismo criterio que usan `countReunidas` y la galería "Volvieron a casa".
+  const reunidas = cerrados.filter((p) => isReunited(p));
+  const otrosCerrados = cerrados.filter((p) => !isReunited(p));
+  const insignias = stats ? insigniasDe(stats) : [];
 
   const tieneNombre = !!profile?.nombre?.trim();
   const nombreMostrado = tieneNombre ? (profile!.nombre as string) : user?.email ?? '';
@@ -447,10 +532,50 @@ export default function ProfileScreen({ navigation }: any) {
           )}
         </Card>
 
+        {/* Insignias propias: las mismas que ve un vecino en tu perfil público,
+            que hasta ahora solo se renderizaban allá. Si el perfil es nuevo no
+            hay ninguna y no se dibuja nada (no se inventan logros). */}
+        {insignias.length > 0 ? (
+          <View style={styles.insigniasWrap}>
+            {insignias.map((i) => (
+              <View key={i.clave} style={styles.insignia}>
+                <Ionicons name={i.icono as any} size={16} color={colors.muted} />
+                <View style={styles.insigniaText}>
+                  <AppText weight="semi" size={13}>
+                    {i.titulo}
+                  </AppText>
+                  <AppText muted size={12}>
+                    {i.descripcion}
+                  </AppText>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <Title size={16} style={styles.sectionTitle}>
           Mis reportes activos
         </Title>
-        {mis.length === 0 ? (
+        {errorMis ? (
+          // NO se muestra el vacío: "no tenés reportes" y "no pudimos leerlos"
+          // son cosas distintas y confundirlas hace que la persona crea que
+          // perdió sus publicaciones.
+          <Card style={styles.errorCard}>
+            <View style={styles.errorHeader}>
+              <Ionicons name="cloud-offline-outline" size={18} color={colors.muted} />
+              <AppText weight="bold" size={14} style={styles.errorTitulo}>
+                No pudimos leer tus reportes
+              </AppText>
+            </View>
+            <AppText muted size={13}>
+              {errorMis}
+            </AppText>
+            <AppText muted size={13}>
+              Siguen publicados: esto es solo un problema para mostrarlos acá.
+            </AppText>
+            <Button title="Reintentar" variant="secondary" onPress={cargar} style={styles.errorBoton} />
+          </Card>
+        ) : mis.length === 0 ? (
           <EmptyState
             emoji="🐾"
             title="No tienes reportes activos"
@@ -491,9 +616,43 @@ export default function ProfileScreen({ navigation }: any) {
                   title="Ya apareció"
                   variant="secondary"
                   icon="checkmark-circle"
-                  onPress={() => marcar(item.id)}
+                  onPress={() => setCerrandoId((actual) => (actual === item.id ? null : item.id))}
                   style={styles.reportButton}
                 />
+                {cerrandoId === item.id ? (
+                  <View style={styles.cierrePanel}>
+                    <AppText weight="bold" size={14}>
+                      ¿Volvió a casa?
+                    </AppText>
+                    <AppText muted size={13} style={styles.cierreTexto}>
+                      Si volvió, lo sumamos a los reencuentros de la comunidad y queda en
+                      «Volvieron a casa». Si lo cerrás por otro motivo, simplemente deja de
+                      aparecer en las búsquedas.
+                    </AppText>
+                    <Button
+                      title="Sí, volvió a casa"
+                      icon="heart"
+                      loading={guardandoCierre}
+                      disabled={guardandoCierre}
+                      onPress={() => marcarVolvioACasa(item.id)}
+                      style={styles.cierreBoton}
+                    />
+                    <Button
+                      title="La cierro por otro motivo"
+                      variant="secondary"
+                      icon="close-circle-outline"
+                      disabled={guardandoCierre}
+                      onPress={() => cerrarPorOtroMotivo(item.id)}
+                      style={styles.cierreBoton}
+                    />
+                    <Button
+                      title="Ahora no"
+                      variant="ghost"
+                      disabled={guardandoCierre}
+                      onPress={() => setCerrandoId(null)}
+                    />
+                  </View>
+                ) : null}
                 <View style={styles.reportActionsRow}>
                   <Button
                     title="Editar"
@@ -519,7 +678,20 @@ export default function ProfileScreen({ navigation }: any) {
         <Title size={16} style={styles.sectionTitle}>
           Reunidas 🎉
         </Title>
-        {reunidas.length === 0 ? (
+        {errorCerrados ? (
+          <Card style={styles.errorCard}>
+            <View style={styles.errorHeader}>
+              <Ionicons name="cloud-offline-outline" size={18} color={colors.muted} />
+              <AppText weight="bold" size={14} style={styles.errorTitulo}>
+                No pudimos leer tus reencuentros
+              </AppText>
+            </View>
+            <AppText muted size={13}>
+              {errorCerrados}
+            </AppText>
+            <Button title="Reintentar" variant="secondary" onPress={cargar} style={styles.errorBoton} />
+          </Card>
+        ) : reunidas.length === 0 ? (
           <AppText muted size={13} style={styles.mutedLine}>
             Aún no tienes reencuentros.
           </AppText>
@@ -530,7 +702,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={styles.reunidaHeaderRow}>
                   <Badge label="REUNIDA" color={colors.found} />
                   <AppText muted size={12}>
-                    {timeAgo(item.creado_en)}
+                    {timeAgo(item.reunida_en ?? item.creado_en)}
                   </AppText>
                 </View>
                 <AppText weight="semi" size={14} style={styles.reportTitle}>
@@ -543,6 +715,36 @@ export default function ProfileScreen({ navigation }: any) {
             ))}
           </View>
         )}
+
+        {/* Cerrados sin reencuentro. Antes caían en la lista de arriba con la
+            etiqueta "REUNIDA" puesta: una etiqueta falsa, porque
+            `listMyReports(user.id, false)` filtra solo por `activo`. Si no hay
+            ninguno, la sección entera no se dibuja. */}
+        {!errorCerrados && otrosCerrados.length > 0 ? (
+          <>
+            <Title size={16} style={styles.sectionTitle}>
+              Cerrados
+            </Title>
+            <View style={styles.list}>
+              {otrosCerrados.map((item) => (
+                <Card key={item.id} style={styles.reunidaCard}>
+                  <View style={styles.reunidaHeaderRow}>
+                    <Badge label="CERRADO" color={colors.muted} />
+                    <AppText muted size={12}>
+                      {timeAgo(item.creado_en)}
+                    </AppText>
+                  </View>
+                  <AppText weight="semi" size={14} style={styles.reportTitle}>
+                    {especieLabel[item.especie]}
+                  </AppText>
+                  <AppText muted size={13}>
+                    {item.descripcion.slice(0, 60)}
+                  </AppText>
+                </Card>
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <Button
           title="Mis mascotas"
@@ -568,6 +770,15 @@ export default function ProfileScreen({ navigation }: any) {
           variant="ghost"
           icon="search-outline"
           onPress={() => navigation.navigate('MisBusquedas')}
+        />
+        {/* Seguir una comuna no tenía vuelta atrás: el único botón vivía dentro
+            del panel de filtros de Explorar, que arranca colapsado. Acá se ven
+            y se sacan. */}
+        <Button
+          title="Mis comunas"
+          variant="ghost"
+          icon="map-outline"
+          onPress={() => navigation.navigate('MisComunas')}
         />
         <Button
           title="Avisos"
@@ -759,6 +970,55 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.xs,
+  },
+  cierrePanel: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+    backgroundColor: colors.sky,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  cierreTexto: {
+    lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+  cierreBoton: {
+    marginTop: spacing.xs,
+  },
+  errorCard: {
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorTitulo: {
+    flexShrink: 1,
+  },
+  errorBoton: {
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.lg,
+  },
+  insigniasWrap: {
+    gap: spacing.sm,
+  },
+  insignia: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  insigniaText: {
+    flex: 1,
   },
   reportActionButton: {
     paddingHorizontal: spacing.md,
