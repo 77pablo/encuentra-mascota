@@ -14,6 +14,12 @@ export const petSchema = z.object({
   // PublishScreen exige la comuna por su cuenta antes de publicar.
   comuna: z.string().trim().min(1).max(80).optional(),
   comunas_alcance: z.array(z.string()).optional(),
+  // Ámbito del animal (migración 0046): 'interior' | 'exterior'. Solo se
+  // pregunta en gatos perdidos, y es OMITIBLE a propósito — quien no contesta
+  // se queda con el radio conservador (ver src/lib/radioSugerido.ts). Es el
+  // único campo del schema que puede no llegar a la base: si la 0046 no está
+  // aplicada, `createPet` reintenta sin él.
+  ambito: z.enum(['interior', 'exterior']).optional(),
 });
 
 export type PetInput = z.infer<typeof petSchema>;

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
-import { ErrorAmigable } from '../lib/dbErrors';
+import { ErrorAmigable, esColumnaFaltante } from '../lib/dbErrors';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
 import { rutaDeFotoPropia } from '../lib/rutaStorage';
 
@@ -33,6 +33,12 @@ export interface Pet {
   // reporte sigue vigente (o la creación). A los 45 días sin renovar, el reporte
   // sale solo de las búsquedas. Puede faltar en reportes anteriores a la 0028.
   renovado_en?: string | null;
+  // Ámbito del animal (migración 0046), para calibrar el radio de búsqueda.
+  // Llega `undefined` en TRES casos distintos y los tres significan lo mismo
+  // para quien lo lee ("no sabemos"): la 0046 no está aplicada, el reporte es
+  // anterior a ella, o la persona omitió la pregunta. Ver src/lib/radioSugerido.
+  // OJO: `buscar_reportes` (RPC) NO lo devuelve; solo llega por `select('*')`.
+  ambito?: 'interior' | 'exterior' | null;
 }
 
 // NOTA: acá vivía `activePetsCache`, una caché de 30s de "todos los reportes
@@ -54,13 +60,32 @@ export async function createPet(
   // pantalla pueda saltarse el paso por olvido. La coordenada exacta no se
   // guarda en ninguna parte: lo que no se guarda no se puede filtrar.
   const { lat, lng } = difuminarUbicacion({ lat: input.lat, lng: input.lng });
-  const { data, error } = await supabase
-    .from('pets')
-    .insert({ ...input, lat, lng, fotos, user_id: userId, origen_my_pet: origenMyPet ?? null })
-    .select()
-    .single();
-  if (error) throw error;
-  return data as Pet;
+  // `ambito` sale del resto a propósito: es lo único que puede no existir en la
+  // base (migración 0046). Todo lo demás va siempre.
+  const { ambito, ...resto } = input;
+  const fila = { ...resto, lat, lng, fotos, user_id: userId, origen_my_pet: origenMyPet ?? null };
+  const insertar = (datos: Record<string, unknown>) =>
+    supabase.from('pets').insert(datos).select().single();
+
+  // Sin ámbito no hay nada que degradar: se publica como siempre.
+  if (!ambito) {
+    const { data, error } = await insertar(fila);
+    if (error) throw error;
+    return data as Pet;
+  }
+
+  const conAmbito = await insertar({ ...fila, ambito });
+  if (!conAmbito.error) return conAmbito.data as Pet;
+  // REGLA DURA: la web tiene que andar SIN la 0046 aplicada. PostgREST rebota
+  // el insert entero si no conoce la columna, así que un reporte de mascota
+  // perdida —la función central de la app— quedaría sin publicarse por una
+  // mejora del radio. Se reintenta sin el dato: se pierde la calibración fina,
+  // no el reporte. Cualquier OTRO error (RLS, límite anti-spam, red) sube tal
+  // cual y no se reintenta: repetir el insert ahí sería publicar dos veces.
+  if (!esColumnaFaltante(conAmbito.error, 'ambito')) throw conAmbito.error;
+  const sinAmbito = await insertar(fila);
+  if (sinAmbito.error) throw sinAmbito.error;
+  return sinAmbito.data as Pet;
 }
 
 export async function listMyReports(userId: string, activo: boolean): Promise<Pet[]> {

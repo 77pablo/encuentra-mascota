@@ -116,15 +116,7 @@ describe('0045 es segura de aplicar en cualquier momento', () => {
   });
 });
 
-// Este guardrail viaja SIEMPRE con la ultima migracion del repo (venia en
-// migracion0044.test.ts). Su sentido es avisar cuando aparece una migracion
-// nueva sin que se revise el orden de aplicacion.
-describe('0045 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(45);
-  });
-});
+// El guardrail de "esta es la ultima migracion del repo" se mudo a
+// __tests__/db/migracion0046.test.ts, que es donde vive ahora la ultima.
+// Viaja SIEMPRE con la mas nueva: su gracia es ponerse rojo cuando aparece otra
+// sin que nadie revise el orden de aplicacion.

@@ -6,6 +6,7 @@ import MapView, { Marker } from '../components/PlatformMap';
 import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { NudgeVigencia } from '../components/NudgeVigencia';
+import { ConsejoRadio } from '../components/ConsejoRadio';
 import { markReunited } from '../services/reunions';
 import {
   denunciarAvistamiento,
@@ -572,6 +573,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
             guardando={guardandoVigencia}
           />
         ) : null}
+
+        {/* Hasta dónde conviene buscar, calibrado por especie y ámbito (estudio
+            de Queensland: 50 m un gato de interior, 315 m uno con calle, 1-2 km
+            un perro). Solo al dueño y solo mientras la busca: al resto de la
+            gente no le sirve, y con la mascota ya en casa sobra. Se dibuja solo
+            (null) si el reporte no es "perdida". DEGRADA SIN LA 0046: sin la
+            columna `ambito` el consejo sale con el radio ANCHO, nunca con el
+            chico. */}
+        {esMio && !reunida ? <ConsejoRadio pet={pet} /> : null}
 
         {pet.recompensa ? (
           <>

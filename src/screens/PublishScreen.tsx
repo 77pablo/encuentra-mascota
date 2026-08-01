@@ -24,6 +24,11 @@ import TarjetaGenerador from '../components/TarjetaGenerador';
 import { datosDeReporte } from '../lib/tarjeta';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
+// Radio calibrado por especie y ámbito (estudio de la U. de Queensland +
+// Missing Animal Response). La pregunta se hace acá porque es el único momento
+// en que el dueño la puede contestar. Ver src/lib/radioSugerido.ts.
+import { Ambito, preguntarAmbito } from '../lib/radioSugerido';
+import { SelectorAmbito } from '../components/SelectorAmbito';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -59,6 +64,10 @@ export default function PublishScreen({ navigation, route }: any) {
       ? params.especie
       : 'perro';
   const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro'>(especieParam);
+  // Ámbito del animal, para calibrar el radio de búsqueda. `null` = no contestó,
+  // que es una respuesta válida (y el default): quien omite se queda con el
+  // radio ancho. Solo se pregunta donde cambia algo — ver `mostrarAmbito`.
+  const [ambito, setAmbito] = useState<Ambito | null>(null);
   const [raza, setRaza] = useState(typeof params.raza === 'string' ? params.raza : '');
   const [nombre, setNombre] = useState(typeof params.nombre === 'string' ? params.nombre : '');
   const [descripcion, setDescripcion] = useState(
@@ -191,6 +200,10 @@ export default function PublishScreen({ navigation, route }: any) {
     setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
   };
 
+  // Solo en gatos perdidos: es el único caso donde la respuesta cambia el radio
+  // (50 m contra 315 m de mediana). Ver `preguntarAmbito`.
+  const mostrarAmbito = preguntarAmbito({ especie, estado });
+
   const onSubmit = async () => {
     // Portero (pulido): la pestaña Publicar ya bloquea la entrada a un
     // invitado (`porteroDeTab` en TabNavigator), pero esta pantalla también
@@ -201,6 +214,10 @@ export default function PublishScreen({ navigation, route }: any) {
     const parsed = petSchema.safeParse({
       estado,
       especie,
+      // Se manda SOLO si la pregunta estaba en pantalla. Sin esto, contestar en
+      // "gato" y después cambiar a "perro" publicaría el reporte con un dato
+      // que la persona contestó sobre otro animal y que ya nadie ve.
+      ambito: mostrarAmbito && ambito ? ambito : undefined,
       raza,
       nombre,
       descripcion,
@@ -361,6 +378,8 @@ export default function PublishScreen({ navigation, route }: any) {
               );
             })}
           </View>
+
+          {mostrarAmbito ? <SelectorAmbito valor={ambito} onChange={setAmbito} /> : null}
 
           <Input placeholder="Raza (opcional)" value={raza} onChangeText={setRaza} />
           <Input placeholder="Nombre (opcional)" value={nombre} onChangeText={setNombre} />
