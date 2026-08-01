@@ -86,6 +86,12 @@ jest.mock('../../src/services/tips', () => ({
   crearTip: jest.fn(() => Promise.resolve()),
   borrarTip: jest.fn(() => Promise.resolve()),
 }));
+// La cuadrilla (0048) se lee en una consulta aparte desde la ficha. Se mockea
+// para que este test no salga a la red: su fallo es silencioso y no cambia nada
+// de lo que se prueba acá, pero una llamada real lo haría lento y frágil.
+jest.mock('../../src/services/cuadrilla', () => ({
+  estadoDeCuadrilla: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
+}));
 jest.mock('../../src/services/storage', () => ({ uploadPetPhoto: jest.fn() }));
 jest.mock('../../src/services/profile', () => ({
   getMyProfile: jest.fn(() => Promise.resolve(null)),

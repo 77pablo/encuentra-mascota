@@ -22,6 +22,7 @@ import { shareReport } from '../lib/share';
 import { deleteSighting, listSightings, Sighting } from '../services/sightings';
 import { addUpdate, listUpdates, PetUpdate } from '../services/petUpdates';
 import { borrarTip, crearTip, listarTips } from '../services/tips';
+import { estadoDeCuadrilla, EstadoCuadrilla } from '../services/cuadrilla';
 import { firmaAutor, puedeBorrarTip, validarTip, Tip, TIP_MAX } from '../lib/tips';
 import {
   puedeBorrarAvistamiento,
@@ -116,6 +117,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [mostrarConfetti, setMostrarConfetti] = useState(false);
   // Nudge de vigencia (ciclo de vida): "sigue perdida" / "archivar".
   const [guardandoVigencia, setGuardandoVigencia] = useState(false);
+  // CUADRILLA (migración 0048): ¿hay búsqueda organizada en este reporte?
+  //
+  // Se pregunta en una consulta APARTE de la del reporte, y ese detalle es el
+  // que sostiene todo lo demás. La 0048 puede no estar aplicada todavía (el
+  // dueño sube la web antes de correr el SQL), y PostgREST no devuelve datos
+  // parciales: si esto viajara dentro del `select` de `pets`, un 42703 se
+  // llevaría puesta la ficha entera. Acá, en cambio, un fallo deja `cuadrilla`
+  // en null y la sección simplemente no se dibuja.
+  const [cuadrilla, setCuadrilla] = useState<EstadoCuadrilla | null>(null);
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -129,6 +139,25 @@ export default function PetDetailScreen({ route, navigation }: any) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Estado de la cuadrilla. SILENCIOSO a propósito y en los dos sentidos: si la
+  // migración 0048 no está aplicada el servicio devuelve `no-disponible`, y si
+  // la consulta falla por cualquier otro motivo se traga el error. En ninguno
+  // de los dos casos puede aparecer un error en la ficha del reporte: esta
+  // sección es un agregado, no puede degradar la pantalla que ya existía.
+  useEffect(() => {
+    let vivo = true;
+    estadoDeCuadrilla(id)
+      .then((e) => {
+        if (vivo) setCuadrilla(e);
+      })
+      .catch(() => {
+        if (vivo) setCuadrilla(null);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [id]);
 
   // Cuando ya tenemos la mascota, buscamos posibles coincidencias entre los
   // reportes activos (perdida ↔ encontrada, especie compatible y cercanas).
@@ -733,6 +762,37 @@ export default function PetDetailScreen({ route, navigation }: any) {
               </Card>
             )}
 
+            {/* CUADRILLA (0048). Recorrer el barrio es lo que más reencuentros
+                consigue, y de lejos. Tres condiciones para que esta entrada
+                aparezca:
+                  · `cuadrilla !== null` y no es 'no-disponible' → la migración
+                    está aplicada. Si no lo está, acá no se dibuja NADA y la
+                    ficha queda exactamente como el día anterior.
+                  · el reporte es de una mascota PERDIDA (en una "encontrada" no
+                    hay barrio que recorrer) y no volvió a casa (este bloque ya
+                    vive en la rama `!reunida`).
+                  · la ve el dueño, o quien ya se sumó ('lista' solo vuelve de
+                    la base para los miembros, por la RLS). */}
+            {cuadrilla &&
+            cuadrilla.tipo !== 'no-disponible' &&
+            pet.estado === 'perdida' &&
+            (cuadrilla.tipo === 'lista' || esMio) ? (
+              <>
+                <Button
+                  title={cuadrilla.tipo === 'lista' ? 'Ver la cuadrilla' : 'Organizar la búsqueda'}
+                  icon="people"
+                  variant={cuadrilla.tipo === 'lista' ? 'secondary' : 'primary'}
+                  onPress={() => navigation.navigate('Cuadrilla', { petId: pet.id })}
+                  style={styles.contactButton}
+                />
+                {cuadrilla.tipo === 'sin-crear' ? (
+                  <AppText muted size={13} style={styles.matchesSubtitle}>
+                    Armá una lista corta de tareas concretas y mandale el link a tus vecinos por
+                    WhatsApp.
+                  </AppText>
+                ) : null}
+              </>
+            ) : null}
           </>
         )}
 

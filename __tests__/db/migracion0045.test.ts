@@ -116,12 +116,14 @@ describe('0045 es segura de aplicar en cualquier momento', () => {
   });
 });
 
-// El guardrail de "esta es la ultima migracion del repo" YA NO VIVE ACA: viaja
-// siempre con la migracion mas nueva, que hoy es la 0048 (cuadrilla).
+// El guardrail de "esta es la ultima migracion del repo" YA NO VIVE ACA: se mudo
+// a `migracion0048.test.ts` (cuadrilla), que es la ultima. Viaja siempre con la
+// mas nueva; en este archivo estaria clavado en 45 y solo diria que alguien
+// agrego una migracion, que es justo lo que acaba de pasar a proposito.
 //
-// En la tanda 10 los tres agentes que agregaron migracion lo mudaron cada uno a
-// su archivo, en paralelo y sin saberlo, y el merge dejo tres copias apuntando a
-// numeros distintos. Tiene que existir UNA sola, la del numero mas alto: si hay
-// dos, la vieja se pone roja para siempre y se termina borrando el guardrail
-// entero, que es justo lo que evita que alguien agregue una migracion sin que
-// nadie revise el orden de aplicacion.
+// Nota de la tanda 10: los TRES agentes que agregaron migracion (0046, 0047 y
+// 0048) lo mudaron cada uno a su archivo, en paralelo y sin saber del otro. Al
+// fusionar hay que dejar UNA sola copia, la del numero mas alto: con dos, la
+// del numero menor se pone roja para siempre y termina borrandose el guardrail
+// entero, que es exactamente lo que evita que alguien agregue una migracion sin
+// que nadie revise el orden de aplicacion.

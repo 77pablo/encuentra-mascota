@@ -14,7 +14,8 @@ export type AccionProtegida =
   | 'bloquear'
   | 'reencuentro'
   | 'preguntar_adopcion'
-  | 'guardar_busqueda';
+  | 'guardar_busqueda'
+  | 'cuadrilla';
 
 export const MENSAJES: Record<AccionProtegida, string> = {
   contactar: 'Creá tu cuenta para escribirle al dueño',
@@ -31,6 +32,10 @@ export const MENSAJES: Record<AccionProtegida, string> = {
   reencuentro: 'Creá tu cuenta para marcar el reencuentro',
   preguntar_adopcion: 'Creá tu cuenta para preguntarle a quien la publicó',
   guardar_busqueda: 'Creá tu cuenta para guardar esta búsqueda y recibir avisos',
+  // Sumarse a una cuadrilla deja estado compartido: una tarea tomada por
+  // "alguien" no se le puede sacar y nadie sabe a quién recordarle. Por eso
+  // pide cuenta (ver el comentario largo de la migración 0048).
+  cuadrilla: 'Creá tu cuenta para sumarte a buscar',
 };
 
 export function mensajeDe(accion: AccionProtegida): string {
