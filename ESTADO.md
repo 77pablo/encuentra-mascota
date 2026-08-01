@@ -1,11 +1,17 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (30-jul-2026)
+## 👉 DÓNDE RETOMAR (1-ago-2026)
 
 **Pasos de Pablo, en este orden:**
-1. **Aplicar la migración `0045`** (`supabase/migrations/0045_moderacion_reactivar.sql`). Es aditiva
-   —no toca tablas, policies ni datos— así que se puede aplicar antes o después de subir la web.
-   Se hace desde el **SQL Editor** de Supabase (sin token) o con la Management API + PAT.
+1. ✅ **La migración `0045` está APLICADA y VERIFICADA en producción (1-ago-2026).** Se comprobó
+   ejecutando las funciones de verdad como admin dentro de `begin … rollback`, 6/6 y sin residuo:
+   la bandeja ve la cuenta suspendida · reactivar un id inexistente **lanza** en vez de devolver
+   éxito mudo · el camino feliz funciona · reactivar dos veces lanza la segunda · deja de aparecer
+   en la bandeja · `suspendido_en` queda realmente en `null`. Además `anon` no puede ejecutar
+   ninguna de las dos y ambas son `security definer`.
+   ⚠️ Ojo para la próxima: llamar estas funciones desde la Management API **no** prueba el guardrail
+   interno, porque entra como `postgres`, no es admin, y `es_admin()` corta antes. Hay que simular
+   al admin con `set local role authenticated` + `set local request.jwt.claims`.
 2. **Subir la web** (`npx expo export --platform web` → arrastrar `dist` a Cloudflare Pages). El
    bundle en producción todavía no tiene el panel de reactivación.
 3. **Brevo:** escribirle a `contact@brevo.com` pidiendo la activación de la cuenta SMTP. La cadena de
