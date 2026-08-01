@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,8 +86,20 @@ export default function HomeScreen({ navigation }: any) {
   // referencia y la sección NO puede titularse "Cerca de ti" (ver más abajo).
   const coords = location.coords;
 
+  // ¿Inicio ya llegó a pintar algo alguna vez? Decide si una recarga muestra el
+  // spinner de pantalla completa o se hace en silencio.
+  const yaMostroAlgo = useRef(false);
+
   const cargar = useCallback(() => {
-    setLoading(true);
+    // El spinner de pantalla completa SOLO en la primera carga. `cargar` depende
+    // de `coords`, así que conceder la ubicación en caliente lo volvía a
+    // disparar: la persona apretaba "Usar mi ubicación" y Inicio entero
+    // desaparecía detrás de un spinner en vez de actualizarse abajo. Con algo ya
+    // en pantalla, la recarga es silenciosa.
+    //
+    // Va en un ref y no mirando `pets`: `pets` no está en las dependencias de
+    // este callback, así que leerlo acá daría un valor viejo.
+    if (!yaMostroAlgo.current) setLoading(true);
     setError(null);
     // La tira de "finales felices" es decorativa: si su consulta falla (p. ej.
     // la migración 0008 aún no está aplicada), degradamos a [] en vez de tumbar
@@ -134,7 +146,10 @@ export default function HomeScreen({ navigation }: any) {
         setImpacto(impactoData);
       })
       .catch((e: any) => setError(mensajeDeErrorDb(e)))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        yaMostroAlgo.current = true;
+        setLoading(false);
+      });
   }, [user, coords]);
 
   useFocusEffect(cargar);
@@ -193,8 +208,10 @@ export default function HomeScreen({ navigation }: any) {
   const avatarLetter = displayName ? displayName.charAt(0).toUpperCase() : '?';
   const hasCoords = !!location.coords;
 
-  // Ya vienen ordenadas de más nueva a más vieja; solo tomamos las primeras
-  // y, si tenemos ubicación, les calculamos la distancia (sin reordenar).
+  // El orden lo decide el servidor y depende de si hay ubicación: CON ella la
+  // consulta pide `orden: 'cerca'` (más cercano primero) y sin ella vienen por
+  // fecha. Acá solo tomamos las primeras y, si hay ubicación, les calculamos la
+  // distancia — sin reordenar en ningún caso.
   const hasImpacto =
     !!impacto &&
     (impacto.reencuentros > 0 || impacto.buscando > 0 || impacto.adopciones > 0 || impacto.aportes > 0);

@@ -41,6 +41,13 @@ páginas con `npm run legales` y sumar el caso al test `legalCoherencia`. Decisi
 no prometer un canal que no existe todavía (el correo de contacto depende del dominio, que depende del
 nombre de la app).
 
+**Pendiente chico que necesita migración** (anotado el 1-ago): el aviso de "seguir una comuna" y el
+listado **no miran lo mismo**. `buscar_reportes` trae los reportes cuya comuna es esa **o** que la
+tienen en `comunas_alcance`; el trigger del aviso solo mira `new.comuna`. O sea que un reporte
+publicado en Recoleta con alcance a Independencia **aparece en la lista de Independencia y no manda
+ningún aviso**. Por ahora se bajó la promesa del texto ("te avisamos cuando alguien publique ahí",
+que es lo que sí cumplimos); emparejar las dos puntas es tocar el trigger.
+
 **Lo primero de la próxima tanda** (las dos necesitan migración, por eso quedaron fuera):
 **la bandeja de avisos in-app** —hoy nada en la app lee `notification_events`, así que si el push y
 el correo fallan el aviso se pierde para siempre— y **las señas estructuradas** (color, tamaño,

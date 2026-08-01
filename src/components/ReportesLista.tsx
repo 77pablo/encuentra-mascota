@@ -7,6 +7,7 @@ import { spacing } from '../theme';
 import type { Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 import { useBusquedaReportes } from '../hooks/useBusquedaReportes';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 import { FiltrosBusqueda } from '../services/busqueda';
 
 // Cuerpo de LISTA de reportes: el FlatList de tarjetas + estados de
@@ -56,6 +57,7 @@ export default function ReportesLista({
 }) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
+  const requireAuth = useRequireAuth();
   const { reportes, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
     useBusquedaReportes(filtros);
 
@@ -76,12 +78,22 @@ export default function ReportesLista({
   const verTodoChile = onAmpliarBusqueda ? (
     <Button title="Ver todo Chile" variant="ghost" onPress={onAmpliarBusqueda} />
   ) : null;
+  // El portero ANTES de navegar, igual que `AdopcionFeedScreen`.
+  //
+  // El de la pestaña Publicar es un listener de `tabPress` (`TabNavigator`), y
+  // `tabPress` no se dispara en una navegación programática como esta. Sin este
+  // chequeo, el invitado entraba al formulario entero —fotos, pin en el mapa,
+  // descripción— y se enteraba de que necesitaba cuenta recién al apretar
+  // "Publicar", con todo ese trabajo ya hecho.
   const publicar = (
     <Button
       title="Publicar un reporte"
       variant="secondary"
       icon="add"
-      onPress={() => navigation.navigate('Publicar')}
+      onPress={() => {
+        if (!requireAuth('publicar')) return;
+        navigation.navigate('Publicar');
+      }}
     />
   );
 
@@ -109,7 +121,15 @@ export default function ReportesLista({
         // pantalla, así que el usuario leía la invitación y no veía cómo.
         subtitle={
           ofrecerSeguirComuna
-            ? `Sé la primera persona en seguir ${comuna} y te avisamos apenas aparezca alguno.`
+            ? // "cuando alguien publique ahí" y no "apenas aparezca alguno [en esta lista]",
+              // porque no son lo mismo y la segunda era mentira en un caso real: la
+              // lista trae los reportes cuya comuna es esta O que la tienen en
+              // `comunas_alcance` (`buscar_reportes`), mientras que el aviso sale del
+              // trigger, que solo mira `new.comuna`. Un reporte publicado en Recoleta
+              // con alcance a Independencia aparece en la lista de Independencia y no
+              // manda ningún aviso. Emparejar las dos puntas necesita migración; hasta
+              // entonces, la promesa dice exactamente lo que sí cumplimos.
+              `Sé la primera persona en seguir ${comuna} y te avisamos cuando alguien publique ahí.`
             : `Cuando alguien publique por acá, va a aparecer en esta lista.`
         }
         action={
