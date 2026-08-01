@@ -7,6 +7,7 @@ import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { NudgeVigencia } from '../components/NudgeVigencia';
 import { PlanBusqueda } from '../components/PlanBusqueda';
+import { ConsejoRadio } from '../components/ConsejoRadio';
 import { markReunited } from '../services/reunions';
 import {
   denunciarAvistamiento,
@@ -573,6 +574,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
             guardando={guardandoVigencia}
           />
         ) : null}
+
+        {/* Los dos van juntos y en este orden a propósito: primero HASTA DÓNDE
+            buscar, después QUÉ hacer. El consejo de radio le da la escala al
+            plan; al revés, el plan mandaría a recorrer sin decir cuánto. */}
+
+        {/* Hasta dónde conviene buscar, calibrado por especie y ámbito (estudio
+            de Queensland: 50 m un gato de interior, 315 m uno con calle, 1-2 km
+            un perro). Solo al dueño y solo mientras la busca: al resto de la
+            gente no le sirve, y con la mascota ya en casa sobra. Se dibuja solo
+            (null) si el reporte no es "perdida". DEGRADA SIN LA 0046: sin la
+            columna `ambito` el consejo sale con el radio ANCHO, nunca con el
+            chico. */}
+        {esMio && !reunida ? <ConsejoRadio pet={pet} /> : null}
 
         {/* Plan de búsqueda con reloj: sólo en el reporte PROPIO de una mascota
             perdida que todavía no volvió. En el reporte de otra persona no

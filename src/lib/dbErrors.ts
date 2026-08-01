@@ -109,6 +109,32 @@ function esPermisoDenegado(codigo: string, crudo: string): boolean {
   return t.includes('row-level security') || t.includes('permission denied');
 }
 
+// ¿El error es "esa columna no existe en la base"?
+//
+// Sirve para una sola cosa: degradar cuando una migración todavía no está
+// aplicada. PostgREST no guarda filas parciales ni devuelve datos parciales —
+// si el insert menciona una columna que la base no tiene, rebota la operación
+// ENTERA. Sin esto, una columna nueva rompe la función central de la app en
+// cualquier base sin migrar (es el hermano del reintento sin `eliminado_en` de
+// services/messages.ts).
+//
+// Se exige que el error hable de ESA columna: si el que falta es otro campo,
+// reintentar sin la nuestra no arregla nada y encima esconde el problema real.
+// Y se exige un motivo de "no existe", para no confundirlo con un check
+// constraint que también lleva el nombre de la columna adentro.
+export function esColumnaFaltante(error: unknown, columna: string): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const crudo = 'message' in error ? String((error as { message: unknown }).message ?? '') : '';
+  const normalizado = crudo.toLowerCase();
+  if (!normalizado.includes(columna.toLowerCase())) return false;
+  const codigo = 'code' in error ? String((error as { code: unknown }).code ?? '') : '';
+  // PGRST204 = PostgREST no la encontró en su caché de esquema.
+  // 42703     = undefined_column, el error crudo de Postgres.
+  if (codigo === 'PGRST204' || codigo === '42703') return true;
+  // Algunas respuestas llegan sin `code`: queda el texto.
+  return normalizado.includes('does not exist') || normalizado.includes('schema cache');
+}
+
 // Errores que escribimos nosotros y que YA están redactados para el usuario
 // (por ejemplo "Este reporte ya no está disponible"). Sin esta marca, el
 // traductor no los reconocería y los reemplazaría por el mensaje genérico,

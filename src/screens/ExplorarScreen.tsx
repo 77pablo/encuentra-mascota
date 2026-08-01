@@ -14,6 +14,7 @@ import { useColors } from '../theme/ThemeProvider';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { desdeDeRango, filtrosDesdeRuta, RangoTiempo } from '../lib/petFilters';
+import { radioExplorarSugeridoKm } from '../lib/radioSugerido';
 import { FiltrosBusqueda } from '../services/busqueda';
 
 // EXPLORAR: unifica las viejas pestañas Mapa + Lista + Comunidad en una sola.
@@ -24,7 +25,7 @@ import { FiltrosBusqueda } from '../services/busqueda';
 
 type Filtro = 'todas' | 'perdida' | 'encontrada';
 type EspecieFiltro = 'todas' | Pet['especie'];
-type Radio = 5 | 20 | 50 | null;
+type Radio = 1 | 5 | 20 | 50 | null;
 type Vista = 'lista' | 'mapa';
 
 const filtros: { key: Filtro; label: string }[] = [
@@ -38,7 +39,11 @@ const especieFiltros: { key: EspecieFiltro; label: string }[] = [
   { key: 'gato', label: 'Gato' },
   { key: 'otro', label: 'Otro' },
 ];
+// El 1 km es nuevo y no es decorativo: sin un botón por debajo de 5 km, el
+// dueño de un gato de interior (mediana de 50 m, según el estudio de
+// Queensland) no tenía forma de pedir "la manzana de al lado".
 const radios: { key: Radio; label: string }[] = [
+  { key: 1, label: '1 km' },
   { key: 5, label: '5 km' },
   { key: 20, label: '20 km' },
   { key: 50, label: '50 km' },
@@ -58,7 +63,12 @@ export default function ExplorarScreen({ navigation, route }: any) {
   const [estado, setEstado] = useState<Filtro>('todas');
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [cercaDeMi, setCercaDeMi] = useState(false);
-  const [radioKm, setRadioKm] = useState<Radio>(20);
+  // El radio que la persona eligió a mano. `null` acá NO es "todo Chile": es
+  // "todavía no tocó ningún botón", y en ese caso manda la sugerencia calibrada
+  // por especie (ver `radioKm` más abajo). Sugerir está bien; imponer no: si
+  // alguien puso 50 km a propósito y después filtra por gato, dejarle la
+  // búsqueda en 5 km es sacarle de la pantalla justo lo que estaba mirando.
+  const [radioElegido, setRadioElegido] = useState<Radio | undefined>(undefined);
   const [busqueda, setBusqueda] = useState('');
   const [busquedaDiferida, setBusquedaDiferida] = useState('');
   const [conRecompensa, setConRecompensa] = useState(false);
@@ -124,6 +134,19 @@ export default function ExplorarScreen({ navigation, route }: any) {
     setCercaDeMi(true);
     location.request();
   };
+
+  // RADIO CALIBRADO POR ESPECIE (ver src/lib/radioSugerido.ts).
+  //
+  // Un gato aparece a una mediana de 315 m: un reporte de gato a 20 km no es tu
+  // gato y vos tampoco podés ayudar con él. Un perro camina kilómetros, así que
+  // ahí los 20 km de siempre están bien y achicárselos sería romper una
+  // búsqueda que ya andaba. `radioExplorarSugeridoKm` nunca devuelve MÁS que
+  // los 20 km de antes: calibrar acá solo puede achicar, y solo cuando hay una
+  // especie elegida.
+  const radioKm: Radio =
+    radioElegido !== undefined
+      ? radioElegido
+      : (radioExplorarSugeridoKm(especie === 'todas' ? null : especie) as Radio);
 
   const cerca = cercaDeMi && location.coords !== null;
   const filtrosBusqueda: FiltrosBusqueda = useMemo(
@@ -225,9 +248,22 @@ export default function ExplorarScreen({ navigation, route }: any) {
           {cercaDeMi ? (
             <View style={styles.chipsRow}>
               {radios.map((r) => (
-                <Chip key={r.label} label={r.label} active={radioKm === r.key} onPress={() => setRadioKm(r.key)} />
+                <Chip
+                  key={r.label}
+                  label={r.label}
+                  active={radioKm === r.key}
+                  onPress={() => setRadioElegido(r.key)}
+                />
               ))}
             </View>
+          ) : null}
+          {/* Una línea, no un párrafo: quien lee acaba de perder a su animal.
+              Solo aparece cuando la sugerencia está haciendo algo (gatos). */}
+          {cercaDeMi && radioElegido === undefined && especie === 'gato' ? (
+            <AppText muted size={12} style={styles.pistaRadio}>
+              Achicamos el círculo: un gato casi nunca se va más de unas cuadras. Podés ampliarlo
+              cuando quieras.
+            </AppText>
           ) : null}
           {comunaFiltro ? <SeguirComunaButton comuna={comunaFiltro} /> : null}
           {/* "Avisarme de esta búsqueda" (Función 2): necesita comuna Y un estado
@@ -317,6 +353,10 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     paddingTop: spacing.md,
+  },
+  pistaRadio: {
+    paddingTop: spacing.sm,
+    lineHeight: 17,
   },
   controlRow: {
     flexDirection: 'row',
