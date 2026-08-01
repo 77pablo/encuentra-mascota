@@ -7,6 +7,11 @@
 // pasos que mencionan otras funciones (coincidencias, mi mascota, ciclo de
 // vida) son SOLO texto —sin `accion`— para que la guía funcione sola aunque
 // esas funciones todavía no estén; nunca navegamos a una pantalla que no exista.
+//
+// Estos mismos pasos los REUSA `src/lib/planBusqueda.ts` (el plan con reloj por
+// especie), que los ubica en la ventana de tiempo que les corresponde y les
+// suma los pasos específicos de perro o de gato. Si tocás un texto de acá, lo
+// tocás también allá: por eso el plan no copia nada, referencia por id.
 
 // Pantallas que ya existen en la app y a las que un paso puede navegar. Si un
 // enlace apuntaría a algo que aún no existe, el paso queda como texto sin acción.
@@ -35,18 +40,18 @@ export interface GuiaPaso {
 export const GUIA_PERDIDA: readonly GuiaPaso[] = [
   {
     id: 'respira-y-busca-cerca',
-    titulo: 'Respira y busca cerca primero',
+    titulo: 'Respirá y buscá cerca primero',
     detalle:
-      'La mayoría aparece a pocas cuadras. Recorre la casa y el barrio con calma, ' +
-      'revisa rincones, patios y autos donde pueda esconderse, y llámala con tu ' +
-      'tono de siempre. Muchas veces está más cerca de lo que crees.',
+      'La mayoría aparece a pocas cuadras. Recorré la casa y el barrio con calma, ' +
+      'revisá rincones, patios y autos donde pueda esconderse, y llamalo con tu ' +
+      'tono de siempre. Muchas veces está más cerca de lo que creés.',
   },
   {
     id: 'publica-el-reporte',
-    titulo: 'Publica el reporte',
+    titulo: 'Publicá el reporte',
     detalle:
-      'Deja un reporte con foto, señas y la última zona donde la viste. Es lo que ' +
-      'hace que el barrio y quienes andan cerca puedan reconocerla y avisarte.',
+      'Dejá un reporte con foto, señas y la última zona donde lo viste. Es lo que ' +
+      'hace que el barrio y quienes andan cerca puedan reconocerlo y avisarte.',
     accion: {
       label: 'Publicar mi reporte',
       ruta: 'Publicar',
@@ -55,17 +60,18 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
   },
   {
     id: 'difunde-con-el-afiche',
-    titulo: 'Difunde con un afiche',
+    titulo: 'Pegá afiches grandes en las esquinas',
     detalle:
-      'Desde tu reporte puedes crear un afiche para imprimir y pegar en almacenes, ' +
-      'plazas y postes de la cuadra. Una foto grande y clara, con tu comuna, ayuda ' +
-      'a que alguien la reconozca al pasar.',
+      'Desde tu reporte podés crear un afiche para imprimir. Que sea grande y en ' +
+      'papel fluorescente: una hoja blanca tamaño carta no la lee nadie desde un ' +
+      'auto. Pegalos en las esquinas de más tráfico —semáforos, paraderos, la ' +
+      'entrada del almacén—, con la foto enorme y tu teléfono en números gigantes.',
   },
   {
     id: 'avisa-a-tu-barrio',
-    titulo: 'Avisa a tu barrio',
+    titulo: 'Avisá a tu barrio',
     detalle:
-      'Comparte el reporte en tus grupos de vecinos y sigue tu comuna para estar al ' +
+      'Compartí el reporte en tus grupos de vecinos y seguí tu comuna para estar al ' +
       'tanto de lo que se mueve cerca. Mientras más ojos, mejor: el barrio es tu ' +
       'mejor aliado en las primeras horas.',
     accion: {
@@ -75,11 +81,11 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
   },
   {
     id: 'llama-veterinarias-y-refugios',
-    titulo: 'Llama a veterinarias y refugios cercanos',
+    titulo: 'Llamá a veterinarias y refugios cercanos',
     detalle:
-      'Pregunta si llegó una mascota con sus señas y deja tu contacto por si aparece. ' +
-      'Si tiene chip, ten el número a mano: en una veterinaria pueden leerlo y dar ' +
-      'contigo. Vuelve a llamar los días siguientes; a veces llegan después.',
+      'Preguntá si llegó una mascota con sus señas y dejá tu contacto por si aparece. ' +
+      'Si tiene chip, tené el número a mano: en una veterinaria pueden leerlo y dar ' +
+      'con vos. Volvé a llamar los días siguientes; a veces llegan después.',
     accion: {
       label: 'Ver veterinarias y refugios',
       ruta: 'Ayuda',
@@ -87,18 +93,18 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
   },
   {
     id: 'revisa-avistamientos',
-    titulo: 'Revisa los avistamientos',
+    titulo: 'Revisá los avistamientos',
     detalle:
-      'Vuelve a tu reporte para leer los avistamientos y pistas que deje la gente. ' +
-      'Si alguien la vio, cada dato de dónde y cuándo te acerca. Te avisamos cuando ' +
-      'aparezca algo que calce con lo que buscas.',
+      'Volvé a tu reporte para leer los avistamientos y pistas que deje la gente. ' +
+      'Si alguien lo vio, cada dato de dónde y cuándo te acerca. Te avisamos cuando ' +
+      'aparezca algo que calce con lo que buscás.',
   },
   {
     id: 'no-te-rindas',
     titulo: 'No te rindas los primeros días',
     detalle:
-      'Muchas vuelven a casa después de varios días. Mantén el reporte al día con la ' +
-      'última información y sigue difundiendo. Cuídate tú también: descansa y come ' +
+      'Muchos vuelven a casa después de varios días. Mantené el reporte al día con la ' +
+      'última información y seguí difundiendo. Cuidate vos también: descansá y comé ' +
       'algo; la búsqueda es más larga de lo que parece.',
   },
 ];
