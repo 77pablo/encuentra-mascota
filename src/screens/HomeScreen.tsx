@@ -66,6 +66,9 @@ export default function HomeScreen({ navigation }: any) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [pets, setPets] = useState<Pet[]>([]);
+  // Reportes recientes de todo Chile, SOLO para el aviso de zona de alerta.
+  // Separado de `pets` a propósito: ver el comentario largo en `cargar`.
+  const [petsZona, setPetsZona] = useState<Pet[]>([]);
   const [reunidas, setReunidas] = useState(0);
   const [finales, setFinales] = useState<Pet[]>([]);
   const [impacto, setImpacto] = useState<Impacto | null>(null);
@@ -106,9 +109,24 @@ export default function HomeScreen({ navigation }: any) {
       // Tarjeta de impacto: agregados globales, decorativa. Si la RPC 0039
       // aún no está aplicada o falla por lo que sea, se oculta sola.
       getImpacto().catch(() => null),
+      // Consulta APARTE para el aviso de zona, y no la tira de arriba.
+      //
+      // Las dos cosas necesitan reportes distintos y compartirlos rompía el
+      // aviso: la tira quiere los más CERCANOS AL TELÉFONO (radio de 25 km,
+      // `orden: 'cerca'`), mientras que la zona de alerta es un lugar FIJO que
+      // el usuario eligió —su casa, casi siempre— y lo que importa ahí es lo
+      // más NUEVO. Con la consulta compartida, quien abría la app lejos de su
+      // casa dejaba de recibir el aviso de un reporte publicado a dos cuadras
+      // de su zona; y aun estando cerca, `orden: 'cerca'` podía dejar lo recién
+      // publicado fuera de las 6 filas por estar un poco más lejos.
+      // Degrada en silencio: sin esto el banner simplemente no aparece.
+      buscarReportes({}, null, 20)
+        .then((p) => p.reportes as Pet[])
+        .catch(() => [] as Pet[]),
     ])
-      .then(([activePets, count, finalesFelices, perfil, impactoData]) => {
+      .then(([activePets, count, finalesFelices, perfil, impactoData, paraZona]) => {
         setPets(activePets);
+        setPetsZona(paraZona);
         setReunidas(count);
         setFinales(finalesFelices);
         setNombrePerfil(perfil?.nombre?.trim() || null);
@@ -307,7 +325,14 @@ export default function HomeScreen({ navigation }: any) {
             enterarse, y a los 45 días el reporte se apagaba en silencio.
             Lleva a "Mis reportes activos", que es donde está el botón de
             reactivar. Degrada en silencio (ver BannerVigencia). */}
-        {user ? <BannerVigencia onPress={() => navigation.navigate('Perfil')} /> : null}
+        {/* `{ screen: 'Perfil' }` y no `navigate('Perfil')` a secas: sin la
+            forma anidada solo se enfoca la pestaña CON EL ESTADO QUE TENGA su
+            stack, así que quien había dejado abierto "Privacidad y términos"
+            tocaba este banner y aterrizaba ahí, a dos pantallas del botón de
+            reactivar. Mismo patrón que el RecordatoriosBanner de arriba. */}
+        {user ? (
+          <BannerVigencia onPress={() => navigation.navigate('Perfil', { screen: 'Perfil' })} />
+        ) : null}
 
         {/* En tu comuna → pestaña Comunidad */}
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (
@@ -356,7 +381,7 @@ export default function HomeScreen({ navigation }: any) {
           </AppText>
         ) : null}
 
-        <ZoneAlertBanner pets={pets} onPress={() => irAExplorar()} />
+        <ZoneAlertBanner pets={petsZona} onPress={() => irAExplorar()} />
 
         {/* Tira de finales felices */}
         {finales.length > 0 ? (

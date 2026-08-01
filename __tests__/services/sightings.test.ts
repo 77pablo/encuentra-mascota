@@ -142,7 +142,11 @@ describe('listSightings', () => {
 
 describe('deleteSighting', () => {
   it('llama a delete().eq(id) sobre la tabla sightings', async () => {
-    const builder = makeQueryBuilder({ data: null, error: null });
+    // `data` con una fila, no `null`: desde el arreglo del borrado fantasma la
+    // función exige que PostgREST confirme QUÉ borró, porque cuando la RLS
+    // rechaza el delete no devuelve error, devuelve 0 filas. Ver
+    // `__tests__/services/borrarAvistamientoFantasma.test.ts`.
+    const builder = makeQueryBuilder({ data: [{ id: 's-1' }], error: null });
     mockFrom.mockReturnValue(builder);
 
     await deleteSighting('s-1');
@@ -150,6 +154,7 @@ describe('deleteSighting', () => {
     expect(mockFrom).toHaveBeenCalledWith('sightings');
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith('id', 's-1');
+    expect(builder.select).toHaveBeenCalled();
   });
 
   it('lanza el error cuando supabase falla', async () => {

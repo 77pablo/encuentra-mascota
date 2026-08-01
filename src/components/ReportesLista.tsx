@@ -102,7 +102,16 @@ export default function ReportesLista({
       <EmptyState
         illustration
         title={`Todavía no hay reportes en ${comuna}`}
-        subtitle={`Sé la primera persona en seguir ${comuna} y te avisamos apenas aparezca alguno.`}
+        // El texto tiene que seguir al botón: cuando el "Avisarme de X" no se
+        // muestra acá (porque ya está arriba, en el panel de filtros abierto),
+        // invitar a seguir la comuna dejaba la propuesta sin ningún lugar
+        // donde aceptarla — y en un teléfono el botón de arriba queda fuera de
+        // pantalla, así que el usuario leía la invitación y no veía cómo.
+        subtitle={
+          ofrecerSeguirComuna
+            ? `Sé la primera persona en seguir ${comuna} y te avisamos apenas aparezca alguno.`
+            : `Cuando alguien publique por acá, va a aparecer en esta lista.`
+        }
         action={
           <>
             {ofrecerSeguirComuna ? <SeguirComunaButton comuna={comuna} /> : null}

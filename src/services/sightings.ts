@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { ErrorAmigable } from '../lib/dbErrors';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
 import { filtrarBloqueados, idsBloqueados } from './bloqueos';
 
@@ -78,8 +79,17 @@ export async function listSightings(petId: string): Promise<Sighting[]> {
   return filtrarBloqueados((data ?? []) as Sighting[], bloqueados, (s) => s.user_id);
 }
 
-// Borra un avistamiento (autor del avistamiento o dueño del reporte, según RLS).
+// Borra un avistamiento (autor del avistamiento o dueño del reporte, según la
+// RLS de 0007).
+//
+// Pedimos las filas borradas a propósito, igual que `borrarTip`: cuando la RLS
+// rechaza un delete, PostgREST NO devuelve error, simplemente no borra nada.
+// Sin este chequeo, una sesión vencida hacía que la pantalla dijera "listo",
+// sacara el avistamiento de la lista y el dato siguiera ahí para todo el mundo.
 export async function deleteSighting(id: string): Promise<void> {
-  const { error } = await supabase.from('sightings').delete().eq('id', id);
+  const { data, error } = await supabase.from('sightings').delete().eq('id', id).select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new ErrorAmigable('No se pudo borrar el avistamiento.');
+  }
 }

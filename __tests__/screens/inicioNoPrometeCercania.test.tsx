@@ -134,10 +134,34 @@ describe('la sección de reportes de Inicio', () => {
     await montar();
 
     expect(mockBuscarReportes).toHaveBeenCalled();
-    const [filtros] = mockBuscarReportes.mock.calls[mockBuscarReportes.mock.calls.length - 1];
+    // Inicio hace DOS consultas y no da lo mismo cuál se mire: la primera es la
+    // tira de "Cerca de ti", la segunda alimenta el aviso de zona de alerta.
+    const [filtros] = mockBuscarReportes.mock.calls[0];
     expect(filtros.lat).toBe(PUNTA_ARENAS.lat);
     expect(filtros.lng).toBe(PUNTA_ARENAS.lng);
     expect(filtros.orden).toBe('cerca');
+    // El radio también, porque el texto del vacío promete literalmente "a menos
+    // de 25 km tuyo": si alguien lo saca, el texto miente.
+    expect(filtros.radioKm).toBe(25);
+  });
+
+  it('el aviso de zona NO se alimenta de la consulta por cercanía', async () => {
+    // Este es el bug que se cayó entre dos tareas. `ZoneAlertBanner` recibía la
+    // misma lista que la tira, y esa lista pasó a estar acotada a 25 km del
+    // TELÉFONO y ordenada por distancia. La zona de alerta es un lugar FIJO
+    // (la casa) y lo que importa ahí es lo más NUEVO: quien abría la app desde
+    // el trabajo dejaba de recibir el aviso de un reporte publicado al lado de
+    // su casa, y aun estando cerca, lo recién publicado podía quedar fuera de
+    // las 6 filas por estar un poco más lejos.
+    mockCoords = PUNTA_ARENAS;
+    mockEstadoUbicacion = 'granted';
+    await montar();
+
+    expect(mockBuscarReportes.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const [filtrosZona] = mockBuscarReportes.mock.calls[1];
+    expect(filtrosZona.radioKm).toBeUndefined();
+    expect(filtrosZona.lat).toBeUndefined();
+    expect(filtrosZona.orden).not.toBe('cerca');
   });
 
   it('con ubicación sí puede decir "Cerca de ti"', async () => {

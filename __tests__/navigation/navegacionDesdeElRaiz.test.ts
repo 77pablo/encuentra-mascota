@@ -157,6 +157,71 @@ describe('ninguna pantalla del stack RAIZ navega a un tab por nombre pelado', ()
   });
 });
 
+// El bloque de arriba solo caza un destino que EXISTE pero esta anidado en una
+// pestaña. Un destino que no existe en NINGUN navigator —una pestaña que se
+// borro, un typo— se le escapaba entero, y esa es justo la forma en que el bug
+// de 'Mapa' sobrevivio a la reorganizacion de 5 pestañas: el tab dejo de
+// existir y nada se puso rojo.
+describe('ningun navigate apunta a un destino que no existe en ningun navigator', () => {
+  // Parser mas estricto que `destinosPelados`, y hace falta: aquel matchea
+  // CUALQUIER `.push('x')` o `.replace('x')`, o sea tambien `array.push('email')`
+  // y `texto.replace('perros', …)`. El bloque de arriba lo tolera porque despues
+  // filtra por nombres que ya son pantallas conocidas; acá, donde justamente
+  // buscamos los que NO estan registrados, esa laxitud daba puro falso positivo.
+  // Exigimos el receptor `navigation`.
+  const destinosDeNavegacion = (src: string): string[] => {
+    const out: string[] = [];
+    const re = /\bnavigation\??\.(?:navigate|replace|push)\(\s*'([^']+)'/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) out.push(m[1]);
+    return [...new Set(out)];
+  };
+
+  const conocidos = new Set<string>([
+    ...nombresRaiz,
+    ...nombresPestanas,
+    ...dentroDeUnaPestana.keys(),
+  ]);
+
+  it('el inventario de destinos conocidos no esta vacio', () => {
+    // Cordura: sin esto, un parser roto haria pasar todo por lista vacia.
+    expect(conocidos.size).toBeGreaterThan(10);
+    expect(conocidos.has('Chat')).toBe(true);
+    expect(conocidos.has('Inicio')).toBe(true);
+    expect(conocidos.has('Mapa')).toBe(false); // se borro en julio
+  });
+
+  it('el parser encuentra navegaciones de verdad (no pasa por lista vacia)', () => {
+    // Si `destinosDeNavegacion` dejara de matchear, todos los tests de abajo
+    // pasarian sin revisar nada. Este es el seguro.
+    const encontrados = archivosDeFuente(SRC).flatMap((a) =>
+      destinosDeNavegacion(readFileSync(a, 'utf8')),
+    );
+    expect(encontrados.length).toBeGreaterThan(5);
+    // Y no puede estar colando lo que no es navegacion.
+    expect(encontrados).not.toContain('email');
+    expect(encontrados).not.toContain('perros');
+  });
+
+  const archivosParaRevisar = archivosDeFuente(SRC);
+
+  it('hay archivos para revisar', () => {
+    expect(archivosParaRevisar.length).toBeGreaterThan(30);
+  });
+
+  archivosParaRevisar.forEach((archivo) => {
+    const relativo = archivo.slice(archivo.indexOf('src'));
+    it(relativo, () => {
+      const src = readFileSync(archivo, 'utf8');
+      const inexistentes = destinosDeNavegacion(src).filter((d) => !conocidos.has(d));
+      expect({ archivo: relativo, destinosInexistentes: inexistentes }).toEqual({
+        archivo: relativo,
+        destinosInexistentes: [],
+      });
+    });
+  });
+});
+
 describe('las entradas nuevas del Perfil apuntan a pantallas que existen', () => {
   // `ProfileScreen` vive DENTRO de ProfileStack, asi que un nombre pelado
   // alcanza a sus hermanos. Lo que se verifica es que el destino este

@@ -250,10 +250,19 @@ export default function ExplorarScreen({ navigation, route }: any) {
             navigation={navigation}
             // El vacío de una comuna/zona sin datos ofrece "Ver todo Chile";
             // los filtros de lugar viven acá, así que la salida la damos acá.
-            onAmpliarBusqueda={() => {
-              setComunaFiltro(null);
-              setCercaDeMi(false);
-            }}
+            //
+            // Solo si HAY un filtro de lugar puesto. Si no, el botón aparecía
+            // igual y no hacía absolutamente nada: buscar "pelusa" sin comuna
+            // ni ubicación mostraba "Ver todo Chile", y al tocarlo la pantalla
+            // quedaba idéntica porque no había nada que soltar.
+            onAmpliarBusqueda={
+              comunaFiltro || cercaDeMi
+                ? () => {
+                    setComunaFiltro(null);
+                    setCercaDeMi(false);
+                  }
+                : undefined
+            }
             // Con el panel abierto, el "Avisarme de X" ya está unas líneas más
             // arriba: repetirlo en el vacío daba dos botones idénticos pegados.
             ofrecerSeguirComuna={!filtrosAbiertos}

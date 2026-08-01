@@ -142,7 +142,11 @@ describe('Inicio — aviso de vigencia sin abrir la ficha', () => {
     await act(async () => {
       banner.props.onPress();
     });
-    expect(navigation.navigate).toHaveBeenCalledWith('Perfil');
+    // La forma ANIDADA es el punto: `navigate('Perfil')` a secas solo enfoca la
+    // pestaña con el estado que tenga su stack, así que quien había dejado
+    // abierto "Privacidad y términos" tocaba el banner y aterrizaba ahí, lejos
+    // del botón de reactivar que el banner promete.
+    expect(navigation.navigate).toHaveBeenCalledWith('Perfil', { screen: 'Perfil' });
 
     await act(async () => tree.unmount());
   }, 60000);
