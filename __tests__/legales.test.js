@@ -29,6 +29,16 @@ const {
 
 const RAIZ = join(__dirname, '..');
 
+// Los dos tests de "está al día" comparan un archivo del disco contra lo que
+// produce el generador, y el generador siempre emite LF. Como el repo no tiene
+// .gitattributes y `core.autocrlf` está en true, un checkout limpio (o un
+// worktree nuevo) materializa esos archivos con CRLF y la comparación byte a
+// byte fallaba por los finales de línea y no por el contenido: pasaban acá y se
+// ponían rojos en cualquier clon nuevo.
+// Normalizamos los dos lados. Lo que estos tests tienen que detectar es que
+// alguien corrija docs/legal/*.md y no regenere, no cómo se checkouteó el repo.
+const sinCR = (s) => s.replace(/\r\n/g, '\n');
+
 // ---------------------------------------------------------------------------
 // Piezas puras
 // ---------------------------------------------------------------------------
@@ -178,7 +188,7 @@ describe('las dos páginas legales generadas', () => {
   it('el HTML commiteado está al día con docs/legal/*.md', () => {
     for (const r of construidas) {
       const enDisco = readFileSync(join(RAIZ, r.doc.salida), 'utf8');
-      expect(enDisco).toBe(r.html);
+      expect(sinCR(enDisco)).toBe(sinCR(r.html));
     }
   });
 
@@ -302,7 +312,7 @@ describe('el módulo de datos que renderiza la pantalla', () => {
   // un artefacto de docs/legal/*.md. Si alguien corrige el markdown y no
   // regenera, la app sigue mostrando el texto viejo.
   it('el archivo commiteado está al día con docs/legal/*.md', () => {
-    expect(readFileSync(join(RAIZ, SALIDA_APP), 'utf8')).toBe(generado);
+    expect(sinCR(readFileSync(join(RAIZ, SALIDA_APP), 'utf8'))).toBe(sinCR(generado));
   });
 
   // Solo los datos: la cabecera del archivo declara tipos como TramoLegal[][],
