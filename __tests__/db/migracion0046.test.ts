@@ -52,18 +52,14 @@ describe('la 0046 no toca nada de lo que la app ya depende', () => {
   });
 });
 
-// Este guardrail viaja SIEMPRE con la última migración del repo (venía en
-// migracion0045.test.ts, y antes en la 0044). Su gracia es ponerse rojo cuando
-// aparece una migración nueva sin que nadie revise el orden de aplicación.
-describe('0046 es la última migración del repo', () => {
-  it('no hay ninguna migración con número mayor', () => {
-    const numeros = readdirSync(join(RAIZ, 'supabase', 'migrations'))
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(46);
-  });
-});
+// El guardrail de "esta es la última migración del repo" NO vive acá: viaja
+// siempre con la más nueva, que tras la tanda 10 es la 0048 (cuadrilla).
+//
+// Estuvo un rato en este archivo. Tres agentes en paralelo agregaron migración
+// (0046, 0047 y 0048) y los tres lo mudaron al suyo sin saber del otro, así que
+// el merge dejó tres copias afirmando 46, 47 y 48. Dos iban a quedar rojas para
+// siempre, y el final previsible de eso es que alguien borre el guardrail entero
+// por molesto. Tiene que haber UNA sola: la del número más alto.
 
 /** Todos los .ts/.tsx de src/, recursivo. */
 function fuentes(dir: string, acc: string[] = []): string[] {

@@ -192,19 +192,14 @@ describe('GUARDIÁN — ninguna RPC ni vista de la base devuelve la seña', () =
 });
 
 // ------------------------------------------------------------
-// Guardrail que VIAJA con la última migración del repo (venía en
-// migracion0045.test.ts, y antes en la 0044). Avisa cuando aparece una migración
-// nueva sin que nadie haya revisado el orden de aplicación. Si otra tanda agrega
-// una 0048, hay que moverlo otra vez —no duplicarlo—.
+// El guardrail de "esta es la última migración" NO vive acá: viajó a la 0048
+// (cuadrilla), que quedó siendo la más nueva.
+//
+// El comentario que estaba en este mismo lugar avisaba "si otra tanda agrega una
+// 0048, hay que moverlo otra vez, no duplicarlo" — y fue exactamente lo que
+// pasó: tres agentes en paralelo lo mudaron cada uno a su migración y el merge
+// dejó tres copias afirmando 46, 47 y 48.
 // ------------------------------------------------------------
-describe('0047 es la última migración del repo', () => {
-  it('no hay ninguna migración con número mayor', () => {
-    const numeros = archivosDe('supabase/migrations', ['.sql'])
-      .map((p) => parseInt(rel(p).split('/').pop()!.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(47);
-  });
-});
 
 // ------------------------------------------------------------
 // 3. Del lado de la app: quién puede siquiera nombrarla.
