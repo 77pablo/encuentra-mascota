@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
 import { enviarWebPush } from '../_shared/webpush.ts';
+import { quierePushDeChat } from '../_shared/prefsPush.ts';
 
 // Rate limiting en memoria: máx 10 solicitudes por IP por minuto.
 const WINDOW_MS = 60_000;
@@ -144,6 +145,34 @@ Deno.serve(async (req: Request) => {
     if (bloqueoError) {
       console.warn('no se pudo consultar hay_bloqueo_con', bloqueoError.message);
     } else if (hayBloqueo === true) {
+      return new Response(JSON.stringify({ ok: true, enviados: 0 }), {
+        status: 200,
+        headers: HEADERS,
+      });
+    }
+
+    // PREFERENCIAS DEL DESTINATARIO.
+    //
+    // `send-notifications` respeta `notification_prefs` desde la 0011; esta
+    // función no la leía nunca, así que el interruptor "Notificación al
+    // teléfono" de Avisos no apagaba los push del chat: la persona lo apagaba,
+    // le seguía sonando con cada mensaje y no tenía cómo entender por qué.
+    //
+    // Igual que el bloqueo de más arriba, la respuesta es un 200 con
+    // `enviados: 0` y NO un error: quien escribe no tiene por qué enterarse de
+    // las preferencias de notificación del otro.
+    //
+    // Si la consulta falla, se sigue como antes (se manda). Degradar hacia el
+    // lado permisivo es lo correcto acá: perderse el mensaje de alguien que
+    // puede tener tu mascota es peor que un push de más.
+    const { data: filaPrefs, error: prefsError } = await supabase
+      .from('notification_prefs')
+      .select('canal_push')
+      .eq('user_id', toUserId)
+      .maybeSingle();
+    if (prefsError) {
+      console.warn('no se pudieron leer las preferencias de aviso', prefsError.message);
+    } else if (!quierePushDeChat(filaPrefs)) {
       return new Response(JSON.stringify({ ok: true, enviados: 0 }), {
         status: 200,
         headers: HEADERS,
