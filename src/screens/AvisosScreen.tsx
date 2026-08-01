@@ -7,7 +7,7 @@ import { textoDeAviso, type Aviso } from '../lib/avisosBandeja';
 import { marcarAvisosLeidos } from '../lib/visitaAvisos';
 import { misAvisos } from '../services/avisos';
 import { timeAgo } from '../lib/time';
-import { AppText, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
+import { AppText, AvisoEstafa, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 
@@ -145,6 +145,23 @@ export default function AvisosScreen({ navigation }: any) {
                             {t.detalle}
                           </AppText>
                         ) : null}
+                        {/* Texto escrito por alguien SIN CUENTA (0050). Es el
+                            único que llega a la app sin ninguna identidad
+                            detrás, así que se dice de dónde salió y se le pone
+                            el mismo aviso antiestafa que ya usan el chat y la
+                            ficha. Sin esto se leía igual que un aviso nuestro:
+                            "Tenés una novedad · «la tengo, transferime»". */}
+                        {t.deDesconocido ? (
+                          <>
+                            <AppText muted size={12} style={styles.deQuien}>
+                              Lo escribió alguien sin cuenta, desde el link público.
+                            </AppText>
+                            {/* Variante "chat": es el caso más cercano —alguien
+                                te escribe diciendo que la tiene—, solo que acá
+                                ni siquiera hay una cuenta detrás. */}
+                            <AvisoEstafa variante="chat" />
+                          </>
+                        ) : null}
                         <AppText muted size={12} style={styles.cuando}>
                           {timeAgo(a.creado_en)}
                         </AppText>
@@ -183,5 +200,6 @@ const crearEstilos = (colors: Colors) =>
     row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
     textWrap: { flex: 1 },
     detalle: { marginTop: 2, lineHeight: 18 },
+    deQuien: { marginTop: spacing.xs, fontStyle: 'italic' },
     cuando: { marginTop: spacing.xs },
   });

@@ -25,6 +25,13 @@ export interface AvisoPresentado {
   titulo: string;
   detalle: string | null;
   icono: string;
+  /**
+   * Lo escribió alguien SIN CUENTA (`avistamiento_anonimo`, migración 0050).
+   * La pantalla tiene que mostrarlo con la advertencia antiestafa: es el único
+   * texto libre que llega a la app sin ninguna identidad detrás, y es el vector
+   * natural del "la tengo, transferime". Ver `AvisosScreen`.
+   */
+  deDesconocido?: boolean;
 }
 
 // Tope del detalle. La cola guarda extractos ya recortados (120 o 500 según el
@@ -47,20 +54,44 @@ export function textoDeAviso(a: Aviso): AvisoPresentado {
   const d = a.datos ?? {};
 
   switch (a.tipo) {
+    // `avistamiento` y `pista` NO repiten acá el texto que escribió el vecino,
+    // aunque la cola lo tenga guardado. La bandeja es un PUNTERO a la ficha, no
+    // una copia del contenido.
+    //
+    // El motivo es concreto: moderar una pista o un avistamiento BORRA la fila
+    // (`moderar_retirar`, 0040), pero `notification_events` no tiene FK hacia
+    // esas tablas, así que el extracto sobrevive al borrado. Mostrarlo acá
+    // resucitaba indefinidamente contenido que un moderador ya había retirado
+    // —incluida la estafa que motivó la denuncia—, y la purga de la 0023 solo
+    // limpia los eventos en estado 'enviado', o sea que con el correo caído no
+    // se van nunca. Remitiendo a la ficha, el contenido retirado no aparece.
     case 'avistamiento':
       return {
         titulo: 'Alguien la vio',
-        detalle:
-          texto(d, 'nota') ??
-          'Marcaron un punto donde la vieron. Abrí el reporte para ver dónde.',
+        detalle: 'Marcaron un punto donde la vieron. Abrí el reporte para ver dónde.',
         icono: 'eye-outline',
       };
 
     case 'pista':
       return {
         titulo: 'Te dejaron una pista',
-        detalle: texto(d, 'extracto') ?? 'Alguien escribió algo en tu reporte.',
+        detalle: 'Alguien del barrio escribió algo en tu reporte. Abrilo para leerlo.',
         icono: 'chatbubble-ellipses-outline',
+      };
+
+    // El aviso anónimo (0050) es la excepción, y por eso lleva advertencia.
+    //
+    // Acá el texto SÍ se muestra: no hay fila en `sightings` a la que remitir,
+    // así que la nota es lo único que existe. Pero lo escribió alguien sin
+    // ninguna cuenta detrás, así que se dice quién lo mandó y la pantalla le
+    // pone el aviso antiestafa. Sin esto se leía como "Tenés una novedad ·
+    // «la tengo, transferime $50.000»", indistinguible de un aviso de la app.
+    case 'avistamiento_anonimo':
+      return {
+        titulo: 'Alguien dice que la vio',
+        detalle: texto(d, 'nota') ?? 'No dejaron ningún detalle.',
+        icono: 'eye-outline',
+        deDesconocido: true,
       };
 
     case 'coincidencia': {

@@ -634,7 +634,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
             de `pets` ni siquiera trae la clave `preguntado_en` (ver
             lib/cierreCasos.hayColumnaDeSeguimiento). */}
         {esMio && !reunida ? (
-          <PreguntaSiAparecio pet={pet} onRespondido={reflejarRespuesta} />
+          <PreguntaSiAparecio
+            pet={pet}
+            onRespondido={reflejarRespuesta}
+            // "Sí, volvió a casa" abre el MISMO panel que el botón de abajo
+            // (mensaje + foto del final feliz) en vez de cerrar el reporte de
+            // una. Sin esto, responder por acá dejaba el reencuentro sin nota
+            // ni foto PARA SIEMPRE: al quedar `reunida`, la ficha conmuta a la
+            // tarjeta de final feliz y el botón que abre ese panel desaparece
+            // en el mismo render; ninguna pantalla vuelve a abrir el reporte.
+            // Y de paso evita dos botones con la misma etiqueta, uno arriba del
+            // otro, haciendo cosas distintas.
+            onVolvioACasa={() => setMostrarReunion(true)}
+          />
         ) : null}
 
         {/* Nudge de vigencia: solo en el reporte propio, no reunido, cuando ya

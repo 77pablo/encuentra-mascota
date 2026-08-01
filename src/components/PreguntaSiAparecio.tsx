@@ -71,11 +71,31 @@ export interface PreguntaSiAparecioProps {
   // Se llama SOLO cuando la base confirmó el cambio, con la respuesta elegida.
   // La pantalla la usa para reflejar el nuevo estado sin volver a consultar.
   onRespondido: (respuesta: RespuestaCierre) => void;
+  /**
+   * Qué hacer con "Sí, volvió a casa". Si la pantalla lo pasa, este botón
+   * DELEGA en ella en vez de cerrar el reporte por su cuenta.
+   *
+   * Hace falta porque el reencuentro ya tenía su propio flujo —el panel con
+   * "dejá un mensajito y una foto"— y cerrarlo por atajo lo perdía PARA
+   * SIEMPRE: al quedar `reunida`, la ficha conmuta a la tarjeta de final feliz
+   * y el botón que abría ese panel desaparece en el mismo render. No hay
+   * ninguna pantalla que vuelva a poner `activo = true`, así que la nota y la
+   * foto de ese reencuentro ya no se podían cargar nunca más.
+   *
+   * Además evitaba tener dos botones con la misma etiqueta en la misma
+   * pantalla haciendo cosas distintas, siendo el de arriba el que perdía datos.
+   */
+  onVolvioACasa?: () => void;
   // El reloj entra por parámetro (convención de src/lib/recordatorios.ts).
   ahora?: Date;
 }
 
-export function PreguntaSiAparecio({ pet, onRespondido, ahora }: PreguntaSiAparecioProps) {
+export function PreguntaSiAparecio({
+  pet,
+  onRespondido,
+  onVolvioACasa,
+  ahora,
+}: PreguntaSiAparecioProps) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   // Qué respuesta se está mandando ahora mismo (null = ninguna). Sirve para el
@@ -137,7 +157,10 @@ export function PreguntaSiAparecio({ pet, onRespondido, ahora }: PreguntaSiApare
         icon="heart"
         loading={enviando === 'aparecio'}
         disabled={ocupado}
-        onPress={() => enviar('aparecio')}
+        // Si la pantalla ofrece su flujo de reencuentro, se usa ese: es el que
+        // deja cargar el mensaje y la foto del final feliz. Cerrar por atajo
+        // los perdía para siempre (ver `onVolvioACasa`).
+        onPress={() => (onVolvioACasa ? onVolvioACasa() : enviar('aparecio'))}
         style={styles.accion}
       />
       <Button

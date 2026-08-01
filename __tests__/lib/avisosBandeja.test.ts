@@ -22,10 +22,42 @@ describe('textoDeAviso: cada tipo se lee como algo que le pasa a TU mascota', ()
     expect(t.titulo).toBe('Alguien la vio');
   });
 
-  it('pista: muestra el extracto que dejaron', () => {
+  it('pista y avistamiento NO repiten el texto guardado en la cola', () => {
+    // Este test decía lo contrario ("muestra el extracto que dejaron"), y ese
+    // comportamiento resucitaba contenido borrado por moderación.
+    //
+    // Moderar una pista BORRA la fila (`moderar_retirar`, 0040), pero
+    // `notification_events` no tiene FK hacia `pet_tips`, así que el extracto
+    // sobrevive al borrado. La bandeja lo seguía mostrando indefinidamente
+    // —incluida la estafa que motivó la denuncia—, y la purga de la 0023 solo
+    // limpia los eventos 'enviado', o sea que con el correo caído no se van
+    // nunca. La bandeja es un PUNTERO a la ficha, no una copia del contenido.
     const t = textoDeAviso(base({ tipo: 'pista', datos: { extracto: 'andaba por la plaza' } }));
     expect(t.titulo).toBe('Te dejaron una pista');
-    expect(t.detalle).toContain('andaba por la plaza');
+    expect(t.detalle).not.toContain('andaba por la plaza');
+    expect(t.detalle).toContain('Abrilo');
+
+    const v = textoDeAviso(base({ tipo: 'avistamiento', datos: { nota: 'lo vi en la esquina' } }));
+    expect(v.detalle).not.toContain('lo vi en la esquina');
+  });
+
+  it('el aviso ANÓNIMO sí muestra el texto, pero marcado como de desconocido', () => {
+    // Acá no hay fila en `sightings` a la que remitir: la nota es lo único que
+    // existe. Pero la escribió alguien SIN CUENTA, así que la pantalla le pone
+    // la advertencia antiestafa. Sin esto se leía igual que un aviso nuestro:
+    // "Tenés una novedad · «la tengo, transferime $50.000»".
+    const t = textoDeAviso(
+      base({ tipo: 'avistamiento_anonimo', datos: { nota: 'la vi en la plaza' } }),
+    );
+    expect(t.titulo).toBe('Alguien dice que la vio');
+    expect(t.detalle).toContain('la vi en la plaza');
+    expect(t.deDesconocido).toBe(true);
+  });
+
+  it('los avisos normales NO se marcan como de desconocido', () => {
+    for (const tipo of ['avistamiento', 'pista', 'coincidencia', 'escaneo_collar']) {
+      expect(textoDeAviso(base({ tipo })).deDesconocido).toBeFalsy();
+    }
   });
 
   it('coincidencia sobre una ENCONTRADA habla de una encontrada', () => {

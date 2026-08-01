@@ -250,22 +250,26 @@ describe('la ficha con la 0049 aplicada', () => {
 });
 
 describe('responder desde la ficha deja la pantalla como corresponde', () => {
-  it('"volvió a casa" REGISTRA EL REENCUENTRO en pantalla, no un cierre a secas', async () => {
-    // El bug de la tanda 9: cerrar sin `reunida_en` no sumaba a ningún contador.
-    // Acá se comprueba lo que se ve — la ficha pasa a mostrar el final feliz —
-    // que es el reflejo de lo que la RPC escribió en la base.
+  it('"volvió a casa" abre el panel del final feliz, no cierra de una', async () => {
+    // Este test esperaba que el botón llamara a la RPC directo, y eso PERDÍA el
+    // final feliz para siempre: al quedar `reunida`, la ficha conmuta a la
+    // tarjeta de final feliz y el botón que abre el panel de "dejá un mensajito
+    // y una foto" desaparece en el mismo render. Como ninguna pantalla vuelve a
+    // poner `activo = true`, esa nota y esa foto ya no se podían cargar nunca
+    // más. Encima quedaban dos botones con la misma etiqueta, uno arriba del
+    // otro, haciendo cosas distintas — y el de arriba era el que perdía datos.
     const arbol = await montar();
     await act(async () => {
       await boton(arbol, /^Sí, volvió a casa$/).props.onPress();
     });
     await act(async () => {});
 
-    expect(mockResponderEstado).toHaveBeenCalledWith('pet-1', 'aparecio');
+    // No cierra por atajo…
+    expect(mockResponderEstado).not.toHaveBeenCalled();
+    // …abre el panel donde se cargan el mensaje y la foto del reencuentro.
     const t = todoElTexto(arbol);
-    expect(t).toContain('FINAL FELIZ');
-    expect(t).toContain('volvió a casa');
-    // Y la pregunta desaparece: ya está respondida.
-    expect(t).not.toContain('¿Apareció Rocco?');
+    expect(t).toContain('ya está en casa');
+    expect(t).toContain('Confirmar reencuentro');
   });
 
   it('"sigo buscándolo" deja el reporte ABIERTO y guarda la pregunta respondida', async () => {
@@ -310,10 +314,13 @@ describe('responder desde la ficha deja la pantalla como corresponde', () => {
   });
 
   it('si la RPC falla, la ficha NO se hace la que guardó', async () => {
+    // Se prueba con "sigo buscándolo" y no con "volvió a casa": ese botón ya no
+    // llama a la RPC, delega en el panel del final feliz (ver el test de más
+    // arriba). Los otros dos siguen yendo derecho a la base.
     mockResponderEstado.mockRejectedValue({ code: 'PGRST202', message: 'no existe la función' });
     const arbol = await montar();
     await act(async () => {
-      await boton(arbol, /^Sí, volvió a casa$/).props.onPress();
+      await boton(arbol, /^Sigo buscándolo$/).props.onPress();
     });
     await act(async () => {});
 
