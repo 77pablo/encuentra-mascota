@@ -27,7 +27,7 @@ const QUEDA = [
   'Tus conversaciones, del lado de la otra persona, como “Cuenta eliminada”. No va a poder escribirte más.',
 ];
 
-export default function DeleteAccountScreen() {
+export default function DeleteAccountScreen({ navigation }: any) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const { signOut } = useAuth();
@@ -56,15 +56,27 @@ export default function DeleteAccountScreen() {
       // borrar las fotos, la cuenta sigue viva y conviene que la persona vuelva
       // a intentar; este título empuja a eso sin sonar a instrucción de sistema.
       notify('No terminamos de borrarla', mensajeDeErrorDb(e));
-      return;
-    } finally {
+      // Solo acá se rehabilita el botón: la cuenta sigue viva y conviene poder
+      // reintentar. En el camino feliz NO se toca —antes lo rehabilitaba un
+      // `finally` y el segundo toque se iba contra un 401.
       setBorrando(false);
+      return;
     }
     // Fuera del try: para este punto la cuenta YA se borró (borrarMiCuenta no
     // lanzó). Si signOut fallara acá, no es un fallo del borrado, y meterlo en
     // el mismo catch tapaba el mensaje de éxito con un error de reintento que
     // encima chocaría contra un 401 (la cuenta ya no existe).
     signOut().catch((e) => console.warn('No se pudo cerrar la sesión tras borrar la cuenta:', e));
+    // Y ahora, sacarla de acá. `signOut` por sí solo no la mueve: el stack raíz
+    // ya no bifurca por sesión a propósito (ver RootNavigator), así que quedaba
+    // mirando la pantalla de borrar una cuenta que ya no existe.
+    //
+    // `popToTop` limpia el stack del Perfil (si no, volver a la pestaña Perfil
+    // devolvía a ESTA pantalla) y el `navigate` anidado lleva a Inicio, que es
+    // donde arranca la app en modo invitado. Va después del signOut y no se
+    // espera a que termine: irse no puede depender de que la red conteste.
+    navigation?.popToTop?.();
+    navigation?.navigate?.('App', { screen: 'Inicio' });
   };
 
   return (

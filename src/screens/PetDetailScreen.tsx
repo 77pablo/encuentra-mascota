@@ -30,6 +30,7 @@ import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary } from '../lib/pickImage';
 import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
+import { GraciasVecinos } from '../components/GraciasVecinos';
 import AficheGenerator from '../components/AficheGenerator';
 import TarjetaGenerador from '../components/TarjetaGenerador';
 import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
@@ -600,6 +601,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
             {pet.final_foto ? (
               <Image source={{ uri: pet.final_foto }} style={styles.finalFoto} />
             ) : null}
+            {/* Cerrar el círculo: quien dejó una pista o marcó un avistamiento
+                ayudó, y hasta ahora la historia terminaba bien sin que nadie se
+                lo dijera. Se dibuja solo si hubo alguien (ver GraciasVecinos). */}
+            <GraciasVecinos pistas={pistas} avistamientos={sightings} duenoId={pet.user_id} />
             {esMio ? (
               <Button
                 title="Compartir tarjeta del reencuentro"
