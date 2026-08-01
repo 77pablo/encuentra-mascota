@@ -12,6 +12,8 @@ import { camposDeContactoParaGuardar, getMyProfile, Profile, updateMyProfile } f
 import { getPerfilPublico } from '../services/perfilPublico';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
+import { useAvisosSinLeer } from '../hooks/useAvisosSinLeer';
+import { pluralizar } from '../lib/plural';
 import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { timeAgo } from '../lib/time';
@@ -50,6 +52,10 @@ export default function ProfileScreen({ navigation }: any) {
   const colors = useColors();
   const { modo, setModo } = useTheme();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
+  // Cuántos avisos llegaron desde la última vez que se abrió la bandeja. El
+  // hook NUNCA tira: con la migración 0051 sin aplicar devuelve 0 y el resto del
+  // Perfil sigue igual.
+  const { sinLeer: avisosSinLeer, recargar: recargarAvisos } = useAvisosSinLeer();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mis, setMis] = useState<Pet[]>([]);
   // Todos los reportes cerrados. Se parten en pantalla entre los que tienen
@@ -84,6 +90,9 @@ export default function ProfileScreen({ navigation }: any) {
 
   const cargar = useCallback(() => {
     if (!user) return;
+    // Al volver de la bandeja el contador tiene que bajar solo: si no, el badge
+    // se queda encendido para siempre y deja de significar algo.
+    recargarAvisos();
     // `user.id` ya no dice de quien pedir el perfil (eso lo decide el
     // servidor con auth.uid() dentro de mi_perfil()): es solo el respaldo
     // para la ventana de despliegue en que la RPC todavia no existe.
@@ -132,7 +141,7 @@ export default function ProfileScreen({ navigation }: any) {
       .catch((e) => {
         console.warn('No se pudieron leer tus estadísticas:', e?.message ?? e);
       });
-  }, [user]);
+  }, [user, recargarAvisos]);
 
   useFocusEffect(cargar);
 
@@ -790,8 +799,23 @@ export default function ProfileScreen({ navigation }: any) {
           icon="heart-outline"
           onPress={() => navigation.navigate('MisAdopciones')}
         />
+        {/* LA BANDEJA de avisos (migración 0051). Hasta acá, un aviso solo
+            existía si salía por correo o por push: si los dos fallaban —y el
+            correo está fallando— se perdía sin que nadie se enterara. El número
+            sale de comparar contra una marca local de "última visita". */}
         <Button
-          title="Avisos"
+          title={
+            avisosSinLeer > 0
+              ? `Tus avisos · ${avisosSinLeer} ${pluralizar(avisosSinLeer, 'nuevo', 'nuevos')}`
+              : 'Tus avisos'
+          }
+          variant="ghost"
+          icon="notifications-outline"
+          onPress={() => navigation.navigate('MisAvisos')}
+        />
+        {/* Distinto de la bandeja: acá se elige QUÉ llega y por qué canal. */}
+        <Button
+          title="Preferencias de avisos"
           variant="ghost"
           icon="mail-outline"
           onPress={() => navigation.navigate('NotificationPrefs')}
