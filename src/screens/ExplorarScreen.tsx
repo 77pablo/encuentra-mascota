@@ -13,7 +13,7 @@ import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
-import { desdeDeRango, RangoTiempo } from '../lib/petFilters';
+import { desdeDeRango, filtrosDesdeRuta, RangoTiempo } from '../lib/petFilters';
 import { FiltrosBusqueda } from '../services/busqueda';
 
 // EXPLORAR: unifica las viejas pestañas Mapa + Lista + Comunidad en una sola.
@@ -79,11 +79,27 @@ export default function ExplorarScreen({ navigation, route }: any) {
     (comunaFiltro ? 1 : 0) +
     (cercaDeMi ? 1 : 0);
 
-  // Pre-cargar la comuna cuando se llega desde "En tu comuna" de Inicio.
+  // Filtros con los que se llega desde los accesos de Inicio (los cuatro chips
+  // y la tarjeta "En tu comuna"). Se aplica el juego COMPLETO que devuelve
+  // `filtrosDesdeRuta`, no un parche: un acceso promete un filtro, así que tocar
+  // "Gatos" después de "Perdidos" tiene que dar gatos y no gatos-perdidos.
+  // Si la ruta no trae nada aplicable devuelve null y no se toca lo que la
+  // persona ya había elegido acá adentro.
   useEffect(() => {
-    const c = route?.params?.comuna;
-    if (typeof c === 'string' && c) setComunaFiltro(c);
-  }, [route?.params?.comuna]);
+    const f = filtrosDesdeRuta(route?.params);
+    if (!f) return;
+    setComunaFiltro(f.comuna);
+    setEspecie(f.especie ?? 'todas');
+    setEstado(f.estado ?? 'todas');
+    setCercaDeMi(f.cerca);
+    if (f.cerca) location.request();
+    // Los filtros arrancan plegados; si llegaron puestos desde afuera se abren,
+    // para que se vea qué se aplicó y se pueda soltar.
+    setFiltrosAbiertos(true);
+    // `location` cambia de identidad en cada render: si va en las dependencias,
+    // el efecto se dispara solo para siempre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.params]);
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDiferida(busqueda), ESPERA_TIPEO_MS);
@@ -229,7 +245,19 @@ export default function ExplorarScreen({ navigation, route }: any) {
 
       <View style={styles.body}>
         {vista === 'lista' ? (
-          <ReportesLista filtros={filtrosBusqueda} navigation={navigation} />
+          <ReportesLista
+            filtros={filtrosBusqueda}
+            navigation={navigation}
+            // El vacío de una comuna/zona sin datos ofrece "Ver todo Chile";
+            // los filtros de lugar viven acá, así que la salida la damos acá.
+            onAmpliarBusqueda={() => {
+              setComunaFiltro(null);
+              setCercaDeMi(false);
+            }}
+            // Con el panel abierto, el "Avisarme de X" ya está unas líneas más
+            // arriba: repetirlo en el vacío daba dos botones idénticos pegados.
+            ofrecerSeguirComuna={!filtrosAbiertos}
+          />
         ) : (
           <ReportesMapa filtros={filtrosBusqueda} navigation={navigation} />
         )}
