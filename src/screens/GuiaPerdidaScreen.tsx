@@ -102,7 +102,7 @@ export default function GuiaPerdidaScreen({ navigation }: any) {
             Recién se te perdió
           </Title>
           <AppText muted size={14} style={styles.subtitle}>
-            Respira. Vamos paso a paso: la mayoría vuelve a casa. Marca lo que ya
+            Respirá. Vamos paso a paso: la mayoría vuelve a casa. Marcá lo que ya
             hiciste para no perderte.
           </AppText>
           {hechos > 0 ? (
@@ -164,7 +164,7 @@ export default function GuiaPerdidaScreen({ navigation }: any) {
 
         <AppText muted size={12} style={styles.footer}>
           Esta guía son consejos prácticos para acompañarte, no una indicación
-          veterinaria. Ante una urgencia de salud, acude a un veterinario.
+          veterinaria. Ante una urgencia de salud, andá a un veterinario.
         </AppText>
       </ScrollView>
     </Screen>

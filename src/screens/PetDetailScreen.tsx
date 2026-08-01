@@ -6,6 +6,7 @@ import MapView, { Marker } from '../components/PlatformMap';
 import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { NudgeVigencia } from '../components/NudgeVigencia';
+import { PlanBusqueda } from '../components/PlanBusqueda';
 import { markReunited } from '../services/reunions';
 import {
   denunciarAvistamiento,
@@ -571,6 +572,14 @@ export default function PetDetailScreen({ route, navigation }: any) {
             onArchivar={archivarVigencia}
             guardando={guardandoVigencia}
           />
+        ) : null}
+
+        {/* Plan de búsqueda con reloj: sólo en el reporte PROPIO de una mascota
+            perdida que todavía no volvió. En el reporte de otra persona no
+            corresponde (no es quien busca), y en uno de mascota encontrada
+            tampoco. El progreso vive local, sin migración. */}
+        {esMio && !reunida && pet.estado === 'perdida' ? (
+          <PlanBusqueda pet={pet} navigation={navigation} onAfiche={crearAfiche} />
         ) : null}
 
         {pet.recompensa ? (
