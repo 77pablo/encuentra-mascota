@@ -20,7 +20,15 @@ import { DIAS_VIGENCIA_ADOPCION } from '../../src/lib/cicloVidaAdopcion';
 //      no lleva la firma EXACTA, el create arma una SOBRECARGA y PostgREST
 //      falla por ambiguedad al resolver cual invocar.
 const DIR = join(__dirname, '..', '..', 'supabase', 'migrations');
-const sql = readFileSync(join(DIR, '0052_adopcion_paridad.sql'), 'utf8');
+// Los finales de linea se normalizan a LF antes de comparar nada.
+//
+// Varias aserciones de abajo comparan fragmentos SQL MULTILINEA escritos con
+// `\n` literal. Este repo no tiene .gitattributes y `core.autocrlf` esta en
+// true, asi que el archivo queda con LF en el worktree donde se escribio y con
+// CRLF despues de cualquier checkout limpio: sin esto, el test pasa para quien
+// lo escribio y se pone rojo para todos los demas. Paso tal cual en
+// `__tests__/legales.test.js`, y volvio a pasar acá al fusionar.
+const sql = readFileSync(join(DIR, '0052_adopcion_paridad.sql'), 'utf8').replace(/\r\n/g, '\n');
 
 // Las aserciones corren sobre el CODIGO: el archivo explica en prosa lo mismo
 // que verifica, asi que buscar sobre el texto crudo da falsos positivos.
