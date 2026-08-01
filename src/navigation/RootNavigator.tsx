@@ -13,6 +13,7 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import PublicPetScreen from '../screens/PublicPetScreen';
 import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 import CollarScreen from '../screens/CollarScreen';
+import CuadrillaScreen from '../screens/CuadrillaScreen';
 import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
 import AyudaScreen from '../screens/AyudaScreen';
 import VolvieronACasaScreen from '../screens/VolvieronACasaScreen';
@@ -38,6 +39,10 @@ const linking: LinkingOptions<any> = {
       // Detalle público de una publicación de adopción, mismo trato que
       // MascotaPublica/Collar: alcanzable por link compartido sin sesión.
       AdopcionDetail: 'adopcion/:id',
+      // Invitación a la cuadrilla (Tanda 10). El link llega por WhatsApp y se
+      // abre en modo invitado: la vista previa es anónima a propósito (grant a
+      // `anon` en la 0048). Sumarse sí pide cuenta.
+      Cuadrilla: 'cuadrilla/:token',
     },
   },
 };
@@ -152,6 +157,12 @@ export default function RootNavigator() {
             compartido (`adopcion/:id`) o desde la pestaña Adopción, en modo
             invitado, igual que MascotaPublica/Collar. */}
         <Stack.Screen name="AdopcionDetail" component={AdopcionDetailScreen} options={{ headerShown: true, title: 'Adopción' }} />
+        {/* Cuadrilla (Tanda 10): se abre por el link de invitación
+            (`cuadrilla/:token`) o desde la ficha del reporte con `{ petId }`.
+            Va en el stack RAÍZ por las dos razones de siempre: es alcanzable
+            por link público, y así un `navigate('Cuadrilla')` desde PetDetail
+            —que vive dentro del stack de una pestaña— llega por burbujeo. */}
+        <Stack.Screen name="Cuadrilla" component={CuadrillaScreen} options={{ headerShown: true, title: 'Cuadrilla' }} />
         {/* Ayuda rápida (vets/refugios) y galería de reencuentros: pantallas
             empujadas al raíz con header nativo (botón de volver). Alcanzables por
             burbujeo desde la guía/Perfil e Inicio. */}

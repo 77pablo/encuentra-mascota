@@ -20,3 +20,11 @@ export function adopcionUrl(adoptionId: string): string | null {
   if (!base) return null;
   return `${base}/adopcion/${adoptionId}`;
 }
+
+// Link de invitación a la cuadrilla (Tanda 10, migración 0048). Lleva el TOKEN,
+// no el id del reporte: tener el token es lo que habilita a sumarse a buscar.
+export function cuadrillaUrl(token: string): string | null {
+  const base = baseUrl();
+  if (!base) return null;
+  return `${base}/cuadrilla/${token}`;
+}

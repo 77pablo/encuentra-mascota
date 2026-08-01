@@ -115,6 +115,26 @@ function esPermisoDenegado(codigo: string, crudo: string): boolean {
 // que dice bastante menos.
 export class ErrorAmigable extends Error {}
 
+// ¿Este error es "la migración todavía no está aplicada"?
+//
+// El dueño publica la web antes de correr el SQL, así que toda función nueva
+// tiene que saber apagarse sola. Los códigos se comprobaron contra el PostgREST
+// del proyecto real (1-ago-2026): una tabla que no existe devuelve 404 con
+// PGRST205 ("Could not find the table 'public.x' in the schema cache") y una
+// función que no existe, 404 con PGRST202. Desde adentro de la base (sin pasar
+// por el schema cache) los códigos crudos son 42P01 y 42883.
+//
+// Deliberadamente ESTRECHO. Un corte de red, un 42501 de RLS o una COLUMNA que
+// falta (42703) NO entran acá: si entraran, la sección desaparecería en
+// silencio y nadie se enteraría de que hay algo roto que reintentar.
+const CODIGOS_SIN_MIGRACION = new Set(['PGRST205', 'PGRST202', '42P01', '42883']);
+
+export function esMigracionSinAplicar(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const codigo = 'code' in error ? String((error as { code: unknown }).code ?? '') : '';
+  return CODIGOS_SIN_MIGRACION.has(codigo);
+}
+
 export function mensajeDeErrorDb(error: unknown, contexto?: ContextoError): string {
   if (error instanceof ErrorAmigable) return error.message;
 
