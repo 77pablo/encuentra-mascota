@@ -6,6 +6,8 @@ import MapView, { Marker } from '../components/PlatformMap';
 import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { NudgeVigencia } from '../components/NudgeVigencia';
+import { PreguntaSiAparecio, seVaAPreguntar } from '../components/PreguntaSiAparecio';
+import { RespuestaCierre } from '../lib/cierreCasos';
 import { PlanBusqueda } from '../components/PlanBusqueda';
 import { ConsejoRadio } from '../components/ConsejoRadio';
 import { markReunited } from '../services/reunions';
@@ -377,6 +379,9 @@ export default function PetDetailScreen({ route, navigation }: any) {
 
   const reunida = isReunited(pet);
   const nombreMostrar = pet.nombre || especieLabel[pet.especie];
+  // ¿Está en pantalla la pregunta "¿apareció?" (0049)? Se consulta acá para
+  // callar al viejo `NudgeVigencia`, que preguntaría casi lo mismo al lado.
+  const hayPreguntaDeCierre = seVaAPreguntar(pet);
 
   const elegirFotoFeliz = async () => {
     try {
@@ -435,6 +440,36 @@ export default function PetDetailScreen({ route, navigation }: any) {
     } finally {
       setGuardandoVigencia(false);
     }
+  };
+
+  // CIERRE DE CASOS (migración 0049). La tarjeta ya escribió en la base y la
+  // RPC confirmó; acá solo se refleja el nuevo estado en pantalla, con las
+  // MISMAS reglas que aplicó el servidor, para no volver a consultar.
+  //
+  // El caso que importa es `aparecio`: escribir `reunida_en` (y no solo cerrar)
+  // es lo que hace que el caso cuente como reencuentro en el contador de
+  // Inicio, en `impacto_comunidad` y en la galería "Volvieron a casa". Fue un
+  // bug real de la tanda 9 y por eso la RPC lo hace del lado del servidor: acá
+  // solo se pinta lo mismo.
+  const reflejarRespuesta = (respuesta: RespuestaCierre) => {
+    if (!pet) return;
+    const ahora = new Date().toISOString();
+    const comun = { ...pet, preguntado_en: ahora, cierre_motivo: respuesta };
+    if (respuesta === 'aparecio') {
+      setPet({ ...comun, activo: false, reunida_en: pet.reunida_en ?? ahora });
+      setMostrarConfetti(true);
+      return;
+    }
+    if (respuesta === 'sigo_buscando') {
+      // "Sigo buscando" RENUEVA la vigencia: sin esto el reporte se archivaría
+      // solo a los 45 días de publicado, un día después de haber confirmado a
+      // mano que sigue vivo.
+      setPet({ ...comun, renovado_en: ahora });
+      notify('Gracias', 'Tu reporte sigue activo. Seguimos buscando.');
+      return;
+    }
+    setPet({ ...comun, activo: false });
+    notify('Reporte cerrado', 'Dejó de aparecer en las búsquedas. Queda guardado en tu perfil.');
   };
 
   // "Archivar por ahora": lo vence ya (sale de las búsquedas), pero queda en
@@ -593,9 +628,24 @@ export default function PetDetailScreen({ route, navigation }: any) {
           </AppText>
         </Card>
 
-        {/* Nudge de vigencia: solo en el reporte propio, no reunido, cuando ya
-            pasaron 14+ días sin renovar. Se dibuja solo (null) si no toca. */}
+        {/* CIERRE DE CASOS (0049): "¿apareció?" a los 3, 7 y 21 días. Solo en
+            el reporte propio. Se dibuja sola (null) si no toca — y NO se dibuja
+            nunca si la migración no está aplicada, porque en ese caso la fila
+            de `pets` ni siquiera trae la clave `preguntado_en` (ver
+            lib/cierreCasos.hayColumnaDeSeguimiento). */}
         {esMio && !reunida ? (
+          <PreguntaSiAparecio pet={pet} onRespondido={reflejarRespuesta} />
+        ) : null}
+
+        {/* Nudge de vigencia: solo en el reporte propio, no reunido, cuando ya
+            pasaron 14+ días sin renovar. Se dibuja solo (null) si no toca.
+
+            Se calla mientras la pregunta de arriba está en pantalla: las dos
+            preguntan casi lo mismo y con un reporte de 30 días aplicarían a la
+            vez, dejando dos tarjetas apiladas con tres botones cada una. Gana
+            la nueva, que además registra el reencuentro y renueva la vigencia
+            en una sola operación del servidor. */}
+        {esMio && !reunida && !hayPreguntaDeCierre ? (
           <NudgeVigencia
             pet={pet}
             onVolvio={() => setMostrarReunion(true)}

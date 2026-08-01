@@ -33,6 +33,14 @@ export interface Pet {
   // reporte sigue vigente (o la creación). A los 45 días sin renovar, el reporte
   // sale solo de las búsquedas. Puede faltar en reportes anteriores a la 0028.
   renovado_en?: string | null;
+  // Cierre de casos (migración 0049): cuándo respondió el dueño la pregunta
+  // "¿apareció?" y qué contestó. OJO CON LA DIFERENCIA ENTRE `null` Y AUSENTE:
+  // `getPet` lee con `select('*')`, así que la CLAVE `preguntado_en` viene en
+  // la fila (aunque valga null) solo si la columna existe en la base. Si la
+  // 0049 no está aplicada, la clave directamente no llega, y eso es lo que usa
+  // `lib/cierreCasos.hayColumnaDeSeguimiento` para no dibujar la tarjeta.
+  preguntado_en?: string | null;
+  cierre_motivo?: 'aparecio' | 'sigo_buscando' | 'ya_no_busco' | null;
   // Ámbito del animal (migración 0046), para calibrar el radio de búsqueda.
   // Llega `undefined` en TRES casos distintos y los tres significan lo mismo
   // para quien lo lee ("no sabemos"): la 0046 no está aplicada, el reporte es
