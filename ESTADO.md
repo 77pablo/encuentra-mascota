@@ -41,6 +41,12 @@ páginas con `npm run legales` y sumar el caso al test `legalCoherencia`. Decisi
 no prometer un canal que no existe todavía (el correo de contacto depende del dominio, que depende del
 nombre de la app).
 
+✅ **`send-push` REDESPLEGADA Y VERIFICADA (1-ago).** El interruptor "Notificación al teléfono" de
+Avisos ahora **sí** apaga los push del chat: `send-notifications` respetaba `notification_prefs` desde
+la 0011 pero `send-push` no la leía nunca. La decisión vive en `_shared/prefsPush.ts`, pura y probada
+desde jest (las Edge Functions están fuera del typecheck y de la suite). Humo en producción:
+`OPTIONS` → 204 con el origen real permitido, `POST` sin credenciales → 401.
+
 ### 📋 TANDA 11 — elegida por Pablo el 1-ago, pendiente de arrancar
 Va **después** de cerrar la tanda 10 (radio por especie · plan de búsqueda · antiestafa · Cuadrilla),
 porque se solapan: "avisar sin cuenta" comparte terreno con la Cuadrilla (las dos tratan la escritura
