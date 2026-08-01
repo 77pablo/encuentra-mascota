@@ -41,6 +41,30 @@ páginas con `npm run legales` y sumar el caso al test `legalCoherencia`. Decisi
 no prometer un canal que no existe todavía (el correo de contacto depende del dominio, que depende del
 nombre de la app).
 
+### 📋 TANDA 11 — elegida por Pablo el 1-ago, pendiente de arrancar
+Va **después** de cerrar la tanda 10 (radio por especie · plan de búsqueda · antiestafa · Cuadrilla),
+porque se solapan: "avisar sin cuenta" comparte terreno con la Cuadrilla (las dos tratan la escritura
+anónima) y "cierre de casos" toca el ciclo de vida que tocan el radio y el plan.
+
+1. **Cierre de casos.** Preguntar "¿apareció?" a los 3, 7 y 21 días con tres botones, y archivar como
+   "sin confirmar" lo que no responde. Los avisos zombis son el defecto estructural del rubro (es la
+   queja dominante contra el líder del mercado). Premio escondido: **genera el dato que nadie tiene
+   en Chile** —cuántas mascotas se reencuentran de verdad—, que es material de prensa y la carta de
+   presentación para un municipio. ⚠️ El tono es todo: preguntarle "¿apareció?" a quien no la
+   encontró duele.
+2. **Avisar sin cuenta.** Quien encuentra un animal en la calle es un desconocido sin ninguna razón
+   para instalar una app, y hoy le pedimos registro para todo. El camino técnico ya está probado en
+   el repo: `avisar_escaneo_collar` (0027) es `security definer` con `grant … to anon` y rate-limit
+   por ficha — el único punto de escritura anónima que existe.
+3. **Bandeja de avisos in-app.** Hoy **nada en `src/` lee `notification_events`**: si el push y el
+   correo fallan —y el correo está fallando ahora mismo por lo de Brevo— el aviso se pierde y nadie
+   se entera nunca. Además, coincidencias y escaneos de collar no tienen ninguna superficie dentro
+   de la app, y el onboarding promete "te llega un aviso, no hace falta estar mirando".
+4. **Cerrar la deuda de adopción.** Búsqueda por texto y por edad (la columna existe y no filtra), el
+   filtro de radio que el servicio acepta y la pantalla manda siempre en `null`, guardar búsquedas,
+   ciclo de vida para las publicaciones abandonadas, y que `perfil_publico` cuente adopciones (hoy un
+   refugio con 40 publicaciones aparece como "no tiene reportes activos").
+
 ### Pulido posterior a la tanda 9 (1-ago, ya en producción)
 Commits `47be414` y `4406d80`. **1496 tests / 120 suites, tsc 0.** Verificado en el sitio real.
 - **El "Publicar un reporte" del vacío salteaba el portero de invitados.** El portero de la pestaña
