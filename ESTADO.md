@@ -41,6 +41,23 @@ páginas con `npm run legales` y sumar el caso al test `legalCoherencia`. Decisi
 no prometer un canal que no existe todavía (el correo de contacto depende del dominio, que depende del
 nombre de la app).
 
+### Pulido posterior a la tanda 9 (1-ago, ya en producción)
+Commits `47be414` y `4406d80`. **1496 tests / 120 suites, tsc 0.** Verificado en el sitio real.
+- **El "Publicar un reporte" del vacío salteaba el portero de invitados.** El portero de la pestaña
+  es un listener de `tabPress`, que **no** se dispara en una navegación programática: el invitado
+  llenaba el formulario entero —fotos, pin en el mapa, descripción— y se enteraba recién al enviar.
+- **El vacío prometía un aviso que no siempre llega** (ver el pendiente de abajo). Se bajó la promesa
+  a lo que sí cumplimos.
+- **Conceder la ubicación tapaba Inicio con un spinner** en vez de actualizarlo abajo.
+- **La tarjeta de impacto no concordaba en número:** "1 mascotas buscando" y, peor, "1 encontraron
+  familia". Nueva `lib/plural.ts`; ojo que la regla en español es `n === 1`, no `n > 1` (con cero va
+  el plural).
+- **"Mis publicaciones en adopción"** (pantalla nueva): `listMyAdoptions` existía desde la tanda de
+  adopción **sin un solo llamador**, así que se podía publicar un animal y no tener dónde verlo.
+  Marca cuál encontró familia y cuál está **oculta** (si no se dice, parece borrada). Su botón de
+  publicar navega **anidado** a la pestaña Adopción: con nombre pelado habría sido la **séptima**
+  aparición del bug de navegación.
+
 **Pendiente chico que necesita migración** (anotado el 1-ago): el aviso de "seguir una comuna" y el
 listado **no miran lo mismo**. `buscar_reportes` trae los reportes cuya comuna es esa **o** que la
 tienen en `comunas_alcance`; el trigger del aviso solo mira `new.comuna`. O sea que un reporte
