@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { countReunidas, Pet } from '../services/pets';
-import { buscarReportes, contarReportesEnComuna } from '../services/busqueda';
+import { buscarReportes, contarReportesEnComuna, type FiltrosBusqueda } from '../services/busqueda';
 import { listFinalesFelices } from '../services/reunions';
 import { getMyProfile } from '../services/profile';
 import { getImpacto, Impacto } from '../services/impacto';
@@ -32,7 +32,35 @@ const especieLabel: Record<Pet['especie'], string> = {
 
 const RECIENTES_LIMIT = 4;
 
-const CHIPS = ['Cerca de ti', 'Perros', 'Gatos', 'Perdidos'];
+// Radio de la tira de Inicio. Un título que dice "Cerca de ti" tiene que poder
+// sostenerlo: sin radio, el servidor ordena por distancia pero igual devuelve el
+// reporte más cercano aunque esté a 800 km. Con radio, o hay algo cerca de
+// verdad o la sección dice honestamente que todavía no hay nada.
+const RADIO_INICIO_KM = 25;
+
+// Parámetros con los que un acceso de Inicio llega a Explorar. Los lee
+// `filtrosDesdeRuta` (src/lib/petFilters).
+export interface AccesoInicio {
+  label: string;
+  params: {
+    comuna?: string;
+    especie?: 'perro' | 'gato' | 'otro';
+    estado?: 'perdida' | 'encontrada';
+    cerca?: boolean;
+  };
+}
+
+// Los cuatro accesos rápidos de arriba. Hasta la tanda 9 eran cuatro etiquetas
+// sueltas que hacían `navigate('Explorar')` sin parámetros: decoración con
+// forma de control. Ahora cada uno viaja con el filtro que promete su etiqueta.
+// Se exportan para que un test pueda cruzarlos con el lector de la ruta y
+// detectar un acceso que navegue vacío.
+export const ACCESOS_INICIO: AccesoInicio[] = [
+  { label: 'Cerca de ti', params: { cerca: true } },
+  { label: 'Perros', params: { especie: 'perro' } },
+  { label: 'Gatos', params: { especie: 'gato' } },
+  { label: 'Perdidos', params: { estado: 'perdida' } },
+];
 
 export default function HomeScreen({ navigation }: any) {
   const colors = useColors();
@@ -50,6 +78,10 @@ export default function HomeScreen({ navigation }: any) {
   const { user } = useAuth();
   const { isFavorite, toggle } = useFavorites();
 
+  // El punto desde el que se pide la tira. Si no lo hay, la consulta va sin
+  // referencia y la sección NO puede titularse "Cerca de ti" (ver más abajo).
+  const coords = location.coords;
+
   const cargar = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -59,8 +91,15 @@ export default function HomeScreen({ navigation }: any) {
     // Inicio solo muestra una tira corta: pedimos 6, no la base entera.
     // El nombre del perfil es para el saludo: si falla, degrada a null (usamos
     // el metadata o el correo) sin tumbar Inicio.
+    //
+    // Con ubicación la consulta lleva el punto y el radio: hasta la tanda 9
+    // esto era `buscarReportes({}, ...)` —todo Chile por fecha— debajo de un
+    // título que decía "Cerca de ti". Alguien en Punta Arenas veía Arica.
+    const filtrosTira: FiltrosBusqueda = coords
+      ? { lat: coords.lat, lng: coords.lng, radioKm: RADIO_INICIO_KM, orden: 'cerca' }
+      : {};
     Promise.all([
-      buscarReportes({}, null, 6).then((p) => p.reportes as Pet[]),
+      buscarReportes(filtrosTira, null, 6).then((p) => p.reportes as Pet[]),
       countReunidas(),
       listFinalesFelices(6).catch(() => [] as Pet[]),
       user ? getMyProfile(user.id).catch(() => null) : Promise.resolve(null),
@@ -77,9 +116,26 @@ export default function HomeScreen({ navigation }: any) {
       })
       .catch((e: any) => setError(mensajeDeErrorDb(e)))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, coords]);
 
   useFocusEffect(cargar);
+
+  // Ir a Explorar con un filtro puesto. La forma anidada (`{ screen, params }`)
+  // no es un adorno: "Explorar" es una PESTAÑA que adentro tiene su propio
+  // stack, y los parámetros sueltos se quedan en el navigator sin llegar nunca
+  // a la pantalla que los tiene que leer.
+  const irAExplorar = useCallback(
+    (params?: AccesoInicio['params']) => {
+      navigation.navigate('Explorar', params ? { screen: 'Explorar', params } : undefined);
+    },
+    [navigation],
+  );
+
+  // `useMyLocation(true)` ya lo pidió al montar; esto es para volver a intentar
+  // después de un "ahora no" (o de un permiso que el navegador dejó pendiente).
+  const pedirUbicacion = useCallback(() => {
+    location.request();
+  }, [location]);
 
   // Comuna del usuario (de su ubicación) + cuántos reportes activos tiene, para
   // la sección "En tu comuna" que lleva a la pestaña Comunidad. Degrada en
@@ -257,7 +313,7 @@ export default function HomeScreen({ navigation }: any) {
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('Explorar', { comuna: comunaInicio })}
+            onPress={() => irAExplorar({ comuna: comunaInicio })}
           >
             <Card style={styles.comunaCard}>
               <Ionicons name="business" size={20} color={colors.brand} />
@@ -280,12 +336,15 @@ export default function HomeScreen({ navigation }: any) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsRow}
         >
-          {CHIPS.map((label, i) => (
+          {ACCESOS_INICIO.map((acceso, i) => (
             <Chip
-              key={label}
-              label={label}
-              active={i === 0}
-              onPress={() => navigation.navigate('Explorar')}
+              key={acceso.label}
+              label={acceso.label}
+              // El activo describe lo que se está viendo abajo; ya no es "el
+              // primero" por costumbre. Sin ubicación, la tira NO es cercana a
+              // nadie, así que ninguno queda encendido.
+              active={acceso.params.cerca === true && hasCoords}
+              onPress={() => irAExplorar(acceso.params)}
               style={i > 0 ? styles.chipSpacing : undefined}
             />
           ))}
@@ -297,7 +356,7 @@ export default function HomeScreen({ navigation }: any) {
           </AppText>
         ) : null}
 
-        <ZoneAlertBanner pets={pets} onPress={() => navigation.navigate('Explorar')} />
+        <ZoneAlertBanner pets={pets} onPress={() => irAExplorar()} />
 
         {/* Tira de finales felices */}
         {finales.length > 0 ? (
@@ -401,19 +460,42 @@ export default function HomeScreen({ navigation }: any) {
           </Card>
         ) : null}
 
-        {/* Sección "cerca de ti" */}
+        {/* Tira de reportes. El título depende de si de verdad sabemos dónde
+            está la persona: prometer cercanía sin ubicación era la mentira más
+            visible de la app, porque la ve todo el mundo al entrar. */}
         <View style={styles.sectionHeader}>
-          <Title size={17}>Cerca de ti</Title>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Explorar')}>
+          <Title size={17}>{hasCoords ? 'Cerca de ti' : 'Lo último publicado'}</Title>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => irAExplorar()}>
             <AppText weight="semi" color={colors.brand} size={13}>
               Ver todo
             </AppText>
           </TouchableOpacity>
         </View>
 
+        {/* Sin ubicación no escondemos la sección: ofrecemos activarla, que es
+            lo único que convierte esa tira en algo realmente cercano. */}
+        {!hasCoords ? (
+          <Card style={styles.ubicacionCard}>
+            <AppText size={13} muted>
+              Si nos dejás ver tu ubicación, acá te mostramos lo que está pasando a tu
+              alrededor en vez de todo Chile.
+            </AppText>
+            <Button
+              title="Usar mi ubicación"
+              variant="secondary"
+              icon="navigate"
+              loading={location.status === 'loading'}
+              onPress={pedirUbicacion}
+              style={styles.ubicacionBoton}
+            />
+          </Card>
+        ) : null}
+
         {recientes.length === 0 ? (
           <AppText muted style={styles.emptyRecientes}>
-            Aún no hay reportes por acá. Publica el primero.
+            {hasCoords
+              ? `Todavía no hay reportes a menos de ${RADIO_INICIO_KM} km tuyo. Ojalá siga así.`
+              : 'Todavía no hay reportes publicados. Si viste algo, contale al barrio.'}
           </AppText>
         ) : (
           <View style={styles.recientesList}>
@@ -629,6 +711,13 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   emptyRecientes: {
     paddingVertical: spacing.md,
+  },
+  ubicacionCard: {
+    gap: spacing.sm,
+    backgroundColor: colors.sky,
+  },
+  ubicacionBoton: {
+    marginTop: spacing.xs,
   },
   recientesList: {
     gap: spacing.sm,

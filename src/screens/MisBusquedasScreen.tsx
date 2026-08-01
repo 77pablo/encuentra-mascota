@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { BusquedaGuardada, borrarBusqueda, listBusquedas } from '../services/busquedasGuardadas';
-import { AppText, Card, EmptyState, Loading, Screen, Title } from '../ui';
+import { AppText, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 
@@ -25,12 +25,23 @@ export default function MisBusquedasScreen() {
   const [busquedas, setBusquedas] = useState<BusquedaGuardada[]>([]);
   const [loading, setLoading] = useState(true);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
+  // "No pudimos leer tus búsquedas" NO es lo mismo que "todavía no guardaste
+  // ninguna". Con el catch mostrando un toast y dejando la lista en [], alguien
+  // con tres avisos guardados y el wifi caído leía que no tenía ninguno: o los
+  // vuelve a crear duplicados, o deja de confiar en que los avisos existan.
+  // Es la misma forma del bug del perfil degradado que guardaba '' encima del
+  // teléfono, y del de AlertZoneScreen —de donde sale este arreglo.
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     setLoading(true);
+    setErrorCarga(null);
     listBusquedas()
       .then(setBusquedas)
-      .catch((e) => notify('No se pudo cargar', mensajeDeErrorDb(e)))
+      .catch((e) => {
+        console.error('No se pudieron leer las búsquedas guardadas:', e?.message ?? e);
+        setErrorCarga(mensajeDeErrorDb(e));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -55,6 +66,26 @@ export default function MisBusquedasScreen() {
   };
 
   if (loading) return <Loading />;
+
+  // Si no se pudo leer, se dice y se ofrece reintentar. NO se muestra la lista
+  // vacía: anunciar un vacío que no se comprobó es peor que no mostrar nada.
+  if (errorCarga) {
+    return (
+      <Screen padded>
+        <View style={styles.errorCarga}>
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.muted} />
+          <Title size={18}>No pudimos leer tus búsquedas</Title>
+          <AppText muted size={14} style={styles.errorCargaTexto}>
+            {errorCarga}
+          </AppText>
+          <AppText muted size={13} style={styles.errorCargaTexto}>
+            No las tocamos: siguen guardadas y los avisos siguen andando.
+          </AppText>
+          <Button title="Reintentar" onPress={cargar} />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -109,6 +140,14 @@ const crearEstilos = (colors: Colors) =>
     pageTitle: { marginBottom: spacing.xs },
     pageSubtitle: { marginBottom: spacing.sm },
     emptyWrap: { paddingVertical: spacing.xxxl },
+    errorCarga: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    errorCargaTexto: { textAlign: 'center' },
     list: { gap: spacing.sm },
     card: { paddingVertical: spacing.md },
     row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

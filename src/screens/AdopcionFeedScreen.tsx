@@ -282,7 +282,71 @@ export default function AdopcionFeedScreen({ navigation }: any) {
     navigation.navigate('Chat', { adoptionId: adoption.id, otherUserId: adoption.user_id });
   };
 
-  const hayFiltrosPuestos = especie !== 'todas' || tamano !== 'todos' || !!comunaFiltro || cerca;
+  // Acotar QUÉ buscás (especie, tamaño) no es lo mismo que acotar DÓNDE
+  // (comuna, "cerca de mí"), y contarlos juntos le echaba la culpa al usuario
+  // nuevo: filtrar por tu barrio en una base casi vacía devolvía "prueba con
+  // otra especie", cuando lo que pasa es que todavía nadie publicó ahí.
+  const hayFiltrosDeContenido = especie !== 'todas' || tamano !== 'todos';
+
+  // Salidas del vacío por lugar. A diferencia de los reportes, acá NO se ofrece
+  // "seguir la comuna": eso escribe en `notification_prefs.comunas_seguidas` y
+  // la Edge Function solo lo consulta para el evento `reporte_nuevo`. Prometer
+  // un aviso de adopciones por comuna sería prometer algo que nadie manda.
+  const publicarBoton = (
+    <Button title="Publicar en adopción" variant="secondary" icon="add" onPress={irAPublicar} />
+  );
+  const verTodasLasComunas = (
+    <Button title="Ver todas las comunas" variant="ghost" onPress={() => setComunaFiltro(null)} />
+  );
+
+  let vacio: React.ReactNode;
+  if (hayFiltrosDeContenido) {
+    vacio = (
+      <EmptyState
+        illustration
+        title="No encontramos nada así"
+        subtitle="Prueba con otra especie, otro tamaño o mira todas."
+        action={comunaFiltro ? verTodasLasComunas : undefined}
+      />
+    );
+  } else if (comunaFiltro) {
+    vacio = (
+      <EmptyState
+        illustration
+        title={`Todavía nadie busca hogar en ${comunaFiltro}`}
+        subtitle="Cuando alguien publique por acá va a aparecer justo aquí. Si tenés una para dar en adopción, empezá vos."
+        action={
+          <>
+            {publicarBoton}
+            {verTodasLasComunas}
+          </>
+        }
+      />
+    );
+  } else if (cerca) {
+    vacio = (
+      <EmptyState
+        illustration
+        title="Por tu zona todavía nadie busca hogar"
+        subtitle="Probá mirando todas: puede haber alguna un poco más lejos esperando familia."
+        action={
+          <>
+            {publicarBoton}
+            <Button title="Ver todas" variant="ghost" onPress={() => setCercaDeMi(false)} />
+          </>
+        }
+      />
+    );
+  } else {
+    vacio = (
+      <EmptyState
+        illustration
+        title="Todavía nadie busca hogar por acá"
+        subtitle="Cuando alguien publique una mascota en adopción, va a aparecer justo aquí."
+        action={publicarBoton}
+      />
+    );
+  }
 
   if (cargando && adopciones.length === 0) {
     return <Loading label="Buscando mascotas en adopción…" />;
@@ -355,21 +419,7 @@ export default function AdopcionFeedScreen({ navigation }: any) {
             </View>
           ) : null
         }
-        ListEmptyComponent={
-          hayFiltrosPuestos ? (
-            <EmptyState
-              illustration
-              title="No encontramos nada así"
-              subtitle="Prueba con otra especie, otro tamaño o mira todas."
-            />
-          ) : (
-            <EmptyState
-              illustration
-              title="Todavía nadie busca hogar por acá"
-              subtitle="Cuando alguien publique una mascota en adopción, va a aparecer justo aquí."
-            />
-          )
-        }
+        ListEmptyComponent={vacio}
         renderItem={({ item }) => (
           <AdoptionCard
             adoption={item}
