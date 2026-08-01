@@ -47,6 +47,67 @@ la 0011 pero `send-push` no la leía nunca. La decisión vive en `_shared/prefsP
 desde jest (las Edge Functions están fuera del typecheck y de la suite). Humo en producción:
 `OPTIONS` → 204 con el origen real permitido, `POST` sin credenciales → 401.
 
+## 🗓️ TANDA 11 — cierre de casos · avisar sin cuenta · bandeja · adopción (1-ago)
+
+4 implementadores en paralelo + revisión adversarial + fix wave. **1890 → 2166 tests, 143 → 161
+suites**, `tsc` 0. HEAD `5d87874`. **Migraciones `0049`→`0052` APLICADAS y verificadas.**
+⚠️ **Falta subir el `dist`** (junto con el de la tanda 10, es un solo deploy).
+
+- **Cierre de casos** (`0049`): "¿apareció?" a los 3/7/21 días. "Apareció" **registra el reencuentro**
+  (no solo cierra), "sigo buscando" **renueva la vigencia**.
+- **Avisar sin cuenta** (`0050`): quien encuentra un animal avisa desde el link público, sin
+  registro. Ubicación difuminada, rate-limit, y no delata si el reporte existe.
+- **Bandeja de avisos** (`0051`): `mis_avisos()` sin parámetros (el destinatario sale de `auth.uid()`).
+- **Adopción** (`0052`): búsqueda por texto y edad, el filtro de radio que existía sin usarse, ciclo
+  de vida a 90 días con "EN PAUSA" y reactivar, y `perfil_publico` contando adopciones.
+
+**🔑 Lo más valioso de esta tanda: los CUATRO agentes encontraron un error distinto en el plan.**
+Se les pidió explícitamente que contradijeran el plan en vez de seguirlo a ciegas, y los cuatro
+errores se habrían desplegado sin que nadie los viera:
+1. El aviso anónimo **sí** salía sin tocar la Edge Function, pero con el texto de "pista" y perdiendo
+   la nota entera.
+2. `coincidencia` **no llena `target_user_id`**: la bandeja no habría mostrado justo lo que la
+   motivaba.
+3. La degradación del cierre de casos estaba al revés: la tarjeta habría aparecido **rota en todos**
+   los reportes. Y el plan tenía `'apareció'` con tilde en TS y `'aparecio'` sin tilde en el SQL.
+4. El `drop function` de `buscar_adopciones` lleva **once** parámetros, no diez: con la firma
+   equivocada no falla, deja **dos versiones** de la función conviviendo.
+
+**Un bug de producción que encontró un agente sin que se lo pidieran:** la migración `0028` hizo
+`add column renovado_en default now()`, y Postgres rellena las filas existentes en el mismo `ALTER`,
+así que el `update … where renovado_en is null` que sigue tocó **cero filas**. El auto-archivado de
+reportes no archivó nada durante sus primeros 45 días. **No está arreglado**; la `0052` no repite el
+error (columna sin default → backfill → set default) y tiene test contra la regresión.
+
+**Los 3 Criticals arreglados** (de 6 que encontró la revisión):
+1. **La bandeja resucitaba contenido borrado por moderación.** `moderar_retirar` borra la fila pero
+   `notification_events` no tiene FK hacia ella, así que el extracto sobrevive; y la purga solo limpia
+   los eventos 'enviado'. Ahora la bandeja es un **puntero** a la ficha, no una copia.
+2. **El aviso anónimo se leía como un aviso nuestro:** *"Tenés una novedad · «la tengo, transferime»"*.
+   Ahora dice quién lo escribió y lleva el aviso antiestafa.
+3. **"Sí, volvió a casa" perdía el final feliz para siempre** (la nota y la foto ya no se podían
+   cargar nunca más). Ahora abre el panel que ya existía.
+
+### 🔧 Criticals de la tanda 11 que quedaron SIN arreglar
+- 🔴 **El ciclo de vida de reportes tiene un hueco grande.** `PreguntaSiAparecio` silencia a
+  `NudgeVigencia` mientras la pregunta está activa, pero como con `preguntado_en = null` la pregunta
+  está **siempre** activa, para quien no contesta: el hito 21 se repite indefinidamente diciendo "esta
+  es la última vez", **"Archivar por ahora" y "Sigue perdida" quedan inalcanzables** desde la ficha, el
+  segundo nudge (30 días) no aparece nunca, y a los 45 el reporte vence en silencio mientras la
+  tarjeta sigue diciendo "se queda acá el tiempo que haga falta". Es el caso de la mayoría.
+- 🔴 **La ubicación del aviso anónimo se pide y no se ve.** Se pide permiso de GPS, se difumina y se
+  guarda en `datos.lat/lng`, pero **nadie la lee**: el mapa se pinta solo desde `sightings` y el aviso
+  anónimo no crea fila ahí. El push dice "entrá a ver dónde fue" y no hay ningún pin.
+- 🔴 **`perfil_publico` cuenta adopciones sin filtrar vigencia** y el feed sí la filtra: un refugio con
+  40 publicaciones sin renovar muestra "40 · En adopción" y el feed no muestra ninguna.
+- 🟡 El rate-limit del aviso anónimo es **por reporte**, no por persona: tres vecinos que escanean el
+  mismo afiche en cinco minutos reciben "su familia ya sabe" y solo el primero avisó. Con el `pet_id`
+  público, además, es bloqueable a voluntad.
+- 🟡 **La puerta anónima esquiva el bloqueo** (`actor_id = null`): alguien bloqueado cierra sesión y
+  escribe igual.
+- ⚪ El header de "Preferencias de avisos" todavía dice "Avisos"; `index.ts` de la Edge Function no
+  tiene el tipo nuevo en su unión.
+
 ## 🗓️ TANDA 10 — radio por especie · plan de búsqueda · antiestafa · cuadrilla (1-ago)
 
 4 implementadores en paralelo + revisión adversarial + fix wave. **1503 → 1890 tests, 121 → 143
