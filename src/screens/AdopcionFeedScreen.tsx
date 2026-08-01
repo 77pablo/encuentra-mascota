@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, Chip, EmptyState, ErrorState, Loading, Screen, Title } from '../ui';
+import { AppText, Button, Card, Chip, EmptyState, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { radius, shadow, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 import ComunaPickerModal from '../components/ComunaPickerModal';
@@ -32,11 +32,17 @@ import { timeAgo } from '../lib/time';
 // El feed tipo Instagram de adopción: SOLO animales en adopción (tabla
 // `adoptions`), separado a propósito de los reportes de perdida/encontrada.
 // Espeja `ListScreen` en la mecánica (chips que viajan al servidor, scroll
-// infinito, "cerca de mí"), pero con tarjetas grandes de foto y sin barra de
-// búsqueda de texto (la RPC `buscar_adopciones` no la tiene, ver el diseño).
+// infinito, "cerca de mí"), pero con tarjetas grandes de foto.
+//
+// Paridad con el resto de la app (tanda 11): buscador de texto, filtro por
+// edad y el radio —que el servicio aceptaba desde la 0030 y esta pantalla
+// mandaba SIEMPRE en null—. Los tres viajan al servidor, no se filtran acá:
+// filtrar en el cliente rompería la paginación por cursor.
 
 type EspecieFiltro = 'todas' | Adoption['especie'];
 type TamanoFiltro = 'todos' | NonNullable<Adoption['tamano']>;
+type EdadFiltro = 'todas' | NonNullable<Adoption['edad']>;
+type Radio = 5 | 20 | 50 | null;
 
 const especieFiltros: { key: EspecieFiltro; label: string }[] = [
   { key: 'todas', label: 'Todas' },
@@ -51,6 +57,27 @@ const tamanoFiltros: { key: TamanoFiltro; label: string }[] = [
   { key: 'mediano', label: 'Mediano' },
   { key: 'grande', label: 'Grande' },
 ];
+
+const edadFiltros: { key: EdadFiltro; label: string }[] = [
+  { key: 'todas', label: 'Todas' },
+  { key: 'cachorro', label: 'Cachorro' },
+  { key: 'adulto', label: 'Adulto' },
+  { key: 'senior', label: 'Senior' },
+];
+
+// Los radios que se ofrecen cuando hay un centro. Sin el 1 km de Explorar: acá
+// no se busca un animal que se escapó a la vuelta, se mira hasta dónde estarías
+// dispuesto a ir a conocer a uno. "Todo Chile" es el valor de arranque a
+// propósito — ver el comentario de `radioKm` más abajo.
+const radios: { key: Radio; label: string }[] = [
+  { key: 5, label: '5 km' },
+  { key: 20, label: '20 km' },
+  { key: 50, label: '50 km' },
+  { key: null, label: 'Todo Chile' },
+];
+
+// Mismo rebote que Explorar: no se dispara una búsqueda por tecla.
+const ESPERA_TIPEO_MS = 400;
 
 const especieLabel: Record<Adoption['especie'], string> = {
   perro: 'Perro',
@@ -214,6 +241,16 @@ export default function AdopcionFeedScreen({ navigation }: any) {
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const [especie, setEspecie] = useState<EspecieFiltro>('todas');
   const [tamano, setTamano] = useState<TamanoFiltro>('todos');
+  const [edad, setEdad] = useState<EdadFiltro>('todas');
+  // Lo tipeado y lo que ya se puede mandar (rebote de `ESPERA_TIPEO_MS`).
+  const [busqueda, setBusqueda] = useState('');
+  const [busquedaDiferida, setBusquedaDiferida] = useState('');
+  // EL RADIO. Arranca en `null` = todo Chile, que es exactamente lo que esta
+  // pantalla ya hacía: "cerca de mí" ORDENABA por distancia sin recortar nada.
+  // Poner un default finito le vaciaría el feed a quien vive donde todavía no
+  // publica nadie, y cablear un filtro no puede cambiarle la pantalla a quien
+  // no lo tocó. Acota quien quiere acotar.
+  const [radioKm, setRadioKm] = useState<Radio>(null);
   // Filtro por comuna (F5, migración 0033). Mismo patrón que ExplorarScreen:
   // chip que abre el picker + chip "✕ Quitar" cuando ya hay una elegida.
   const [comunaFiltro, setComunaFiltro] = useState<string | null>(null);
@@ -244,22 +281,38 @@ export default function AdopcionFeedScreen({ navigation }: any) {
     location.request();
   };
 
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaDiferida(busqueda), ESPERA_TIPEO_MS);
+    return () => clearTimeout(t);
+  }, [busqueda]);
+
   const cerca = cercaDeMi && location.coords !== null;
   const filtros: FiltrosAdopcion = useMemo(
     () => ({
       especie: especie === 'todas' ? null : especie,
       tamano: tamano === 'todos' ? null : tamano,
+      edad: edad === 'todas' ? null : edad,
+      texto: busquedaDiferida,
       comuna: comunaFiltro,
       lat: cerca ? location.coords!.lat : null,
       lng: cerca ? location.coords!.lng : null,
-      radioKm: null,
+      // Sin centro no hay círculo: un radio suelto le pediría a la base un
+      // anillo alrededor de nada y dejaría el feed vacío sin explicación.
+      radioKm: cerca ? radioKm : null,
       orden: cerca ? 'cerca' : 'recientes',
     }),
-    [especie, tamano, comunaFiltro, cerca, location.coords],
+    [especie, tamano, edad, busquedaDiferida, comunaFiltro, cerca, radioKm, location.coords],
   );
 
   const { adopciones, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
     useBusquedaAdopciones(filtros);
+
+  // ¿Ya terminó alguna búsqueda? Distingue "la pantalla está abriéndose" de
+  // "estoy filtrando algo": lo usa el bloque de espera de más abajo.
+  const [yaCargoAlgunaVez, setYaCargoAlgunaVez] = useState(false);
+  useEffect(() => {
+    if (!cargando) setYaCargoAlgunaVez(true);
+  }, [cargando]);
 
   // El pull-to-refresh dispara `recargar()`, que reusa el mismo `cargando` de
   // la primera página; cuando termina (con o sin error) soltamos el spinner.
@@ -286,7 +339,8 @@ export default function AdopcionFeedScreen({ navigation }: any) {
   // (comuna, "cerca de mí"), y contarlos juntos le echaba la culpa al usuario
   // nuevo: filtrar por tu barrio en una base casi vacía devolvía "prueba con
   // otra especie", cuando lo que pasa es que todavía nadie publicó ahí.
-  const hayFiltrosDeContenido = especie !== 'todas' || tamano !== 'todos';
+  const hayFiltrosDeContenido =
+    especie !== 'todas' || tamano !== 'todos' || edad !== 'todas' || busquedaDiferida.trim() !== '';
 
   // Salidas del vacío por lugar. A diferencia de los reportes, acá NO se ofrece
   // "seguir la comuna": eso escribe en `notification_prefs.comunas_seguidas` y
@@ -348,17 +402,27 @@ export default function AdopcionFeedScreen({ navigation }: any) {
     );
   }
 
-  if (cargando && adopciones.length === 0) {
+  // La pantalla de espera ENTERA es solo para la primera vez.
+  //
+  // Con un buscador arriba, seguir usándola en cada búsqueda es un bug: cada
+  // tecleo dispara una consulta y, si la lista está vacía —que es justo cuando
+  // estás buscando otra cosa—, el spinner a pantalla completa desmontaba el
+  // Input. Se perdía el foco y lo escrito quedaba fuera de alcance a mitad de
+  // la palabra. De la segunda vez en adelante la espera va donde va la lista.
+  if (cargando && adopciones.length === 0 && !yaCargoAlgunaVez) {
     return <Loading label="Buscando mascotas en adopción…" />;
   }
 
-  if (error && adopciones.length === 0) {
-    return (
-      <Screen padded>
-        <ErrorState message={error} onRetry={recargar} />
-      </Screen>
-    );
-  }
+  // El error va DONDE IRÍA LA LISTA, no en lugar de la pantalla entera.
+  //
+  // Antes reemplazaba todo, y con los filtros nuevos eso encierra a la persona:
+  // si la 0052 no está aplicada, escribir en el buscador devuelve error, y con
+  // la pantalla reemplazada no queda ninguna forma de borrar lo que escribiste.
+  // El listado SIN ese filtro funciona perfecto: hay que poder soltarlo.
+  let cuerpoVacio: React.ReactNode = vacio;
+  if (cargando) cuerpoVacio = <Loading label="Buscando…" />;
+  else if (error && adopciones.length === 0)
+    cuerpoVacio = <ErrorState message={error} onRetry={recargar} />;
 
   return (
     <Screen padded>
@@ -369,6 +433,13 @@ export default function AdopcionFeedScreen({ navigation }: any) {
       <AppText muted size={13} style={styles.subtitle}>
         Vecinos del barrio buscándoles un hogar. Guárdalas o escríbele a quien las tiene.
       </AppText>
+
+      <Input
+        value={busqueda}
+        onChangeText={setBusqueda}
+        placeholder="Buscar por nombre o descripción…"
+        icon="search"
+      />
 
       <View style={styles.chipsRow}>
         {especieFiltros.map((f) => (
@@ -386,6 +457,11 @@ export default function AdopcionFeedScreen({ navigation }: any) {
         ))}
       </View>
       <View style={styles.chipsRow}>
+        {edadFiltros.map((f) => (
+          <Chip key={f.key} label={f.label} active={edad === f.key} onPress={() => setEdad(f.key)} />
+        ))}
+      </View>
+      <View style={styles.chipsRow}>
         <Chip label="Recientes" active={!cerca} onPress={() => cercaDeMi && setCercaDeMi(false)} />
         <Chip
           label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
@@ -393,6 +469,19 @@ export default function AdopcionFeedScreen({ navigation }: any) {
           onPress={toggleCercaDeMi}
         />
       </View>
+      {/* Los radios solo cuando hay centro: ver el comentario de `radioKm`. */}
+      {cerca ? (
+        <View style={styles.chipsRow}>
+          {radios.map((r) => (
+            <Chip
+              key={r.label}
+              label={r.label}
+              active={radioKm === r.key}
+              onPress={() => setRadioKm(r.key)}
+            />
+          ))}
+        </View>
+      ) : null}
       <View style={styles.chipsRow}>
         <Chip
           label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
@@ -419,7 +508,7 @@ export default function AdopcionFeedScreen({ navigation }: any) {
             </View>
           ) : null
         }
-        ListEmptyComponent={vacio}
+        ListEmptyComponent={cuerpoVacio}
         renderItem={({ item }) => (
           <AdoptionCard
             adoption={item}

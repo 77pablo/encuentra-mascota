@@ -6,8 +6,10 @@ import {
   updateAdoption,
   deleteAdoption,
   marcarAdoptada,
+  renovarAdopcion,
   ADOPTION_NO_DISPONIBLE,
 } from '../../src/services/adoptions';
+import { ErrorAmigable } from '../../src/lib/dbErrors';
 
 // Mismo builder falso que pets.test.ts: imita el encadenado de supabase-js
 // (select/insert/update/delete/eq/order son chainable y el resultado final
@@ -308,5 +310,67 @@ describe('marcarAdoptada', () => {
     mockFrom.mockReturnValue(builder);
 
     await expect(marcarAdoptada('ad-1')).rejects.toEqual({ message: 'boom' });
+  });
+});
+
+// CICLO DE VIDA DE ADOPCIÓN (migración 0052). Reactivar = "sigue buscando
+// familia": reinicia el reloj de 90 días y la publicación vuelve al feed.
+describe('renovarAdopcion', () => {
+  it('pone renovado_en en ahora sobre la publicación indicada', async () => {
+    const builder = makeQueryBuilder({ data: [{ id: 'ad-1' }], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    const antes = Date.now();
+    await renovarAdopcion('ad-1');
+    const despues = Date.now();
+
+    expect(mockFrom).toHaveBeenCalledWith('adoptions');
+    expect(builder.eq).toHaveBeenCalledWith('id', 'ad-1');
+    const ts = new Date(builder.update.mock.calls[0][0].renovado_en).getTime();
+    expect(ts).toBeGreaterThanOrEqual(antes);
+    expect(ts).toBeLessThanOrEqual(despues);
+  });
+
+  it('no toca ninguna otra columna: reactivar no es editar', async () => {
+    const builder = makeQueryBuilder({ data: [{ id: 'ad-1' }], error: null });
+    mockFrom.mockReturnValue(builder);
+    await renovarAdopcion('ad-1');
+    expect(Object.keys(builder.update.mock.calls[0][0])).toEqual(['renovado_en']);
+  });
+
+  it('si la RLS rechaza el update (0 filas, sin error) NO dice "listo"', async () => {
+    // PostgREST no devuelve error cuando la RLS filtra la fila: simplemente no
+    // actualiza nada. Sin este chequeo la pantalla diría "ya está de vuelta" y
+    // la publicación seguiría en pausa. Mismo criterio que `updateAdoption`.
+    const builder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await expect(renovarAdopcion('ad-1')).rejects.toBeInstanceOf(ErrorAmigable);
+    expect(builder.select).toHaveBeenCalledWith('id');
+  });
+
+  it('con la 0052 sin aplicar dice que falta la actualización, no "no sos el dueño"', async () => {
+    // PGRST204 = la columna `renovado_en` no está en el schema cache. Es el
+    // caso real mientras la web ya está arriba y el SQL no se corrió: culpar al
+    // usuario de no ser el dueño lo manda a buscar el problema donde no está.
+    const builder = makeQueryBuilder({
+      data: null,
+      error: { code: 'PGRST204', message: "Could not find the 'renovado_en' column" },
+    });
+    mockFrom.mockReturnValue(builder);
+
+    const e = await renovarAdopcion('ad-1').then(
+      () => null,
+      (err: any) => err,
+    );
+    expect(e).toBeInstanceOf(ErrorAmigable);
+    expect(e.message).not.toMatch(/dueñ/i);
+    expect(e.message).not.toMatch(/schema cache|renovado_en/i);
+  });
+
+  it('propaga cualquier otro error crudo', async () => {
+    const builder = makeQueryBuilder({ data: null, error: { code: '08006', message: 'boom' } });
+    mockFrom.mockReturnValue(builder);
+    await expect(renovarAdopcion('ad-1')).rejects.toEqual({ code: '08006', message: 'boom' });
   });
 });

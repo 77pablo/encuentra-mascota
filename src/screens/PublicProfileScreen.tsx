@@ -238,6 +238,27 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     },
   ];
 
+  // ADOPCIÓN (0052). Va como baldosa aparte y NO se suma a "Reportes": son dos
+  // cosas distintas y mezclarlas haría que el número de reportes dejara de
+  // querer decir lo que decía.
+  //
+  // `null` = la RPC vieja todavía no devuelve la columna. En ese caso la
+  // baldosa no se dibuja: escribir "0 · En adopción" en el perfil de un refugio
+  // con 40 publicaciones sería el mismo bug que esto viene a arreglar.
+  if (perfil.adopciones !== null) {
+    stats.push({
+      clave: 'adopciones',
+      valor: perfil.adopciones,
+      label: 'En adopción',
+      icon: 'paw',
+      onPress: () =>
+        notify(
+          'En adopción',
+          'Animales que publicó buscándoles hogar. Los ves en la pestaña Adopción.',
+        ),
+    });
+  }
+
   return (
     <Screen>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -351,8 +372,14 @@ export default function PublicProfileScreen({ route, navigation }: any) {
             Reportes activos
           </Title>
           {reportes.length === 0 ? (
+            // "No tiene reportes activos" hablaba por TODA la persona. En el
+            // perfil de un refugio con animales publicados, leerlo es entender
+            // que no tiene nada — justo lo contrario. Cuando sabemos que sí
+            // publica en adopción, la frase se acota a lo que de verdad dice.
             <AppText muted size={13} style={styles.mutedLine}>
-              No tiene reportes activos.
+              {perfil.adopciones && perfil.adopciones > 0
+                ? 'No tiene reportes de mascotas perdidas o encontradas. Lo que publicó está en Adopción.'
+                : 'No tiene reportes activos.'}
             </AppText>
           ) : (
             <View style={styles.list}>

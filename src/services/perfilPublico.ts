@@ -12,6 +12,11 @@ export interface PerfilPublico {
   reencuentros: number;
   reportes: number;
   aportes: number;
+  // Publicaciones en adopción activas (migración 0052). `null` = la RPC vieja
+  // todavía no devuelve la columna, y eso NO es cero: un refugio con 40
+  // animales publicados mostrando "0 en adopción" es el mismo bug de siempre
+  // escrito de otra forma. Con null, la pantalla no dibuja la baldosa.
+  adopciones: number | null;
 }
 
 // Lee el perfil público por la RPC segura. Devuelve null si la cuenta está
@@ -35,6 +40,9 @@ export async function getPerfilPublico(userId: string): Promise<PerfilPublico | 
     reencuentros: Number(fila.reencuentros ?? 0),
     reportes: Number(fila.reportes ?? 0),
     aportes: Number(fila.aportes ?? 0),
+    // `== null` a propósito: cubre ausente Y null de la base, y deja pasar el
+    // 0 legítimo de quien de verdad no publicó ninguna.
+    adopciones: fila.adopciones == null ? null : Number(fila.adopciones),
   };
 }
 

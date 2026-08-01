@@ -17,8 +17,10 @@ jest.setTimeout(30000);
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 const mockListMyAdoptions = jest.fn();
+const mockRenovarAdopcion = jest.fn();
 jest.mock('../../src/services/adoptions', () => ({
   listMyAdoptions: (...a: any[]) => mockListMyAdoptions(...a),
+  renovarAdopcion: (...a: any[]) => mockRenovarAdopcion(...a),
 }));
 
 let mockUser: any = { id: 'yo' };
@@ -78,6 +80,8 @@ function textos(arbol: any): string {
 
 beforeEach(() => {
   mockListMyAdoptions.mockReset();
+  mockRenovarAdopcion.mockReset();
+  mockRenovarAdopcion.mockResolvedValue(undefined);
   mockNavigate.mockReset();
   mockUser = { id: 'yo' };
 });
@@ -165,5 +169,88 @@ describe('Mis publicaciones de adopción', () => {
     mockUser = null;
     await montar();
     expect(mockListMyAdoptions).not.toHaveBeenCalled();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// CICLO DE VIDA (migración 0052).
+//
+// El auto-archivado perezoso saca del feed lo que nadie renovó en 90 días. Es
+// media función: la otra mitad es que el dueño SE ENTERE y pueda traerlo de
+// vuelta. Sin esto, la publicación de un refugio desaparecería del feed y en
+// "Mis publicaciones" se vería idéntica a las demás — un fantasma que él cree
+// publicado y que nadie ve.
+// ───────────────────────────────────────────────────────────────────────────
+const haceDias = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
+
+describe('publicaciones que se durmieron', () => {
+  const dormida = { ...UNA, id: 'a-vieja', nombre: 'Canela', renovado_en: haceDias(120) };
+
+  it('se marca EN PAUSA y se dice que salió del feed', async () => {
+    mockListMyAdoptions.mockResolvedValue([dormida]);
+    const t = textos(await montar()).toLowerCase();
+    expect(t).toContain('pausa');
+    // Que no la vean es LO que hay que explicar; "en pausa" solo no dice nada.
+    expect(t).toMatch(/no la est[áa]n viendo|sali[óo] del list|dej[óo] de aparecer/);
+  });
+
+  it('una publicación reciente no se marca ni ofrece reactivar', async () => {
+    mockListMyAdoptions.mockResolvedValue([{ ...UNA, renovado_en: haceDias(2) }]);
+    const arbol = await montar();
+    expect(textos(arbol).toLowerCase()).not.toContain('pausa');
+    expect(
+      arbol.root.findAllByType(Button).find((b: any) => /reactivar/i.test(String(b.props.title))),
+    ).toBeUndefined();
+  });
+
+  it('la que YA encontró familia no se marca en pausa', async () => {
+    // Está cerrada con su final feliz, no dormida: pedirle al refugio que
+    // "reactive" a un animal que ya tiene casa es un sinsentido.
+    mockListMyAdoptions.mockResolvedValue([
+      { ...dormida, adoptada_en: haceDias(100) },
+    ]);
+    expect(textos(await montar()).toLowerCase()).not.toContain('pausa');
+  });
+
+  it('sin la 0052 aplicada NO se marca nada, por vieja que sea', async () => {
+    // La columna `renovado_en` ni llega, y la RPC vieja tampoco filtra por
+    // vigencia: la publicación SIGUE en el feed. Decir "en pausa" sería
+    // mentirle al dueño y mandarlo a tocar un botón que no puede funcionar.
+    mockListMyAdoptions.mockResolvedValue([{ ...UNA, creado_en: haceDias(900) }]);
+    expect(textos(await montar()).toLowerCase()).not.toContain('pausa');
+  });
+
+  it('reactivar la manda de vuelta y vuelve a leer la lista', async () => {
+    mockListMyAdoptions.mockResolvedValue([dormida]);
+    const arbol = await montar();
+    const boton = arbol.root
+      .findAllByType(Button)
+      .find((b: any) => /reactivar/i.test(String(b.props.title)));
+    expect(boton).toBeTruthy();
+
+    mockListMyAdoptions.mockResolvedValue([{ ...dormida, renovado_en: haceDias(0) }]);
+    await act(async () => boton.props.onPress());
+
+    expect(mockRenovarAdopcion).toHaveBeenCalledWith('a-vieja');
+    // Releer no es opcional: si no, la etiqueta EN PAUSA se queda pegada y la
+    // persona vuelve a tocar el botón creyendo que no funcionó.
+    expect(mockListMyAdoptions.mock.calls.length).toBeGreaterThan(1);
+    expect(textos(arbol).toLowerCase()).not.toContain('pausa');
+  });
+
+  it('si reactivar falla, se dice, y la etiqueta NO se borra', async () => {
+    mockListMyAdoptions.mockResolvedValue([dormida]);
+    const arbol = await montar();
+    const boton = arbol.root
+      .findAllByType(Button)
+      .find((b: any) => /reactivar/i.test(String(b.props.title)));
+
+    mockRenovarAdopcion.mockRejectedValue(new Error('no se pudo'));
+    await act(async () => boton.props.onPress());
+
+    const { notify } = require('../../src/lib/notify');
+    expect(notify).toHaveBeenCalled();
+    // Sigue en pausa: fingir que volvió es peor que el error.
+    expect(textos(arbol).toLowerCase()).toContain('pausa');
   });
 });

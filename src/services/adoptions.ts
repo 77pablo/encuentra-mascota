@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { AdoptionInput } from '../schemas/adoption';
-import { ErrorAmigable } from '../lib/dbErrors';
+import { ErrorAmigable, esColumnaFaltante } from '../lib/dbErrors';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
 import { rutaDeFotoPropia } from '../lib/rutaStorage';
 import { moderarTextoAdopcion } from '../lib/moderarTexto';
@@ -29,6 +29,11 @@ export interface Adoption {
   adoptada_en?: string | null;
   oculto: boolean;
   creado_en: string;
+  // Ciclo de vida (migración 0052): última vez que quien publica confirmó que
+  // el animal sigue buscando familia. OPCIONAL a propósito — mientras la 0052
+  // no esté aplicada la clave ni llega, y `src/lib/cicloVidaAdopcion.ts`
+  // distingue "ausente" (nada está en pausa) de "null" (fila vieja).
+  renovado_en?: string | null;
 }
 
 // `schemas/adoption.ts` valida el formulario, pero no incluye lat/lng/comuna
@@ -193,4 +198,37 @@ export async function marcarAdoptada(id: string): Promise<void> {
     .update({ adoptada_en: new Date().toISOString() })
     .eq('id', id);
   if (error) throw error;
+}
+
+// CICLO DE VIDA (migración 0052). Reactivar = "sigue buscando familia":
+// reinicia el reloj de 90 días poniendo `renovado_en = ahora` y la publicación
+// vuelve al feed al instante. Es el espejo de `renovarReporte` (0028), con dos
+// cuidados de más que allá no estaban:
+//
+//  - `.select('id')`: cuando la RLS filtra la fila, PostgREST NO devuelve
+//    error, simplemente no actualiza nada. Sin el chequeo la pantalla diría
+//    "ya está de vuelta" y la publicación seguiría en pausa.
+//  - El caso "la 0052 no corrió": PostgREST responde PGRST204 porque la columna
+//    no está en su caché de esquema. Ese error crudo, traducido por
+//    `mensajeDeErrorDb`, saldría como algo genérico o —peor— como "no sos el
+//    dueño". Se dice lo que pasa de verdad.
+export async function renovarAdopcion(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('adoptions')
+    .update({ renovado_en: new Date().toISOString() })
+    .eq('id', id)
+    .select('id');
+  if (error) {
+    if (esColumnaFaltante(error, 'renovado_en')) {
+      throw new ErrorAmigable(
+        'Todavía no podemos reactivar publicaciones desde acá. Tu publicación no se tocó: sigue tal como estaba.',
+      );
+    }
+    throw error;
+  }
+  if (!data || data.length === 0) {
+    throw new ErrorAmigable(
+      'No se pudo reactivar: puede que ya no seas el dueño de esta publicación.',
+    );
+  }
 }
