@@ -17,11 +17,16 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { shareReport } from '../lib/share';
-import { listSightings, Sighting } from '../services/sightings';
+import { deleteSighting, listSightings, Sighting } from '../services/sightings';
 import { addUpdate, listUpdates, PetUpdate } from '../services/petUpdates';
 import { borrarTip, crearTip, listarTips } from '../services/tips';
 import { firmaAutor, puedeBorrarTip, validarTip, Tip, TIP_MAX } from '../lib/tips';
-import { sortByRecency, sightingDistanceKm, summaryLabel } from '../lib/sightings';
+import {
+  puedeBorrarAvistamiento,
+  sortByRecency,
+  sightingDistanceKm,
+  summaryLabel,
+} from '../lib/sightings';
 import { distanceLabel } from '../lib/geo';
 import { isReunited, reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
@@ -79,6 +84,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [enviandoDenuncia, setEnviandoDenuncia] = useState(false);
   const [matches, setMatches] = useState<Coincidencia[]>([]);
   const [sightings, setSightings] = useState<Sighting[]>([]);
+  const [borrandoAvistamiento, setBorrandoAvistamiento] = useState<string | null>(null);
   // Novedades del dueño (bitácora del reporte)
   const [novedades, setNovedades] = useState<PetUpdate[]>([]);
   const [nuevaNovedad, setNuevaNovedad] = useState('');
@@ -179,6 +185,26 @@ export default function PetDetailScreen({ route, navigation }: any) {
     const off = navigation.addListener('focus', cargarAvistamientos);
     return off;
   }, [navigation, cargarAvistamientos]);
+
+  // Borrar un avistamiento del rastro. Lo puede hacer quien lo dejó (se
+  // equivocó de pin) y el dueño del reporte (le metieron una pista falsa en SU
+  // reporte). Con confirmación: el rastro es parte de la historia del caso.
+  const eliminarAvistamiento = async (s: Sighting) => {
+    const ok = await confirmAction(
+      '¿Borrar este avistamiento?',
+      'Va a desaparecer del rastro y del mapa para todos. No se puede deshacer.',
+    );
+    if (!ok) return;
+    setBorrandoAvistamiento(s.id);
+    try {
+      await deleteSighting(s.id);
+      setSightings((actuales) => actuales.filter((x) => x.id !== s.id));
+    } catch (e: any) {
+      notify('No se pudo borrar', mensajeDeErrorDb(e));
+    } finally {
+      setBorrandoAvistamiento(null);
+    }
+  };
 
   // Carga la bitácora de novedades del dueño. Se refresca al recuperar el foco,
   // igual que los avistamientos. Silencioso: si falla, dejamos la lista vacía.
@@ -763,8 +789,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
                         onPress={() => abrirDenuncia('avistamiento', s.id)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         style={styles.sightingFlag}
+                        accessibilityRole="button"
+                        accessibilityLabel="Denunciar este avistamiento"
                       >
                         <Ionicons name="flag-outline" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {puedeBorrarAvistamiento(s, user?.id ?? null, pet.user_id) ? (
+                      <TouchableOpacity
+                        onPress={() => eliminarAvistamiento(s)}
+                        disabled={borrandoAvistamiento === s.id}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.sightingFlag}
+                        accessibilityRole="button"
+                        accessibilityLabel="Borrar este avistamiento"
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.muted} />
                       </TouchableOpacity>
                     ) : null}
                   </View>

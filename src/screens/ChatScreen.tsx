@@ -298,11 +298,25 @@ export default function ChatScreen({ route, navigation }: any) {
     setMostrarMotivos((v) => !v);
   };
 
+  // DOS PASOS, DOS `try` SEPARADOS (mismo arreglo que en PublicProfileScreen).
+  // Con el bloqueo dentro del `try` de la denuncia, un fallo al bloquear se
+  // informaba como "No se pudo denunciar" sobre una denuncia que SÍ había
+  // quedado registrada. Y el `goBack()` era mudo: se salía del chat sin decir
+  // qué pasó. Una vez que `denunciarUsuario` devolvió sin error, nada de lo que
+  // pase después puede decir lo contrario.
   const denunciar = async (motivo: string) => {
     setEnviandoDenuncia(true);
     try {
       await denunciarUsuario(otherUserId, me, motivo);
+    } catch (e: any) {
       setMostrarMotivos(false);
+      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+      setEnviandoDenuncia(false);
+      return;
+    }
+    // A partir de acá la denuncia YA ESTÁ REGISTRADA.
+    setMostrarMotivos(false);
+    try {
       if (!bloqueado) {
         const ok = await confirmAction(
           'Denuncia recibida',
@@ -310,14 +324,19 @@ export default function ChatScreen({ route, navigation }: any) {
         );
         if (ok) {
           await bloquear(otherUserId);
+          // Al bloquear se corta el chat y se vuelve a Conversaciones: se avisa
+          // ANTES de irse, si no la pantalla se cierra sola sin explicación.
+          notify('Listo', 'Denuncia enviada y persona bloqueada.');
           navigation.goBack();
         }
       } else {
         notify('Denuncia recibida', 'La revisaremos dentro de las próximas 24 horas.');
       }
     } catch (e: any) {
-      setMostrarMotivos(false);
-      notify('No se pudo denunciar', mensajeDeErrorDb(e));
+      notify(
+        'No pudimos bloquearla',
+        `Tu denuncia sí quedó registrada, no hace falta repetirla. ${mensajeDeErrorDb(e)}`,
+      );
     } finally {
       setEnviandoDenuncia(false);
     }
@@ -391,6 +410,11 @@ export default function ChatScreen({ route, navigation }: any) {
               onPress={() => setMenuAbierto((v) => !v)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={styles.menuBoton}
+              // El ⋯ es solo un ícono: sin etiqueta, un lector de pantalla lo
+              // anuncia como "botón" a secas y no hay forma de saber que ahí
+              // están denunciar y bloquear.
+              accessibilityRole="button"
+              accessibilityLabel="Más opciones de esta conversación"
             >
               <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
             </TouchableOpacity>

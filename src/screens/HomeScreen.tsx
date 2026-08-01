@@ -18,6 +18,7 @@ import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
 import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
+import { BannerVigencia } from '../components/BannerVigencia';
 import { InstalarAppCard } from '../components/InstalarAppCard';
 import MensajesButton from '../components/MensajesButton';
 import { radius, spacing, type Colors } from '../theme';
@@ -243,6 +244,14 @@ export default function HomeScreen({ navigation }: any) {
         {user ? (
           <RecordatoriosBanner onPress={() => navigation.navigate('Perfil', { screen: 'MyPets' })} />
         ) : null}
+
+        {/* Vigencia del reporte: aviso in-app de que alguno propio está por
+            vencer (30+ días) o ya salió de las búsquedas (45+). Va acá, en
+            Inicio, porque hasta ahora había que ABRIR la ficha del reporte para
+            enterarse, y a los 45 días el reporte se apagaba en silencio.
+            Lleva a "Mis reportes activos", que es donde está el botón de
+            reactivar. Degrada en silencio (ver BannerVigencia). */}
+        {user ? <BannerVigencia onPress={() => navigation.navigate('Perfil')} /> : null}
 
         {/* En tu comuna → pestaña Comunidad */}
         {comunaInicio && comunaCount !== null && comunaCount > 0 ? (

@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, readFileSync } from 'fs';
+import { join, relative } from 'path';
 
-// EL BUG QUE YA SE COLO CUATRO VECES EN ESTE REPO.
+// EL BUG QUE YA SE COLO SEIS VECES EN ESTE REPO.
 //
 // React Navigation resuelve un `navigate('Nombre')` pelado buscando esa pantalla
 // en el navigator actual y, si no esta, BURBUJEANDO hacia sus ANCESTROS. Nunca
@@ -20,6 +20,18 @@ import { join } from 'path';
 // nueva, la mueve de stack o agrega un `navigate` pelado, el test se entera
 // solo. (Ya se escribieron dos veces tests tautologicos que declaraban la
 // respuesta en el propio test y no cubrian nada.)
+//
+// SEXTA APARICION (tanda 9) — la forma ANIDADA tambien se rompe, y este archivo
+// no la miraba. `PublicPetScreen` hacia:
+//
+//     navigate('App', { screen: 'Mapa', params: { screen: 'Chat', … } })
+//
+// y la pestaña 'Mapa' dejo de existir en julio (hoy son Inicio · Explorar ·
+// Publicar · Adopcion · Perfil). El destino no es "pelado", asi que el chequeo
+// de arriba lo dejaba pasar, y el boton "Contactar" de la pantalla que abre el
+// QR de un afiche no hacia NADA. Abajo se valida la cadena entera de una
+// navegacion anidada (`App → pestaña → pantalla`) CONTRA LOS NAVIGATORS, sin
+// listas escritas a mano.
 
 const SRC = join(__dirname, '..', '..', 'src');
 const NAV = join(SRC, 'navigation');
@@ -82,6 +94,18 @@ const dentroDeUnaPestana = new Map<string, string>();
 for (const r of registrosTab) {
   if (r.navigator === 'Tab') continue;
   if (!dentroDeUnaPestana.has(r.nombre)) dentroDeUnaPestana.set(r.nombre, r.navigator);
+}
+
+// Todo el .ts/.tsx de `src` que no sea un test: cualquier archivo puede tener
+// un `navigate` anidado, no solo las pantallas del raiz.
+function archivosDeFuente(dir: string): string[] {
+  const out: string[] = [];
+  for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+    const ruta = join(dir, entrada.name);
+    if (entrada.isDirectory()) out.push(...archivosDeFuente(ruta));
+    else if (/\.tsx?$/.test(entrada.name) && !/\.test\.tsx?$/.test(entrada.name)) out.push(ruta);
+  }
+  return out.sort();
 }
 
 // Todos los `navigation.navigate('X'`, `.replace('X'`, `.push('X'` de un archivo.
@@ -155,5 +179,183 @@ describe('las entradas nuevas del Perfil apuntan a pantallas que existen', () =>
     ]);
     const malos = destinosPelados(perfilSrc).filter((d) => !alcanzableDesdeElPerfil.has(d));
     expect(malos).toEqual([]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// NAVEGACION ANIDADA — la forma que dejo pasar la sexta aparicion del bug.
+// ───────────────────────────────────────────────────────────────────────────
+
+// Cuerpo de cada `function Nombre(…)` del archivo: desde su declaracion hasta
+// la siguiente. Alcanza porque los navigators se declaran a nivel de modulo.
+function cuerposDeFunciones(src: string): { nombre: string; cuerpo: string }[] {
+  const re = /^(?:export\s+)?(?:default\s+)?function\s+(\w+)\s*\(/gm;
+  const marcas: { nombre: string; desde: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) marcas.push({ nombre: m[1], desde: m.index });
+  return marcas.map((marca, i) => ({
+    nombre: marca.nombre,
+    cuerpo: src.slice(marca.desde, marcas[i + 1]?.desde ?? src.length),
+  }));
+}
+
+// Componente de React → identificador del navigator que RENDERIZA.
+// Ej: `InicioStack` → 'InicioStackNav', `TabNavigator` → 'Tab', `RootNavigator`
+// → 'Stack'. Es lo que permite bajar un nivel en una cadena anidada.
+function navigatorPorComponente(src: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const { nombre, cuerpo } of cuerposDeFunciones(src)) {
+    const nav = /<(\w+)\.Navigator\b/.exec(cuerpo)?.[1];
+    if (nav) out[nombre] = nav;
+  }
+  return out;
+}
+
+const navPorComponente = { ...navigatorPorComponente(rootSrc), ...navigatorPorComponente(tabSrc) };
+
+// navigator → { nombreDePantalla: componente }
+const pantallasPorNavigator: Record<string, Record<string, string>> = {};
+for (const r of [...registrosRaiz, ...registrosTab]) {
+  (pantallasPorNavigator[r.navigator] ??= {})[r.nombre] = r.componente;
+}
+
+// El navigator HIJO que se monta al entrar a `nombre` dentro de `navigator`,
+// o null si esa pantalla es una hoja (no anida nada).
+function navigatorHijo(navigator: string, nombre: string): string | null {
+  const componente = pantallasPorNavigator[navigator]?.[nombre];
+  if (!componente) return null;
+  return navPorComponente[componente] ?? null;
+}
+
+// El objeto literal balanceado que empieza en `src[i]` (que tiene que ser '{').
+function objetoBalanceado(src: string, i: number): string | null {
+  if (src[i] !== '{') return null;
+  let nivel = 0;
+  for (let j = i; j < src.length; j++) {
+    if (src[j] === '{') nivel++;
+    else if (src[j] === '}' && --nivel === 0) return src.slice(i, j + 1);
+  }
+  return null;
+}
+
+// Lo que viene DESPUES de `clave:` en el primer nivel del objeto, o null.
+function valorDeClave(objeto: string, clave: string): string | null {
+  let nivel = 0;
+  for (let i = 0; i < objeto.length; i++) {
+    const c = objeto[i];
+    if (c === '{') { nivel++; continue; }
+    if (c === '}') { nivel--; continue; }
+    if (nivel !== 1) continue;
+    if (!objeto.startsWith(clave, i)) continue;
+    if (/[\w$]/.test(objeto[i - 1] ?? '')) continue; // parte de otro identificador
+    const resto = objeto.slice(i + clave.length);
+    const sep = /^\s*:\s*/.exec(resto);
+    if (!sep) continue;
+    return resto.slice(sep[0].length);
+  }
+  return null;
+}
+
+// Cadenas de destino de las navegaciones ANIDADAS de un archivo.
+// `navigate('App', { screen: 'Explorar', params: { screen: 'Chat', … } })`
+// devuelve ['App', 'Explorar', 'Chat'].
+function cadenasAnidadas(src: string): string[][] {
+  const out: string[][] = [];
+  const re = /\.(?:navigate|replace|push)\(\s*'([^']+)'\s*,\s*/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const inicio = m.index + m[0].length;
+    let objeto = objetoBalanceado(src, inicio);
+    const cadena = [m[1]];
+    while (objeto) {
+      const trasScreen = valorDeClave(objeto, 'screen');
+      const nombre = trasScreen ? /^'([^']+)'/.exec(trasScreen)?.[1] : undefined;
+      if (!nombre) break;
+      cadena.push(nombre);
+      const trasParams = valorDeClave(objeto, 'params');
+      objeto = trasParams && trasParams.startsWith('{') ? objetoBalanceado(trasParams, 0) : null;
+    }
+    if (cadena.length > 1) out.push(cadena);
+  }
+  return out;
+}
+
+// Recorre la cadena por los navigators de verdad. Devuelve el primer eslabon
+// que NO existe donde deberia, o null si la cadena entera es alcanzable.
+// Arranca sin saber desde donde se llama: busca el primer nombre en TODOS los
+// navigators (un `navigate` anidado es absoluto solo desde 'App'; desde una
+// pestaña tambien se usa `navigate('Perfil', { screen: … })`).
+function eslabonRoto(cadena: string[]): { paso: number; nombre: string; en: string[] } | null {
+  let posibles = new Set<string>();
+  for (const navigator of Object.keys(pantallasPorNavigator)) {
+    const hijo = navigatorHijo(navigator, cadena[0]);
+    if (hijo) posibles.add(hijo);
+  }
+  // El primer nombre no monta ningun navigator anidado (o no lo conocemos):
+  // no hay nada que validar acá, de eso se encarga el chequeo de destinos
+  // pelados de mas arriba.
+  if (posibles.size === 0) return null;
+
+  for (let paso = 1; paso < cadena.length; paso++) {
+    const nombre = cadena[paso];
+    const donde = [...posibles];
+    const validos = donde.filter((nav) => pantallasPorNavigator[nav]?.[nombre]);
+    if (validos.length === 0) return { paso, nombre, en: donde };
+    const siguientes = new Set<string>();
+    for (const nav of validos) {
+      const hijo = navigatorHijo(nav, nombre);
+      if (hijo) siguientes.add(hijo);
+    }
+    if (siguientes.size === 0) return null; // llegamos a una hoja: cadena completa
+    posibles = siguientes;
+  }
+  return null;
+}
+
+describe('el parser de navegacion anidada entiende los navigators de verdad', () => {
+  // Cordura del parser: si estas dos cosas dejaran de andar, el test de abajo
+  // pasaria siempre sin cubrir NADA (que es exactamente como se colo el bug).
+  it('sabe que entrar a la pestaña Adopcion monta su stack', () => {
+    expect(navigatorHijo('Stack', 'App')).toBe('Tab');
+    expect(navigatorHijo('Tab', 'Adopcion')).toBe('AdopcionStackNav');
+  });
+
+  it('lee la cadena completa de un navigate anidado', () => {
+    expect(
+      cadenasAnidadas("navigation.navigate('App', { screen: 'Adopcion', params: { screen: 'Chat', params: { a: 1 } } });"),
+    ).toEqual([['App', 'Adopcion', 'Chat']]);
+  });
+
+  it('caza una pestaña inexistente y tambien una pantalla inexistente', () => {
+    expect(eslabonRoto(['App', 'NoExisteEstaPestana', 'Chat'])).toMatchObject({ paso: 1 });
+    expect(eslabonRoto(['App', 'Adopcion', 'NoExisteEstaPantalla'])).toMatchObject({ paso: 2 });
+    expect(eslabonRoto(['App', 'Adopcion', 'Chat'])).toBeNull();
+  });
+});
+
+describe('toda navegacion anidada apunta a pestañas y pantallas que EXISTEN', () => {
+  const archivos = archivosDeFuente(SRC);
+
+  it('hay archivos de fuente para revisar', () => {
+    expect(archivos.length).toBeGreaterThan(30);
+  });
+
+  it('hay al menos una navegacion anidada en el repo (si no, el test no cubre nada)', () => {
+    const total = archivos.reduce((n, a) => n + cadenasAnidadas(readFileSync(a, 'utf8')).length, 0);
+    expect(total).toBeGreaterThan(3);
+  });
+
+  it('ninguna cadena anidada de src/ apunta a un nombre que no existe', () => {
+    const rotas: string[] = [];
+    for (const archivo of archivos) {
+      for (const cadena of cadenasAnidadas(readFileSync(archivo, 'utf8'))) {
+        const roto = eslabonRoto(cadena);
+        if (!roto) continue;
+        rotas.push(
+          `${relative(SRC, archivo)}: ${cadena.join(' → ')} · "${roto.nombre}" no existe en ${roto.en.join('/')}`,
+        );
+      }
+    }
+    expect(rotas).toEqual([]);
   });
 });
