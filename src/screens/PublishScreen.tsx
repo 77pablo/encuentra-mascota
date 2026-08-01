@@ -29,6 +29,9 @@ import { comunaDeCoords, comunasCercanas } from '../lib/comunas';
 // en que el dueño la puede contestar. Ver src/lib/radioSugerido.ts.
 import { Ambito, preguntarAmbito } from '../lib/radioSugerido';
 import { SelectorAmbito } from '../components/SelectorAmbito';
+import { RECOMPENSA_SI } from '../lib/recompensa';
+import { validarSenas } from '../lib/senaPrivada';
+import { guardarSenasPrivadas } from '../services/senasPrivadas';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -73,7 +76,15 @@ export default function PublishScreen({ navigation, route }: any) {
   const [descripcion, setDescripcion] = useState(
     typeof params.descripcion === 'string' ? params.descripcion : '',
   );
-  const [recompensa, setRecompensa] = useState('');
+  // Interruptor, ya no un campo de texto: el MONTO no se publica (ver
+  // lib/recompensa.ts), así que pedirlo era invitar a escribir una cifra que
+  // después no íbamos a mostrar. La columna sigue siendo texto y los reportes
+  // viejos conservan lo suyo; lo nuevo guarda un centinela.
+  const [ofreceRecompensa, setOfreceRecompensa] = useState(false);
+  const recompensa = ofreceRecompensa ? RECOMPENSA_SI : '';
+  // Seña secreta de verificación (migración 0047). NO se publica en ningún lado.
+  const [sena1, setSena1] = useState('');
+  const [sena2, setSena2] = useState('');
   const [fotoUris, setFotoUris] = useState<string[]>(
     typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
   );
@@ -237,6 +248,13 @@ export default function PublishScreen({ navigation, route }: any) {
       notify('Revisá el texto', moderacion.motivo);
       return;
     }
+    // La seña no pasa por el schema del reporte (no vive en `pets`), así que se
+    // valida acá antes de subir nada.
+    const senasOk = validarSenas(sena1, sena2);
+    if (!senasOk.ok) {
+      notify('Revisá la seña', senasOk.motivo);
+      return;
+    }
     if (fotoUris.length === 0) {
       notify('Falta la foto', 'Agrega al menos una foto de la mascota.');
       return;
@@ -281,6 +299,14 @@ export default function PublishScreen({ navigation, route }: any) {
       } catch (e: any) {
         if (esRechazoDePermiso(e)) await borrarFotosSubidas(urls, user!.id);
         throw e;
+      }
+      // La seña se guarda DESPUÉS y aparte, y su fracaso NO tumba la publicación:
+      // el reporte ya existe y una mascota perdida importa más que un extra. Sin
+      // la migración 0047 aplicada devuelve false y no pasa nada.
+      try {
+        await guardarSenasPrivadas(nuevoPet.id, user!.id, sena1, sena2);
+      } catch (e: any) {
+        console.warn('No se pudo guardar la seña secreta del reporte:', e?.message ?? e);
       }
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
@@ -389,8 +415,43 @@ export default function PublishScreen({ navigation, route }: any) {
             onChangeText={setDescripcion}
             multiline
           />
-          <Input placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} />
-          {recompensa.trim().length > 0 ? <AvisoEstafa variante="recompensa" /> : null}
+          <View style={styles.recompensaRow}>
+            <Chip
+              label={ofreceRecompensa ? 'Ofrezco recompensa' : '¿Ofrecés recompensa?'}
+              active={ofreceRecompensa}
+              onPress={() => setOfreceRecompensa((v) => !v)}
+            />
+          </View>
+          {ofreceRecompensa ? (
+            <>
+              <AppText muted size={12} style={styles.ayuda}>
+                En el aviso solo va a decir «hay recompensa». El monto no se publica: la
+                cifra atrae estafadores y hace que la gente persiga al animal, que es
+                justo lo que no queremos. Lo arreglás en persona con quien la encuentre.
+              </AppText>
+              <AvisoEstafa variante="recompensa" />
+            </>
+          ) : null}
+
+          {/* SEÑA SECRETA — el corazón de la protección contra estafas. */}
+          <View style={styles.senaBloque}>
+            <Title size={15}>Seña secreta (opcional)</Title>
+            <AppText muted size={12} style={styles.ayuda}>
+              Una o dos cosas que NO se publican: una cicatriz, una mancha en un lugar
+              poco visible, algo que hace, cómo responde a un nombre. Cuando alguien te
+              escriba diciendo que la tiene, pedile que te las describa. Solo las ves vos.
+            </AppText>
+            <Input
+              placeholder="Ej: cicatriz chica en la panza"
+              value={sena1}
+              onChangeText={setSena1}
+            />
+            <Input
+              placeholder="Ej: se sienta cuando le decís «cama»"
+              value={sena2}
+              onChangeText={setSena2}
+            />
+          </View>
 
           {fotoUris.length < MAX_FOTOS ? (
             <View style={styles.photoButtonsRow}>
@@ -553,6 +614,21 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
     paddingBottom: spacing.xxxl,
+  },
+  recompensaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  ayuda: {
+    lineHeight: 17,
+  },
+  senaBloque: {
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingTop: spacing.md,
+    marginTop: spacing.xs,
   },
   pageTitle: {
     marginBottom: spacing.xs,

@@ -25,6 +25,10 @@ import { bloqueEmitido, bloquear, desbloquear } from '../services/bloqueos';
 import { denunciarMensaje, denunciarUsuario, MOTIVOS_DENUNCIA } from '../services/moderation';
 import { confirmAction, notify } from '../lib/notify';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
+import { obtenerSenasPrivadas } from '../services/senasPrivadas';
+import { hayPedidoDeDinero } from '../lib/pedidoDeDinero';
+import { listaDeSenas, type SenasPrivadas } from '../lib/senaPrivada';
+import AvisoDuenoChat from '../components/AvisoDuenoChat';
 import { AppText, AvisoEstafa, Button, Screen } from '../ui';
 import { font, radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -75,6 +79,15 @@ export default function ChatScreen({ route, navigation }: any) {
   // la RLS no lo deja leer. Guarda el id del mensaje elegido, o null.
   const [mensajeADenunciar, setMensajeADenunciar] = useState<string | null>(null);
   const [enviandoDenunciaMensaje, setEnviandoDenunciaMensaje] = useState(false);
+  // Seña secreta de verificación (migración 0047). Solo llega si este chat es
+  // sobre un reporte MÍO: la RLS de la tabla de señas no devuelve la fila a nadie
+  // más, así que acá no hay que chequear la propiedad a mano. Si la migración no
+  // está aplicada, o el dueño no guardó ninguna, queda en null y el aviso
+  // simplemente no se dibuja.
+  const [senas, setSenas] = useState<SenasPrivadas | null>(null);
+  // ¿Alguien pidió plata por adelantado en este hilo? Deliberadamente
+  // conservador: ver lib/pedidoDeDinero.ts.
+  const alertaPago = useMemo(() => hayPedidoDeDinero(messages, me), [messages, me]);
 
   useEffect(() => {
     markThreadRead(ctx, me, otherUserId)
@@ -102,6 +115,17 @@ export default function ChatScreen({ route, navigation }: any) {
     setMostrarMotivos(false);
     setMensajeADenunciar(null);
     setBloqueado(false);
+    // Igual que el resto del estado de arriba: se resetea porque React Navigation
+    // reusa esta pantalla entre chats, y la seña de un reporte no puede quedar
+    // pegada en la conversación de otro.
+    setSenas(null);
+    if (petId) {
+      // `obtenerSenasPrivadas` no tira nunca (ver el servicio): sin migración,
+      // sin fila o sin permiso devuelve null y el chat sigue igual que siempre.
+      obtenerSenasPrivadas(petId).then((s) => {
+        if (vivo) setSenas(s);
+      });
+    }
     // ¿Ya bloqueé a esta persona? Silencioso: si falla (tabla 0022 sin aplicar)
     // dejamos el chat como está.
     bloqueEmitido(otherUserId)
@@ -133,7 +157,7 @@ export default function ChatScreen({ route, navigation }: any) {
     return () => {
       vivo = false;
     };
-  }, [otherUserId]);
+  }, [otherUserId, petId]);
 
   // Nombre a mostrar en el renglón tocable "Sobre: …" (solo hilos de
   // adopción). Silencioso: si la publicación ya no está disponible o falla la
@@ -457,6 +481,15 @@ export default function ChatScreen({ route, navigation }: any) {
                 style={styles.reasonButton}
               />
             ))}
+          </View>
+        ) : null}
+        {/* El aviso ÚTIL va primero: la seña para verificar a quien dice tener a
+            la mascota, y la alerta si alguien pidió plata por adelantado. Se
+            dibuja solo (null) cuando no hay nada que decir. Debajo queda el aviso
+            genérico de siempre. */}
+        {listaDeSenas(senas).length > 0 || alertaPago ? (
+          <View style={styles.aviso}>
+            <AvisoDuenoChat senas={senas} alertaPago={alertaPago} />
           </View>
         ) : null}
         <View style={styles.aviso}>

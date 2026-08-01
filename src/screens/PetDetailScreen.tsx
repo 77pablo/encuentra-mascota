@@ -42,6 +42,7 @@ import AficheGenerator from '../components/AficheGenerator';
 import TarjetaGenerador from '../components/TarjetaGenerador';
 import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
 import { faltaWhatsapp } from '../lib/afiche';
+import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
 import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
@@ -596,12 +597,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
           <PlanBusqueda pet={pet} navigation={navigation} onAfiche={crearAfiche} />
         ) : null}
 
-        {pet.recompensa ? (
+        {/* Se anuncia que HAY recompensa, nunca cuánto. Los reportes viejos
+            siguen teniendo la cifra guardada en la base: no se borró nada, es la
+            VISTA la que dejó de mostrarla. Ver lib/recompensa.ts. */}
+        {tieneRecompensa(pet.recompensa) ? (
           <>
             <View style={styles.rewardPill}>
               <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
               <AppText weight="bold" size={14} color={colors.ink}>
-                Recompensa: {pet.recompensa}
+                {ETIQUETA_RECOMPENSA}
               </AppText>
             </View>
             <View style={styles.avisoEstafa}>

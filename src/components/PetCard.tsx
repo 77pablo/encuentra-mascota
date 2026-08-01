@@ -8,6 +8,7 @@ import { useColors } from '../theme/ThemeProvider';
 import { Pet } from '../services/pets';
 import { distanceLabel } from '../lib/geo';
 import { timeAgo } from '../lib/time';
+import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
 import { useFavorites } from '../hooks/useFavorites';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 
@@ -68,10 +69,10 @@ export default function PetCard({
                 {pet.descripcion}
               </AppText>
             ) : null}
-            {pet.recompensa ? (
+            {tieneRecompensa(pet.recompensa) ? (
               <View style={styles.rewardPill}>
                 <AppText weight="bold" size={12} color={colors.ink}>
-                  🎁 Recompensa: {pet.recompensa}
+                  🎁 {ETIQUETA_RECOMPENSA}
                 </AppText>
               </View>
             ) : null}

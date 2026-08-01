@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // GUARDRAIL ESTATICO de la migracion 0045 — se puede DESHACER una suspension.
@@ -116,7 +116,12 @@ describe('0045 es segura de aplicar en cualquier momento', () => {
   });
 });
 
-// El guardrail de "esta es la ultima migracion del repo" se mudo a
-// __tests__/db/migracion0046.test.ts, que es donde vive ahora la ultima.
-// Viaja SIEMPRE con la mas nueva: su gracia es ponerse rojo cuando aparece otra
-// sin que nadie revise el orden de aplicacion.
+// El guardrail de "esta es la ultima migracion del repo" YA NO VIVE ACA: viaja
+// siempre con la migracion mas nueva, que hoy es la 0048 (cuadrilla).
+//
+// En la tanda 10 los tres agentes que agregaron migracion lo mudaron cada uno a
+// su archivo, en paralelo y sin saberlo, y el merge dejo tres copias apuntando a
+// numeros distintos. Tiene que existir UNA sola, la del numero mas alto: si hay
+// dos, la vieja se pone roja para siempre y se termina borrando el guardrail
+// entero, que es justo lo que evita que alguien agregue una migracion sin que
+// nadie revise el orden de aplicacion.

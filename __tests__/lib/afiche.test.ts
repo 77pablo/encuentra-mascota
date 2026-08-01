@@ -86,9 +86,11 @@ describe('armarAfiche', () => {
     expect(c.titular).toBe('¿CONOCÉS A ESTA MASCOTA?');
   });
 
-  it('incluye recompensa solo si tiene valor', () => {
-    expect(armarAfiche(pet({ recompensa: '' }), null).recompensa).toBeNull();
-    expect(armarAfiche(pet({ recompensa: '$50.000' }), null).recompensa).toBe('$50.000');
+  it('avisa que HAY recompensa, sin llevarse el monto', () => {
+    // El monto no viaja al afiche: `hayRecompensa` es un booleano a propósito.
+    // El detalle de por qué está en __tests__/lib/recompensaSinMonto.test.ts.
+    expect(armarAfiche(pet({ recompensa: '' }), null).hayRecompensa).toBe(false);
+    expect(armarAfiche(pet({ recompensa: '$50.000' }), null).hayRecompensa).toBe(true);
   });
 
   it('toma la primera foto o null', () => {
