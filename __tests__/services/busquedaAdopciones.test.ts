@@ -3,6 +3,7 @@ import {
   TAMANO_PAGINA,
   AdopcionConDistancia,
 } from '../../src/services/busquedaAdopciones';
+import { ErrorAmigable } from '../../src/lib/dbErrors';
 
 const mockRpc = jest.fn();
 
@@ -125,5 +126,76 @@ describe('buscarAdopciones', () => {
     mockRpc.mockResolvedValue({ data: [], error: null });
     await buscarAdopciones({}, null, 5);
     expect(mockRpc.mock.calls[0][1].p_limite).toBe(5);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// TEXTO Y EDAD (migración 0052) — y su degradación, que es lo delicado.
+//
+// La trampa: PostgREST resuelve la función por el JUEGO DE NOMBRES de los
+// argumentos. Mandar `p_texto` contra una base donde la 0052 todavía no corrió
+// devuelve PGRST202 y se cae el feed ENTERO, no solo el filtro. Por eso los dos
+// parámetros nuevos se mandan SOLO cuando se están usando: sin texto ni edad,
+// la llamada es byte por byte la de siempre y el feed sigue andando igual.
+// ───────────────────────────────────────────────────────────────────────────
+describe('buscarAdopciones — texto y edad (0052)', () => {
+  it('manda p_texto ya recortado cuando hay búsqueda', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await buscarAdopciones({ texto: '  cachorrito negro  ' });
+    expect(mockRpc.mock.calls[0][1].p_texto).toBe('cachorrito negro');
+  });
+
+  it('manda p_edad cuando se filtra por edad', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await buscarAdopciones({ edad: 'senior' });
+    expect(mockRpc.mock.calls[0][1].p_edad).toBe('senior');
+  });
+
+  it('SIN texto ni edad, la llamada no lleva ni p_texto ni p_edad', async () => {
+    // No es cosmético: si fueran siempre (aunque en null), PostgREST no
+    // encontraría la firma vieja y el feed se caería entero hasta que alguien
+    // corra el SQL.
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await buscarAdopciones({ especie: 'perro', comuna: 'Ñuñoa' });
+    const enviados = Object.keys(mockRpc.mock.calls[0][1]);
+    expect(enviados).not.toContain('p_texto');
+    expect(enviados).not.toContain('p_edad');
+  });
+
+  it('texto en blanco o de puros espacios tampoco agrega el parámetro', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await buscarAdopciones({ texto: '   ' });
+    expect(Object.keys(mockRpc.mock.calls[0][1])).not.toContain('p_texto');
+  });
+
+  it('con la 0052 sin aplicar y filtro nuevo puesto, explica cómo volver al feed', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'schema cache' } });
+    const e = await buscarAdopciones({ texto: 'negro' }).then(
+      () => null,
+      (err: any) => err,
+    );
+    // Tiene que ser un mensaje NUESTRO (ErrorAmigable), no el crudo de
+    // PostgREST, y tiene que decir qué soltar para recuperar el listado.
+    expect(e).toBeInstanceOf(ErrorAmigable);
+    expect(e.message).toMatch(/texto/i);
+    expect(e.message).toMatch(/quit/i);
+    expect(e.message).not.toMatch(/schema cache/i);
+  });
+
+  it('el mismo PGRST202 SIN filtros nuevos se propaga tal cual (no lo disfrazamos)', async () => {
+    // Si acá también dijéramos "quitá el filtro", el mensaje sería absurdo: no
+    // hay ningún filtro puesto y el problema es otro.
+    const err = { code: 'PGRST202', message: 'schema cache' };
+    mockRpc.mockResolvedValue({ data: null, error: err });
+    await expect(buscarAdopciones({ especie: 'gato' })).rejects.toEqual(err);
+  });
+
+  it('un error que NO es "falta la migración" se propaga aunque haya texto', async () => {
+    // Un corte de red con el buscador escrito no puede decir "quitá el filtro":
+    // sacarlo no arregla nada y la persona se queda buscando el problema donde
+    // no está.
+    const err = { code: '08006', message: 'connection failure' };
+    mockRpc.mockResolvedValue({ data: null, error: err });
+    await expect(buscarAdopciones({ texto: 'negro' })).rejects.toEqual(err);
   });
 });

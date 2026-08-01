@@ -4,10 +4,12 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { useAuth } from '../hooks/useAuth';
-import { Adoption, listMyAdoptions } from '../services/adoptions';
+import { Adoption, listMyAdoptions, renovarAdopcion } from '../services/adoptions';
 import { AppText, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
+import { DIAS_VIGENCIA_ADOPCION, enPausa } from '../lib/cicloVidaAdopcion';
+import { notify } from '../lib/notify';
 
 // MIS PUBLICACIONES DE ADOPCIÓN.
 //
@@ -36,6 +38,7 @@ export default function MisAdopcionesScreen() {
   const [adopciones, setAdopciones] = useState<Adoption[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [reactivando, setReactivando] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     if (!user) {
@@ -58,6 +61,23 @@ export default function MisAdopcionesScreen() {
   }, [user]);
 
   useFocusEffect(cargar);
+
+  // CICLO DE VIDA (0052). Se relee la lista a propósito en vez de parchear la
+  // fila en memoria: si no, la etiqueta "EN PAUSA" se queda pegada y la persona
+  // vuelve a tocar el botón creyendo que no funcionó.
+  const reactivar = async (id: string) => {
+    setReactivando(id);
+    try {
+      await renovarAdopcion(id);
+      cargar();
+    } catch (e: any) {
+      // Se avisa y NO se toca la etiqueta: fingir que volvió es peor que el
+      // error, porque nadie iría a mirar de nuevo.
+      notify('No se pudo reactivar', mensajeDeErrorDb(e));
+    } finally {
+      setReactivando(null);
+    }
+  };
 
   if (loading) return <Loading />;
 
@@ -115,6 +135,7 @@ export default function MisAdopcionesScreen() {
           <View style={styles.list}>
             {adopciones.map((a) => {
               const adoptada = !!a.adoptada_en;
+              const dormida = enPausa(a);
               return (
                 <TouchableOpacity
                   key={a.id}
@@ -153,10 +174,40 @@ export default function MisAdopcionesScreen() {
                               </AppText>
                             </View>
                           ) : null}
+                          {/* Igual que "OCULTA": una publicación que salió del
+                              listado y no lo dice parece borrada. */}
+                          {dormida ? (
+                            <View style={[styles.etiqueta, styles.etiquetaPausa]}>
+                              <AppText size={11} weight="bold" style={styles.etiquetaTexto}>
+                                EN PAUSA
+                              </AppText>
+                            </View>
+                          ) : null}
                         </View>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color={colors.muted} />
                     </View>
+
+                    {dormida ? (
+                      <View style={styles.pausaWrap}>
+                        <AppText muted size={13}>
+                          Pasaron {DIAS_VIGENCIA_ADOPCION} días sin novedades, así que dejó de
+                          aparecer en el listado: por ahora no la están viendo. Si todavía busca
+                          familia, la traés de vuelta con un toque.
+                        </AppText>
+                        <Button
+                          title="Reactivar"
+                          variant="secondary"
+                          loading={reactivando === a.id}
+                          disabled={reactivando === a.id}
+                          onPress={(e: any) => {
+                            e?.stopPropagation?.();
+                            reactivar(a.id);
+                          }}
+                          style={styles.pausaBoton}
+                        />
+                      </View>
+                    ) : null}
                   </Card>
                 </TouchableOpacity>
               );
@@ -193,6 +244,9 @@ const crearEstilos = (colors: Colors) =>
     },
     etiquetaFeliz: { backgroundColor: colors.sky },
     etiquetaOculta: { backgroundColor: colors.line },
+    etiquetaPausa: { backgroundColor: colors.line },
+    pausaWrap: { gap: spacing.sm, marginTop: spacing.md },
+    pausaBoton: { alignSelf: 'flex-start', paddingHorizontal: spacing.lg },
     etiquetaTexto: { color: colors.muted },
     etiquetaTextoFeliz: { color: colors.found },
   });
