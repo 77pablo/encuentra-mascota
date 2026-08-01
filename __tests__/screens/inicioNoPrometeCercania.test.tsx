@@ -70,7 +70,8 @@ jest.mock('../../src/services/busqueda', () => ({
 jest.mock('../../src/services/pets', () => ({ countReunidas: () => Promise.resolve(0) }));
 jest.mock('../../src/services/reunions', () => ({ listFinalesFelices: () => Promise.resolve([]) }));
 jest.mock('../../src/services/profile', () => ({ getMyProfile: () => Promise.resolve(null) }));
-jest.mock('../../src/services/impacto', () => ({ getImpacto: () => Promise.resolve(null) }));
+let mockImpacto: any = null;
+jest.mock('../../src/services/impacto', () => ({ getImpacto: () => Promise.resolve(mockImpacto) }));
 jest.mock('../../src/lib/notify', () => ({
   notify: jest.fn(),
   confirmAction: () => Promise.resolve(false),
@@ -121,10 +122,61 @@ beforeEach(() => {
   mockBuscarReportes.mockReset().mockResolvedValue({ reportes: [], cursor: null });
   mockCoords = null;
   mockEstadoUbicacion = 'idle';
+  mockImpacto = null;
 });
+
+/** Todo el texto renderizado de la pantalla, aplanado. */
+function todoElTexto(arbol: any): string {
+  return JSON.stringify(arbol.toJSON());
+}
 
 afterEach(async () => {
   await act(async () => {});
+});
+
+// Pablo lo vio en producción: la tarjeta decía "1 mascotas buscando", y peor,
+// "1 encontraron familia" — un verbo en plural con un solo sujeto. Las cuatro
+// etiquetas estaban escritas fijas en plural.
+describe('la tarjeta de impacto concuerda en número', () => {
+  it('con 1 usa el singular en las cuatro etiquetas', async () => {
+    mockImpacto = { reencuentros: 1, buscando: 1, adopciones: 1, aportes: 1 };
+    const t = todoElTexto(await montar());
+
+    expect(t).toContain('mascota buscando');
+    expect(t).not.toContain('mascotas buscando');
+    expect(t).toContain('encontró familia');
+    expect(t).not.toContain('encontraron familia');
+    expect(t).toContain('aporte de un vecino');
+    // "reencuentro" es prefijo de "reencuentros", asi que se comprueba al reves.
+    expect(t).not.toContain('reencuentros');
+  });
+
+  it('con 0 usa el PLURAL, que es lo correcto en español', async () => {
+    // Mixto a propósito: con TODO en cero la tarjeta no se renderiza (`hasImpacto`
+    // exige que algún número sea > 0), así que un caso todo-en-cero no probaría
+    // nada. Acá los ceros conviven con números reales.
+    mockImpacto = { reencuentros: 0, buscando: 5, adopciones: 0, aportes: 2 };
+    const t = todoElTexto(await montar());
+
+    expect(t).toContain('reencuentros'); // "0 reencuentros", no "0 reencuentro"
+    expect(t).toContain('encontraron familia');
+    expect(t).toContain('mascotas buscando');
+    expect(t).toContain('aportes de vecinos');
+  });
+
+  it('con todo en cero la tarjeta ni se muestra', async () => {
+    mockImpacto = { reencuentros: 0, buscando: 0, adopciones: 0, aportes: 0 };
+    expect(todoElTexto(await montar())).not.toContain('Lo que logramos juntos');
+  });
+
+  it('con varios usa el plural', async () => {
+    mockImpacto = { reencuentros: 12, buscando: 7, adopciones: 3, aportes: 40 };
+    const t = todoElTexto(await montar());
+
+    expect(t).toContain('mascotas buscando');
+    expect(t).toContain('encontraron familia');
+    expect(t).toContain('aportes de vecinos');
+  });
 });
 
 describe('la sección de reportes de Inicio', () => {

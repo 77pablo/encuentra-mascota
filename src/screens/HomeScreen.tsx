@@ -17,6 +17,7 @@ import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
+import { pluralizar } from '../lib/plural';
 import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
 import { BannerVigencia } from '../components/BannerVigencia';
 import { InstalarAppCard } from '../components/InstalarAppCard';
@@ -446,7 +447,7 @@ export default function HomeScreen({ navigation }: any) {
                   {impacto!.reencuentros}
                 </AppText>
                 <AppText muted size={12}>
-                  reencuentros
+                  {pluralizar(impacto!.reencuentros, 'reencuentro', 'reencuentros')}
                 </AppText>
               </View>
               {/* `buscando` cuenta SOLO los reportes de mascotas perdidas
@@ -460,7 +461,7 @@ export default function HomeScreen({ navigation }: any) {
                   {impacto!.buscando}
                 </AppText>
                 <AppText muted size={12}>
-                  mascotas buscando
+                  {pluralizar(impacto!.buscando, 'mascota buscando', 'mascotas buscando')}
                 </AppText>
               </View>
               <View style={styles.impactoItem}>
@@ -469,7 +470,7 @@ export default function HomeScreen({ navigation }: any) {
                   {impacto!.adopciones}
                 </AppText>
                 <AppText muted size={12}>
-                  encontraron familia
+                  {pluralizar(impacto!.adopciones, 'encontró familia', 'encontraron familia')}
                 </AppText>
               </View>
               <View style={styles.impactoItem}>
@@ -478,7 +479,7 @@ export default function HomeScreen({ navigation }: any) {
                   {impacto!.aportes}
                 </AppText>
                 <AppText muted size={12}>
-                  aportes de vecinos
+                  {pluralizar(impacto!.aportes, 'aporte de un vecino', 'aportes de vecinos')}
                 </AppText>
               </View>
             </View>
