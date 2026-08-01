@@ -7,6 +7,7 @@ import { getPet, Pet } from '../services/pets';
 import { useAuth } from '../hooks/useAuth';
 import { shareReport } from '../lib/share';
 import { timeAgo } from '../lib/time';
+import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
 import { AppText, AvisoEstafa, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
 import { Colors, radius, spacing } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -151,12 +152,14 @@ export default function PublicPetScreen({ route, navigation }: any) {
           </AppText>
         </Card>
 
-        {pet.recompensa ? (
+        {/* El MONTO no se publica (PetFBI): atrae al que llama diciendo "la tengo,
+            transferime", e incentiva a perseguir al animal. Ver lib/recompensa.ts. */}
+        {tieneRecompensa(pet.recompensa) ? (
           <>
             <View style={styles.rewardPill}>
               <Ionicons name="sunny" size={16} color={colors.ink} style={styles.rewardIcon} />
               <AppText weight="bold" size={14} color={colors.ink}>
-                Recompensa: {pet.recompensa}
+                {ETIQUETA_RECOMPENSA}
               </AppText>
             </View>
             <View style={styles.avisoEstafa}>

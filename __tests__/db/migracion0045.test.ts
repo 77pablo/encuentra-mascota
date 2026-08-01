@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // GUARDRAIL ESTATICO de la migracion 0045 — se puede DESHACER una suspension.
@@ -116,15 +116,6 @@ describe('0045 es segura de aplicar en cualquier momento', () => {
   });
 });
 
-// Este guardrail viaja SIEMPRE con la ultima migracion del repo (venia en
-// migracion0044.test.ts). Su sentido es avisar cuando aparece una migracion
-// nueva sin que se revise el orden de aplicacion.
-describe('0045 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(45);
-  });
-});
+// El guardrail de "esta es la ultima migracion del repo" se MUDO a
+// __tests__/db/senasPrivadas.test.ts junto con la 0047, que es la que ahora
+// cierra la lista. Viaja siempre con la ultima; no se duplica.

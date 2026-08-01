@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { petSchema } from '../schemas/pet';
 import { Pet, updatePet } from '../services/pets';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import { notify } from '../lib/notify';
-import { AppText, Button, Card, Input, Screen, Title } from '../ui';
+import { RECOMPENSA_SI, tieneRecompensa } from '../lib/recompensa';
+import { validarSenas } from '../lib/senaPrivada';
+import { guardarSenasPrivadas, obtenerSenasPrivadas } from '../services/senasPrivadas';
+import { AppText, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 
@@ -35,8 +38,29 @@ export default function EditPetScreen({ route, navigation }: any) {
   const [raza, setRaza] = useState(pet.raza ?? '');
   const [nombre, setNombre] = useState(pet.nombre ?? '');
   const [descripcion, setDescripcion] = useState(pet.descripcion ?? '');
-  const [recompensa, setRecompensa] = useState(pet.recompensa ?? '');
+  // Interruptor, no una cifra (ver lib/recompensa.ts). Un reporte VIEJO con
+  // "$50.000" guardado arranca encendido: el dato no se toca ni se pierde, y solo
+  // se reescribe con el centinela si la persona guarda cambios.
+  const [ofreceRecompensa, setOfreceRecompensa] = useState(tieneRecompensa(pet.recompensa));
+  const recompensa = ofreceRecompensa ? RECOMPENSA_SI : '';
+  // Seña secreta (migración 0047). Se cargan aparte porque no viven en `pets`.
+  const [sena1, setSena1] = useState('');
+  const [sena2, setSena2] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    // No tira nunca: sin migración, sin fila o sin permiso devuelve null y las
+    // casillas quedan vacías, listas para escribir la seña por primera vez.
+    obtenerSenasPrivadas(pet.id).then((s) => {
+      if (!vivo || !s) return;
+      setSena1(s.sena1 ?? '');
+      setSena2(s.sena2 ?? '');
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [pet.id]);
 
   const onSubmit = async () => {
     const parsed = petSchema.safeParse({
@@ -60,9 +84,18 @@ export default function EditPetScreen({ route, navigation }: any) {
       notify('Revisá el texto', moderacion.motivo);
       return;
     }
+    const senasOk = validarSenas(sena1, sena2);
+    if (!senasOk.ok) {
+      notify('Revisá la seña', senasOk.motivo);
+      return;
+    }
     setSaving(true);
     try {
       await updatePet(pet.id, { estado, especie, raza, nombre, descripcion, recompensa });
+      // Acá SÍ se deja propagar el error (a diferencia de al publicar): la
+      // persona apretó "Guardar cambios" y tiene que enterarse si su seña no
+      // quedó. Sin la migración 0047 devuelve false, sin ruido.
+      await guardarSenasPrivadas(pet.id, pet.user_id, sena1, sena2);
       notify('Guardado', 'Tu reporte se actualizó.');
       navigation.goBack();
     } catch (e: any) {
@@ -131,7 +164,36 @@ export default function EditPetScreen({ route, navigation }: any) {
             onChangeText={setDescripcion}
             multiline
           />
-          <Input placeholder="Recompensa (opcional)" value={recompensa} onChangeText={setRecompensa} />
+          <View style={styles.chipsRow}>
+            <Chip
+              label={ofreceRecompensa ? 'Ofrezco recompensa' : '¿Ofrecés recompensa?'}
+              active={ofreceRecompensa}
+              onPress={() => setOfreceRecompensa((v) => !v)}
+            />
+          </View>
+          {ofreceRecompensa ? (
+            <AppText muted size={12} style={styles.ayuda}>
+              En el aviso solo dice «hay recompensa». El monto no se publica: la cifra
+              atrae estafadores. Lo arreglás en persona con quien la encuentre.
+            </AppText>
+          ) : null}
+        </Card>
+
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            Seña secreta
+          </Title>
+          <AppText muted size={12} style={styles.ayuda}>
+            Una o dos cosas que NO se publican: una cicatriz, una mancha poco visible,
+            algo que hace. Cuando alguien te escriba diciendo que la tiene, pedile que
+            te las describa. Solo las ves vos.
+          </AppText>
+          <Input placeholder="Ej: cicatriz chica en la panza" value={sena1} onChangeText={setSena1} />
+          <Input
+            placeholder="Ej: se sienta cuando le decís «cama»"
+            value={sena2}
+            onChangeText={setSena2}
+          />
         </Card>
 
         <Button
@@ -158,6 +220,9 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: spacing.xs,
+  },
+  ayuda: {
+    lineHeight: 17,
   },
   chipsRow: {
     flexDirection: 'row',

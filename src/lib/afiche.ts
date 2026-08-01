@@ -1,13 +1,17 @@
 import { Pet } from '../services/pets';
 import { Profile } from '../services/profile';
 import { petUrl } from './links';
+import { tieneRecompensa } from './recompensa';
 
 export interface AficheContent {
   titular: string;
   nombre: string | null;
   subtitulo: string;
   senas: string;
-  recompensa: string | null;
+  // Un BOOLEANO, no el texto. El afiche se imprime y se pega en un poste: es la
+  // superficie más pública que tenemos. Si acá viviera la cifra, estaría a un
+  // `{content.recompensa}` de salir en la calle. Ver src/lib/recompensa.ts.
+  hayRecompensa: boolean;
   zonaTexto: string;
   foto: string | null;
   whatsappDigits: string;
@@ -56,7 +60,7 @@ export function armarAfiche(pet: Pet, profile: Pick<Profile, 'telefono'> | null)
     nombre: pet.nombre || null,
     subtitulo: armarSubtitulo(pet),
     senas: pet.descripcion,
-    recompensa: pet.recompensa || null,
+    hayRecompensa: tieneRecompensa(pet.recompensa),
     zonaTexto: 'Visto cerca de esta zona',
     foto: pet.fotos?.[0] ?? null,
     whatsappDigits: digits,

@@ -4,6 +4,7 @@ import { AppText } from '../ui';
 import { lightColors, font, radius, spacing } from '../theme';
 import QrCode from './QrCode';
 import { AficheContent } from '../lib/afiche';
+import { ETIQUETA_RECOMPENSA } from '../lib/recompensa';
 
 // Este afiche se rasteriza a PNG para imprimir: SIEMPRE debe quedar en paleta
 // clara, sin seguir el tema del sistema/usuario (si no, un afiche impreso
@@ -40,9 +41,11 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
 
       <AppText style={styles.senas}>{content.senas}</AppText>
 
-      {content.recompensa ? (
-        <View style={styles.recompensa}>
-          <AppText style={styles.recompensaText}>🎁 Recompensa: {content.recompensa}</AppText>
+      {/* Sin la cifra, a propósito: un afiche con el monto pegado en la calle es
+          el anzuelo perfecto para el que llama diciendo "la tengo, transferime". */}
+      {content.hayRecompensa ? (
+        <View style={styles.recompensaCaja}>
+          <AppText style={styles.recompensaText}>🎁 {ETIQUETA_RECOMPENSA}</AppText>
         </View>
       ) : null}
 
@@ -114,7 +117,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
-  recompensa: {
+  recompensaCaja: {
     alignSelf: 'center',
     backgroundColor: colors.sun,
     borderRadius: radius.pill,

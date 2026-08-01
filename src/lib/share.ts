@@ -1,6 +1,7 @@
 import { Linking, Platform, Share } from 'react-native';
 import { Pet } from '../services/pets';
 import { petUrl } from './links';
+import { ETIQUETA_RECOMPENSA, tieneRecompensa } from './recompensa';
 
 // Arma el texto de un reporte listo para compartir por WhatsApp u otra app.
 export function buildShareText(pet: Pet): string {
@@ -11,7 +12,9 @@ export function buildShareText(pet: Pet): string {
   const estado = comuna ? `${base} en ${comuna}` : base;
   const nombre = pet.nombre ? ` "${pet.nombre}"` : '';
   const raza = pet.raza ? ` (${pet.raza})` : '';
-  const recompensa = pet.recompensa ? `\n🎁 Recompensa: ${pet.recompensa}` : '';
+  // Sin la cifra: este texto termina reenviado en cadenas de WhatsApp que llegan
+  // mucho más lejos que el barrio, y el monto es justo el anzuelo.
+  const recompensa = tieneRecompensa(pet.recompensa) ? `\n🎁 ${ETIQUETA_RECOMPENSA}` : '';
   const foto = pet.fotos?.[0] ? `\n${pet.fotos[0]}` : '';
   const url = petUrl(pet.id);
   const link = url ? `\n👉 Ver ficha: ${url}` : '';
