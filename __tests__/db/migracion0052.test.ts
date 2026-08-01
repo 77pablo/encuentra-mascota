@@ -150,16 +150,34 @@ describe('buscar_adopciones: texto y edad', () => {
 describe('ciclo de vida: auto-archivado perezoso, sin cron', () => {
   it('la columna es aditiva y se puede reaplicar', () => {
     expect(codigo).toContain(
-      'alter table public.adoptions\n  add column if not exists renovado_en timestamptz default now();',
+      'alter table public.adoptions\n  add column if not exists renovado_en timestamptz;',
     );
   });
 
+  it('la columna NACE SIN default: si no, el backfill no hace nada', () => {
+    // Postgres rellena las filas existentes con el default en el mismo ALTER,
+    // asi que con `default now()` en el add ninguna fila queda en null y el
+    // `update … where renovado_en is null` de abajo toca CERO filas: el reloj
+    // arrancaria el dia de la migracion para todo el mundo y no se archivaria
+    // nada durante un trimestre entero. (La 0028 tiene ese bug sobre `pets`:
+    // su comentario dice una cosa y su SQL hace la otra.)
+    const add = codigo.slice(
+      codigo.indexOf('add column if not exists renovado_en'),
+      codigo.indexOf(';', codigo.indexOf('add column if not exists renovado_en')),
+    );
+    expect(add).not.toContain('default');
+  });
+
   it('las publicaciones viejas se anclan a su fecha de creacion', () => {
-    // Sin backfill, el reloj de 90 dias arrancaria el dia de la migracion para
-    // todo el mundo y no archivaria nada durante un trimestre.
     expect(codigo).toContain(
       'update public.adoptions set renovado_en = creado_en where renovado_en is null;',
     );
+  });
+
+  it('y recien DESPUES del backfill se pone el default, para las nuevas', () => {
+    const backfill = codigo.indexOf('update public.adoptions set renovado_en');
+    const def = codigo.indexOf('alter column renovado_en set default now()');
+    expect(def).toBeGreaterThan(backfill);
   });
 
   it('la consulta excluye lo no renovado (es el archivado: no hay cron)', () => {

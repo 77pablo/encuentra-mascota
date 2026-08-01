@@ -34,14 +34,31 @@
 -- ------------------------------------------------------------
 -- 1. `renovado_en` + backfill (calcado de la 0028 sobre `pets`)
 -- ------------------------------------------------------------
--- default now() para las publicaciones nuevas. Las viejas (renovado_en null
--- tras el add) se anclan a su fecha de creacion, para que el reloj arranque
--- desde que se publicaron y no desde la migracion — si no, no se archivaria
--- nada durante un trimestre entero.
+-- OJO CON EL ORDEN, Y NO ES UN DETALLE DE ESTILO:
+--
+-- La 0028 hace esto mismo sobre `pets` en un solo paso —
+-- `add column renovado_en timestamptz default now()` y despues
+-- `update … where renovado_en is null`— y ese update NO TOCA NINGUNA FILA.
+-- Postgres rellena las filas existentes con el default dentro del mismo
+-- ALTER, asi que ya no queda ninguna en null. El comentario de la 0028 dice
+-- que las viejas se anclan a su creacion; su SQL las ancla al dia de la
+-- migracion, y por eso el auto-archivado de `pets` no archivo nada durante los
+-- primeros 45 dias. Aca se hace en tres pasos para que el backfill exista de
+-- verdad:
+--
+--   1. la columna nace SIN default -> las filas viejas quedan en null;
+--   2. se las ancla a su `creado_en`, que es lo que hace que un aviso
+--      abandonado hace un año salga del feed apenas se aplique el SQL (que es
+--      el sentido entero de la funcion);
+--   3. recien ahi se pone el default, que es solo para las publicaciones
+--      nuevas.
 alter table public.adoptions
-  add column if not exists renovado_en timestamptz default now();
+  add column if not exists renovado_en timestamptz;
 
 update public.adoptions set renovado_en = creado_en where renovado_en is null;
+
+alter table public.adoptions
+  alter column renovado_en set default now();
 
 -- ------------------------------------------------------------
 -- 2. `buscar_adopciones` recreada
