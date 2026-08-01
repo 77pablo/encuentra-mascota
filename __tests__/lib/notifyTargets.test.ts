@@ -385,6 +385,98 @@ describe('componerAviso - escaneo_collar', () => {
   });
 });
 
+// Avistamiento anónimo (Tanda 11 · Tarea 2, migración 0050): lo encola alguien
+// SIN CUENTA desde la pantalla pública del reporte. Es el único tipo con
+// actorId siempre en null, y el que más depende de que el TEXTO diga la verdad:
+// no hay fila en `sightings` que mirar, así que lo que se sepa tiene que viajar
+// en el propio aviso.
+describe('resolverDestinatarios - avistamiento_anonimo', () => {
+  const evAnonimo: EventoAviso = {
+    id: 'an1', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+    targetUserId: 'dueno', datos: { nota: 'está en la plaza', lat: -33.45, lng: -70.66 },
+  };
+
+  it('le avisa al dueño del reporte', () => {
+    expect(resolverDestinatarios(evAnonimo, ctxBase)).toEqual([
+      { userId: 'dueno', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('respeta el interruptor de avistamientos: es un avistamiento', () => {
+    // Quien apagó "avistamientos" pidió no recibir esto. Que el aviso venga de
+    // alguien sin cuenta no lo convierte en otra cosa. Si cayera en el
+    // `return p.pistas` del final —que es lo que hace hoy el dispatcher
+    // desplegado con un tipo que no conoce— miraría el interruptor equivocado.
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: false, pistas: true,
+                 coincidencias: true, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evAnonimo, ctx)).toEqual([]);
+  });
+
+  it('respeta el filtro de canales', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        dueno: { userId: 'dueno', zona: true, avistamientos: true, pistas: true,
+                 coincidencias: true, canalEmail: false, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evAnonimo, ctx)[0].canales).toEqual(['push']);
+  });
+});
+
+describe('componerAviso - avistamiento_anonimo', () => {
+  it('dice que alguien la vio y lleva al reporte, con la nota adentro', () => {
+    const ev: EventoAviso = {
+      id: 'an2', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+      targetUserId: 'dueno', datos: { nota: 'está en la plaza, tranquila' },
+    };
+    expect(componerAviso(ev, ctxBase)).toEqual({
+      titulo: 'Alguien vio a Pelusa',
+      cuerpo: '"está en la plaza, tranquila" · Entrá a ver dónde fue.',
+      ruta: '/mascota/p1',
+    });
+  });
+
+  it('sin nota no deja huecos ni promete un detalle que no tiene', () => {
+    const ev: EventoAviso = {
+      id: 'an3', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+      targetUserId: 'dueno', datos: {},
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.cuerpo).not.toContain('undefined');
+    expect(aviso.cuerpo).not.toContain('null');
+    expect(aviso.cuerpo).not.toContain('""');
+    expect(aviso.ruta).toBe('/mascota/p1');
+  });
+
+  it('NO se compone como una pista: el texto de pista sería mentira', () => {
+    // Sin su propio branch, este tipo cae en el `return` final de componerAviso
+    // y sale "Dejaron una pista sobre Pelusa" con la nota perdida. Nadie dejó
+    // una pista: alguien está parado al lado del animal.
+    const ev: EventoAviso = {
+      id: 'an4', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+      targetUserId: 'dueno', datos: { nota: 'la tengo conmigo' },
+    };
+    expect(componerAviso(ev, ctxBase).titulo).not.toContain('pista');
+    expect(componerAviso(ev, ctxBase).cuerpo).toContain('la tengo conmigo');
+  });
+
+  it('sin nombre habla de "tu mascota", nunca de un hueco', () => {
+    const ev: EventoAviso = {
+      id: 'an5', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
+      targetUserId: 'dueno', datos: {},
+    };
+    expect(componerAviso(ev, { ...ctxBase, nombrePet: null }).titulo).toBe(
+      'Alguien vio a tu mascota',
+    );
+  });
+});
+
 // Búsqueda guardada (Función 2): aviso dirigido a UNA persona (quien guardó la
 // búsqueda), igual que escaneo_collar: el destinatario sale de targetUserId,
 // no del dueño de un reporte, y no pasa por ningún interruptor de tipo.
@@ -587,6 +679,7 @@ describe('elBloqueoApagaElAviso', () => {
       'pista',
       'escaneo_collar',
       'busqueda_guardada',
+      'avistamiento_anonimo',
     ];
     for (const tipo of resto) expect(elBloqueoApagaElAviso(tipo)).toBe(true);
   });

@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
+import { avisarSinCuenta } from '../services/avisoAnonimo';
 import { useAuth } from '../hooks/useAuth';
+import { notify } from '../lib/notify';
 import { shareReport } from '../lib/share';
 import { timeAgo } from '../lib/time';
 import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
-import { AppText, AvisoEstafa, Badge, Button, Card, ErrorState, Loading, Screen, Title } from '../ui';
+import { AppText, AvisoEstafa, Badge, Button, Card, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { Colors, radius, spacing } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 
@@ -31,6 +34,13 @@ export default function PublicPetScreen({ route, navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // "Lo vi acá": el aviso que puede dejar alguien SIN CUENTA (migración 0050).
+  const [nota, setNota] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [avisado, setAvisado] = useState(false);
+  const [errorAviso, setErrorAviso] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     if (!id) {
@@ -97,6 +107,41 @@ export default function PublicPetScreen({ route, navigation }: any) {
       navigation.replace('Login');
     }
   };
+
+  // La ubicación es OPCIONAL y se pide solo si la persona la ofrece. Pedir el
+  // permiso de GPS al entrar, sin que nadie lo haya pedido, es la forma más
+  // rápida de que cierren la pestaña.
+  const usarUbicacion = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      notify('Sin permiso', 'No pasa nada: podés avisar igual, sin la ubicación.');
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync({});
+    setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+  };
+
+  const avisar = async () => {
+    setEnviando(true);
+    setErrorAviso(null);
+    try {
+      // El servicio difumina el punto antes de mandarlo: la coordenada exacta
+      // de quien avisa (que está parado ahí) no se guarda en ninguna parte.
+      await avisarSinCuenta(pet.id, { nota, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+      setAvisado(true);
+    } catch (e: any) {
+      // Solo se agradece si de verdad salió. Decir "listo" con el aviso caído
+      // manda a esa persona a su casa creyendo que la familia ya sabe.
+      setErrorAviso(mensajeDeErrorDb(e));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  // Quién ve la tarjeta: cualquiera que NO sea el dueño, en un reporte de
+  // mascota PERDIDA y todavía activo. En un "encontrada" el animal ya está con
+  // alguien y quien publicó no espera avistamientos, busca a la familia.
+  const puedeAvisar = !esMio && pet.estado === 'perdida' && pet.activo !== false;
 
   return (
     <Screen>
@@ -174,6 +219,58 @@ export default function PublicPetScreen({ route, navigation }: any) {
         >
           <Marker coordinate={{ latitude: pet.lat, longitude: pet.lng }} />
         </MapView>
+
+        {/* AVISAR SIN CUENTA. Va ANTES del botón de contacto a propósito: quien
+            llega acá desde el QR de un afiche o un link de WhatsApp está en la
+            vereda con el animal al lado, y para esa persona "iniciá sesión" es
+            una pared. Esto tiene que poder hacerse en veinte segundos. */}
+        {puedeAvisar ? (
+          avisado ? (
+            <Card style={styles.avisoOkCard}>
+              <View style={styles.avisoOkRow}>
+                <Ionicons name="checkmark-circle" size={24} color={colors.found} />
+                <AppText weight="semi" size={16} style={styles.avisoOkText}>
+                  Listo, su familia ya sabe.
+                </AppText>
+              </View>
+              <AppText muted size={13}>
+                Gracias por parar. Eso hace toda la diferencia.
+              </AppText>
+            </Card>
+          ) : (
+            <Card style={styles.avisoCard}>
+              <Title size={18}>¿La estás viendo?</Title>
+              <AppText muted size={14} style={styles.avisoTexto}>
+                Avisale a su familia. No hace falta cuenta ni dejar tus datos.
+              </AppText>
+              <Input
+                label="Algo que ayude (opcional)"
+                placeholder="Ej: está en la plaza, tranquila"
+                value={nota}
+                onChangeText={setNota}
+                multiline
+              />
+              <Button
+                title={coords ? 'Ubicación agregada' : 'Sumar dónde estoy'}
+                icon={coords ? 'checkmark' : 'location'}
+                variant="secondary"
+                onPress={usarUbicacion}
+              />
+              {errorAviso ? (
+                <AppText size={13} color={colors.lost}>
+                  {errorAviso}
+                </AppText>
+              ) : null}
+              <Button
+                title="Lo vi acá"
+                icon="paw"
+                onPress={avisar}
+                loading={enviando}
+                disabled={enviando}
+              />
+            </Card>
+          )
+        ) : null}
 
         {!esMio && (
           <Button
@@ -268,6 +365,26 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     height: 160,
     borderRadius: radius.md,
     marginTop: spacing.xs,
+  },
+  avisoCard: {
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  avisoTexto: {
+    lineHeight: 20,
+  },
+  avisoOkCard: {
+    backgroundColor: colors.sky,
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  avisoOkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  avisoOkText: {
+    flexShrink: 1,
   },
   contactButton: {
     marginTop: spacing.md,
