@@ -1,5 +1,36 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 👉 DÓNDE RETOMAR (2-ago-2026, tarde — revisión adversarial de la tanda 12)
+
+Se corrió la **revisión adversarial de rama** que faltaba (4 revisores en paralelo sobre áreas
+disjuntas: `0054`, `0055`, `0057` y el cliente) y su **fix wave**, commit `31b598d`, pusheado.
+`tsc` 0 · **2552 tests / 187 suites** con `jest exit 0` verificado (no encadenado a un `tail`).
+
+**Encontró 3 Criticals y 7 Altos, y ninguno lo veía la suite:** los 2517 tests estaban en verde con
+los tres Criticals adentro. Dos de los tres los hallaron **dos revisores por caminos distintos**.
+
+**Lo que falta para cerrar la tanda 12, en este orden:**
+1. 🔑 **Pablo: generar un token de Supabase** (<https://supabase.com/dashboard/account/tokens>),
+   guardarlo en un archivo con el Bloc de notas y pasar la ruta — **no pegarlo en el chat**. Fuera de
+   OneDrive. Borrarlo y revocarlo al terminar.
+2. **Medir tres números antes del backfill de la `0055`** (ver el bloque de la tanda 12, abajo). Si el
+   "sello" lo comparte una sola fila, esa parte NO se aplica: sería des-renovarle el reporte a alguien.
+3. **Redesplegar `send-notifications` ANTES de aplicar** — ver el punto de más abajo: la que está viva
+   en producción es de la tanda 8 y no conoce el aviso anónimo, que ya está encendido en la base.
+4. **Aplicar `0054` → `0055` → `0057`** validando cada una dentro de `begin … rollback`, y verificar
+   con ataques reales (chip corto, oráculo de chip desde `anon`, hacerse admin, otorgar insignia).
+5. **Subir el `dist`** con las tandas 10, 11 y 12 juntas. **Migraciones primero, web después**: al
+   revés no rompe nada, pero durante la ventana se pierden en silencio todas las señas y todos los
+   chips que la gente cargue, con textos en pantalla prometiendo lo contrario.
+
+### 🔴 Hallazgo de infraestructura que no es de la tanda 12
+**La `send-notifications` que está viva en producción no conoce el aviso anónimo.** La `0050` (tanda
+11) está aplicada desde el 1-ago y encola eventos `avistamiento_anonimo`, pero la función desplegada
+es de la tanda 8 (22-jul): su `quiereEsteTipo` termina en `return p.pistas`, así que **hoy esos avisos
+se filtran por el interruptor equivocado** (el de "pistas") y salen con el texto genérico — es el
+Critical #2 que la revisión de la tanda 11 arregló *en el repo* y que nadie desplegó. Se arregla
+redesplegando; no hace falta tocar código.
+
 ## 👉 DÓNDE RETOMAR (1-ago-2026, madrugada — sesión autónoma)
 
 Pablo se fue a dormir y la tanda 9 se hizo entera sin aprobaciones intermedias, a pedido suyo.
@@ -99,14 +130,81 @@ Pablo: parar acá por cuota y retomar con el contador nuevo).
   sobria, carga en lote, y el `revoke update` de arriba. **El widget embebible quedó afuera** (el
   worker pone `X-Frame-Options: DENY` en todo, y hacerlo mal rompe la seguridad del sitio entero).
 
-### 👉 QUÉ FALTA DE LA TANDA 12 (lo primero al retomar)
-1. **Revisión adversarial de rama.** No se corrió. En las dos tandas anteriores encontró 6 y 4
-   Criticals, varios en el SQL. **No aplicar las migraciones antes de esto.**
-2. **Aplicar `0054`, `0055` y `0057`** (la `0056` quedó libre: microchip no necesitó migración). Las
-   tres están **validadas contra Postgres con `begin/rollback`**, pero sin revisar.
-3. **Subir el `dist`** con las tandas 10, 11 y 12 juntas.
-4. Riesgo declarado a revisar en la fusión: la `0054` **recrea `buscar_reportes`**, que la `0046`
-   había decidido no tocar a propósito.
+### ✅ REVISIÓN ADVERSARIAL HECHA (2-ago) — 3 Criticals y 7 Altos, arreglados en `31b598d`
+
+**Los 3 Criticals** (los dos primeros los encontraron dos revisores distintos, por caminos distintos):
+
+1. **La carga en lote arrastraba las señas estructuradas Y el número de chip del animal anterior.**
+   `prepararSiguienteDelLote` aplicaba 16 setters y no estaban `setSenas` ni `setChip`. Hueco de
+   fusión entre `feat/t12-a` y `feat/t12-b`, y como `FormularioReporte` tampoco declaraba los campos,
+   `tsc` no tenía de qué agarrarse. Un refugio que carga 15 animales publicaba al #2 con los colores
+   del #1 → `senas_contradicen` **DESCARTA la coincidencia verdadera** (peor que antes de la 0054) y
+   con el **mismo chip**, que vale 1000 puntos y dispara "casi seguro es tu mascota" a la familia
+   equivocada. Mudo por diseño: el chip no se devuelve nunca. **El test que debía cazarlo lo bendecía**
+   — comparaba `dos.descripcion` y `dos.comuna` y no miraba `dos.colores`, que estaba en el mismo
+   objeto que ya tenía delante. El guardián nuevo **lee `PublishScreen.tsx`** y exige que la pantalla
+   aplique todos los campos que devuelve la función pura: la lista sale de ejecutarla, no está escrita
+   en el test.
+2. **La insignia institucional se desplegaba MUERTA.** La `0057` documentaba "corre la RPC desde el
+   SQL editor" y ahí no hay JWT: `es_admin()` resuelve con `auth.uid()` → NULL → el gate corta
+   siempre. Nadie podía otorgar la verificación nunca, así que nadie iba a ver ni la insignia ni el
+   lote. **Es la misma trampa que ya estaba anotada** de la verificación de la `0045` el 1-ago. Ahora
+   está `docs/otorgar-insignia-institucional.sql` con el bloque que sí funciona (impersonando al admin
+   dentro de la transacción) y un test que lo ata a la firma de la RPC.
+3. **El rate-limit del aviso anónimo no arreglaba lo que decía y quitaba el techo de volumen.** La
+   clave de dedupe `(nota, lat, lng)` colapsa a `(null, null, null)` para quien no escribe nota —el
+   caso mayoritario, y el punto no se manda nunca desde que la tanda 11 sacó el pedido de GPS
+   (`usarUbicacion` quedó como código muerto)— así que los tres vecinos del afiche seguían pisándose
+   mientras la pantalla les decía "le mandamos tu aviso a su familia". Y con notas distintas **no
+   quedaba ningún tope**: cada fila es un correo + un push, y 300 llamadas queman la cuota diaria de
+   correo de toda la app. El archivo declaraba que el volumen se atajaba "en la capa de pedidos
+   (rate-limit del gateway)" — **no hay ninguno configurado**. Ahora: ventana corta cuando no hay nada
+   que comparar, y techo de 10/hora y 30/día por reporte, con el intercambio escrito (un tope por
+   reporte se puede ocupar desde afuera; por eso es 10 y no 1).
+
+**Los 7 Altos:** `pet_chips` sin ningún tope de escritura era una fábrica de pushes "el chip coincide"
+—el único aviso que la víctima **no** puede apagar bloqueando— alternando el número contra la API; el
+CHECK aceptaba `chip = '1'` (el mínimo de 9 solo vivía en el cliente); **`chip_coincide` era un
+oráculo** para confirmar el chip de una mascota ajena, y el cartel decía "coincide con EL TUYO" a un
+desconocido; el lote de 15 moría en el #6 contra el antispam de 5/hora dejando la foto huérfana; el
+número de chip se aceptaba, se validaba y se tiraba en silencio al publicar; los filtros de color y
+tamaño devolvían la lista **sin filtrar** con los chips pintados como activos; y borrar el chip
+devolvía `true` sin borrar (delete sin `.select()`, **cuarta aparición** del mismo silencio de
+PostgREST — y su test mockeaba `42501`, que es justo la respuesta que la RLS **no** da).
+
+**De paso:** `fecha_nacimiento` salió del grant de update (nadie la escribe en la app y era el único
+registro de la edad declarada, reescribible por PATCH), `revoke insert` sobre `profiles`, y el test
+del grant pasó de lista negra a cruzarse contra la firma de `updateMyProfile`.
+
+**Lo que quedó limpio, y vale decirlo:** el riesgo declarado nº1 —que la `0054` recreara
+`buscar_reportes` y perdiera algo— **está bien**: se difearon los dos cuerpos y son idénticos al de la
+`0028` salvo las dos líneas de los filtros nuevos. La navegación, por primera vez en seis tandas, no
+tiene ni un destino roto. Y el diseño del chip como dato que nunca sale (ni por RPC, ni por push, ni
+por la cola de avisos) resiste el ataque.
+
+### ⚠️ ANTES DE APLICAR LA `0055`: medir estos tres números
+El backfill deriva un "sello" (el `min(renovado_en)` de las filas con `creado_en < renovado_en`) para
+reconocer las filas que la `0028` rellenó de una. Si ese sello resulta ser **una renovación real**
+—alguien que apretó "sigo buscando" el 21-jul, el día que se desplegó la `0028`— el backfill le
+**des-renueva el reporte** y le adelanta el vencimiento, sin forma de recuperar el valor previo.
+
+```sql
+select count(*) filter (where creado_en < renovado_en) as candidatas,
+       min(renovado_en) filter (where creado_en < renovado_en) as sello,
+       count(*) filter (where renovado_en = (select min(renovado_en) from public.pets
+                                             where creado_en < renovado_en)) as filas_en_el_sello,
+       min(creado_en) as pet_mas_viejo
+  from public.pets;
+```
+
+Si `filas_en_el_sello` es **1**, el sello casi seguro es una renovación real y **esa parte no se
+aplica**. (Dato tranquilizador medido en la revisión: la `0001` es del 16-jul-2026, así que ninguna
+fila puede ser anterior; con 45 días, aplicar hoy **no archiva ningún reporte**.)
+
+### Lo que sigue faltando
+1. **Aplicar `0054`, `0055` y `0057`** (la `0056` quedó libre: microchip no necesitó migración),
+   validando cada una dentro de `begin … rollback`.
+2. **Subir el `dist`** con las tandas 10, 11 y 12 juntas, **después** de las migraciones.
 
 ## 🗓️ TANDA 11 — cierre de casos · avisar sin cuenta · bandeja · adopción (1-ago)
 
