@@ -32,13 +32,41 @@ Lo que se comprobó ejecutándolo, no leyéndolo:
 - **El backfill tocó una sola fila** (el reporte de prueba de Pablo, `renovado_en = creado_en`) y
   **archivó 0 reportes**. Sin residuo: 0 chips, 0 instituciones, 0 avisos anónimos, 0 datos de prueba.
 
-**Lo único que falta: subir el `dist`** (drag-and-drop a Cloudflare), ya exportado, con las tandas 10,
-11 y 12 juntas. Bundles: `index-99dfccac691d0a00a122bf5fa316c106.js` (3.9 MB) + el chunk de 3.1 KB del
-`import()` de expo-sharing. El `dist` lleva `_worker.js`, `_headers`, `_redirects`, el manifest, el SW
-y las tres páginas estáticas (`borrar-cuenta/`, `privacidad/`, `terminos/`).
+### ✅ WEB SUBIDA Y VERIFICADA — LA TANDA 12 ESTÁ CERRADA Y EN PRODUCCIÓN (2-ago)
+Pablo subió el `dist` (tandas 10, 11 y 12 juntas) y revocó el token. Verificado contra el sitio real:
+el bundle servido es **exactamente** el exportado (`index-99dfccac691d0a00a122bf5fa316c106.js`), las
+seis rutas responden 200 (`/`, `/privacidad/`, `/terminos/`, `/borrar-cuenta/`, el manifest y el SW),
+y **9/9 en el humo con navegador** (5 pestañas, Explorar, los chips de color y tamaño de la 0054, deep
+link roto que no rompe nada, **0 errores JS** y ninguna respuesta ≥400 inesperada).
 
-⚠️ **Pablo: revocar el token de Supabase** (<https://supabase.com/dashboard/account/tokens>). El
-archivo ya lo borré, pero estaba en OneDrive, así que se sincronizó a la nube.
+**La prueba que de verdad cierra la tanda** — el humo no alcanzaba, porque comprobaba la AUSENCIA del
+cartel de "filtros no disponibles" y habría pasado igual si el clic al chip no entraba: se interceptó
+la llamada real y **el bundle manda `p_color` y la base responde 200 sin reintento**. Si la `0054` no
+estuviera viva habría un `PGRST202` y una segunda llamada sin el filtro.
+
+### 🟡 Lo que la revisión encontró y se dejó para después (Medios, decisión de Pablo)
+1. **Los 26 controles nuevos son invisibles para un lector de pantalla en web.** `Chip` no pasa
+   `accessibilityRole` ni `aria-checked`: en el DOM salen como `<div tabindex="0">` y la única
+   diferencia entre marcado y no marcado es el color de fondo. Hasta ahora los chips eran filtros
+   efímeros; la tanda 12 los convirtió en **un formulario cuyo valor se guarda en la base**. El
+   guardrail `casillasAccesibles.test.ts` no lo caza porque solo mira `role="checkbox"`: no se rompió,
+   se lo esquivó por omisión. (Google Play mira esto.)
+2. **`keyboardType="numeric"` en el campo de chip contra un validador que acepta letras.** El modelo
+   acepta chips alfanuméricos a propósito (AVID viejos), pero el teclado que se abre no tiene letras:
+   quien tenga uno de esos no puede tipearlo y no hay ningún error, simplemente no hay teclas.
+3. **El chip que la app YA tiene no llega al reporte.** La cabecera de la 0054 llama a esto "el dato
+   revelador" (`my_pets.chip` existe desde la 0027), pero la precarga desde "Mi mascota" no lo manda:
+   los únicos usuarios de los que tenemos el chip con certeza publican sin él.
+4. **La insignia institucional sobrevive a la suspensión y al borrado de cuenta.**
+   `anonimizar_mi_cuenta` no limpia las columnas `institucion_*` y `moderar_suspender` tampoco: un
+   "refugio" verificado que resultó ser una estafa queda suspendido pero sus fichas siguen firmadas
+   como verificadas. Mitigación de hoy: correr `institucion_revocar` a mano (está en el runbook).
+5. `institucion_otorgar` con tres argumentos **borra la comuna y el contacto** (tienen `default null` y
+   el update los pisa). El runbook avisa de pasar siempre los cinco, pero el `coalesce` defensivo está
+   en la columna que nadie iba a pisar por accidente y falta en las dos que sí.
+6. **`p_radio_km` no tiene tope** en `buscar_coincidencias` (preexistente desde la 0014), ahora sobre
+   una función `security definer` concedida a `anon`: un barrido nacional sale gratis. Ya no filtra el
+   chip (eso se cerró), pero sigue siendo una consulta cara sin límite.
 
 ### ✅ Arreglado de paso: el aviso anónimo estaba roto en producción desde el 1-ago
 No era de la tanda 12. La `0050` (tanda 11) está aplicada desde el 1-ago y encola eventos
