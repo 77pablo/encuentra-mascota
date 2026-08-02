@@ -17,7 +17,7 @@ export interface AficheContent {
   whatsappDigits: string;
   whatsappDisplay: string;
   waLink: string | null;
-  url: string | null;
+  url: string;
 }
 
 const especieLabel: Record<Pet['especie'], string> = {
@@ -53,8 +53,28 @@ export function armarNombreArchivo(pet: Pick<Pet, 'nombre' | 'especie'>): string
   return `afiche-${slug}.png`;
 }
 
-export function armarAfiche(pet: Pet, profile: Pick<Profile, 'telefono'> | null): AficheContent {
-  const digits = normalizarWhatsapp(profile?.telefono);
+// El QR es lo primero que se lee: tiene que decir a dónde va y que no hay
+// trámite. Es lo que de verdad frena a un vecino: no saber qué le van a pedir.
+export const TEXTO_QR = 'Escaneá para ver su ficha y avisar. No hace falta crear cuenta.';
+
+// Respaldo si falta EXPO_PUBLIC_WEB_URL en la app compilada. Es NUESTRO
+// dominio de Cloudflare (el mismo ORIGEN_PROD del worker): el respaldo viejo,
+// encuentratumascota.app, era un dominio ajeno — quien lo registrara se
+// quedaba con los escaneos de cada afiche impreso.
+export const RESPALDO_WEB = 'https://encuentras-mascota.pages.dev';
+
+export interface AficheOpciones {
+  /** Decisión de Pablo: prendido por defecto; el dueño lo apaga al generar. */
+  incluirNumero?: boolean;
+}
+
+export function armarAfiche(
+  pet: Pet,
+  profile: Pick<Profile, 'telefono'> | null,
+  opciones: AficheOpciones = {},
+): AficheContent {
+  const incluirNumero = opciones.incluirNumero ?? true;
+  const digits = incluirNumero ? normalizarWhatsapp(profile?.telefono) : '';
   return {
     titular: pet.estado === 'perdida' ? 'SE BUSCA' : '¿CONOCÉS A ESTA MASCOTA?',
     nombre: pet.nombre || null,
@@ -64,8 +84,22 @@ export function armarAfiche(pet: Pet, profile: Pick<Profile, 'telefono'> | null)
     zonaTexto: 'Visto cerca de esta zona',
     foto: pet.fotos?.[0] ?? null,
     whatsappDigits: digits,
-    whatsappDisplay: profile?.telefono ?? '',
+    whatsappDisplay: incluirNumero ? (profile?.telefono ?? '') : '',
     waLink: digits ? `https://wa.me/${digits}` : null,
-    url: petUrl(pet.id),
+    url: petUrl(pet.id) ?? `${RESPALDO_WEB}/mascota/${pet.id}`,
   };
+}
+
+// Lo que se le pide a la fotocopiadora, listo para copiar/compartir. La
+// búsqueda física resuelve el 30-49% de los casos; este texto es la parte
+// de la app que trabaja en la calle.
+export function textoImprenta(nombre: string | null): string {
+  const quien = nombre ? `de ${nombre}` : 'de mi mascota';
+  return (
+    `Hola, necesito imprimir afiches ${quien}:\n` +
+    `· 20 copias tamaño carta, a color.\n` +
+    `· En papel fluorescente (amarillo o rosado) si tienen: una hoja blanca no se ve desde un auto.\n` +
+    `· 4 ampliaciones a doble carta para las esquinas con más tráfico.\n\n` +
+    `Después pegalos a la altura de los ojos: semáforos, paraderos, la entrada del almacén y la feria.`
+  );
 }

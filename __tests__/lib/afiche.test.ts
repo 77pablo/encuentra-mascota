@@ -4,6 +4,7 @@ import {
   armarNombreArchivo,
   faltaWhatsapp,
   normalizarWhatsapp,
+  textoImprenta,
 } from '../../src/lib/afiche';
 import { Pet } from '../../src/services/pets';
 
@@ -103,13 +104,38 @@ describe('armarAfiche', () => {
     expect(armarAfiche(pet({}), null).waLink).toBeNull();
   });
 
-  it('url es null si no hay base URL configurada', () => {
-    process.env.EXPO_PUBLIC_WEB_URL = '';
-    expect(armarAfiche(pet({ id: 'xyz' }), null).url).toBeNull();
-  });
-
   it('url usa EXPO_PUBLIC_WEB_URL cuando está configurada', () => {
     process.env.EXPO_PUBLIC_WEB_URL = 'https://mascotas.app';
     expect(armarAfiche(pet({ id: 'xyz' }), null).url).toBe('https://mascotas.app/mascota/xyz');
+  });
+
+  it('con incluirNumero apagado no queda ni el número, ni los dígitos, ni el link', () => {
+    const c = armarAfiche(pet({}), { telefono: '+56912345678' }, { incluirNumero: false });
+    expect(c.whatsappDisplay).toBe('');
+    expect(c.whatsappDigits).toBe('');
+    expect(c.waLink).toBeNull();
+  });
+
+  it('sin opciones se comporta como siempre (prendido por defecto)', () => {
+    const c = armarAfiche(pet({}), { telefono: '+56912345678' });
+    expect(c.whatsappDisplay).toBe('+56912345678');
+  });
+
+  it('la url NUNCA es null: sin env cae al dominio nuestro, no a uno ajeno', () => {
+    delete process.env.EXPO_PUBLIC_WEB_URL;
+    const c = armarAfiche(pet({ id: 'abc' }), null);
+    expect(c.url).toBe('https://encuentras-mascota.pages.dev/mascota/abc');
+  });
+
+  describe('textoImprenta', () => {
+    it('nombra a la mascota y pide papel fluorescente y tamaño grande', () => {
+      const t = textoImprenta('Luna');
+      expect(t).toContain('Luna');
+      expect(t).toContain('fluorescente');
+      expect(t).toContain('carta');
+    });
+    it('sin nombre no queda un hueco raro', () => {
+      expect(textoImprenta(null)).not.toContain('undefined');
+    });
   });
 });
