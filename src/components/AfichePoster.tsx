@@ -3,7 +3,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { AppText } from '../ui';
 import { lightColors, font, radius, spacing } from '../theme';
 import QrCode from './QrCode';
-import { AficheContent } from '../lib/afiche';
+import { AficheContent, TEXTO_QR } from '../lib/afiche';
 import { ETIQUETA_RECOMPENSA } from '../lib/recompensa';
 
 // Este afiche se rasteriza a PNG para imprimir: SIEMPRE debe quedar en paleta
@@ -50,15 +50,17 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
       ) : null}
 
       <View style={styles.footer}>
-        <View style={styles.contacto}>
-          <AppText style={styles.contactoLabel}>Contactá por WhatsApp</AppText>
-          <AppText style={styles.contactoNumero}>{content.whatsappDisplay}</AppText>
-          <AppText style={styles.zona}>{content.zonaTexto}</AppText>
-        </View>
         <View style={styles.qrWrap}>
-          <QrCode value={content.url ?? 'https://encuentratumascota.app'} size={200} />
-          <AppText style={styles.qrText}>Escaneá para ver más</AppText>
+          <QrCode value={content.url} size={210} />
+          <AppText style={styles.qrText}>{TEXTO_QR}</AppText>
         </View>
+        {content.whatsappDisplay ? (
+          <View style={styles.contacto}>
+            <AppText style={styles.contactoLabel}>Contactá por WhatsApp</AppText>
+            <AppText style={styles.contactoNumero}>{content.whatsappDisplay}</AppText>
+          </View>
+        ) : null}
+        <AppText style={styles.zona}>{content.zonaTexto}</AppText>
       </View>
 
       <AppText style={styles.marca}>Publicado en Encuentra tu Mascota 🐾</AppText>
@@ -131,17 +133,14 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   footer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: 'auto',
     borderTopWidth: 2,
     borderTopColor: colors.line,
     paddingTop: spacing.lg,
   },
   contacto: {
-    flexShrink: 1,
-    paddingRight: spacing.lg,
+    alignItems: 'center',
   },
   contactoLabel: {
     fontFamily: font.bodySemi,
@@ -161,6 +160,7 @@ const styles = StyleSheet.create({
   },
   qrWrap: {
     alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   qrText: {
     fontFamily: font.body,
