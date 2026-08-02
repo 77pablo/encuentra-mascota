@@ -211,7 +211,13 @@ export const PASOS_PLAN: readonly PasoCatalogo[] = [
       'desde varias cuadras, y no cuesta nada. Si se puede, que alguien se quede en ' +
       'casa: muchos vuelven solos de madrugada y encuentran la puerta cerrada.',
   },
-  { id: 'publica-el-reporte', ventana: 'ahora', desdeGuia: true },
+  // NO se reusa `publica-el-reporte` de la guía, y es a propósito. La guía se
+  // lee ANTES de publicar; este plan vive DENTRO de la ficha del reporte
+  // (`PetDetailScreen` lo dibuja con el `pet` en la mano), así que el reporte
+  // ya existe. Pedirle publicar a quien acaba de publicar no solo sobra: el
+  // botón de ese paso lleva a `Publicar` con el formulario VACÍO, y quien lo
+  // tocaba se llevaba un segundo reporte duplicado de la misma mascota. El paso
+  // sigue en `guiaPerdida.ts`, que es donde sí corresponde.
 
   // ── hoy, antes de que oscurezca ───────────────────────────────────────────
   { id: 'llama-veterinarias-y-refugios', ventana: 'hoy', desdeGuia: true },

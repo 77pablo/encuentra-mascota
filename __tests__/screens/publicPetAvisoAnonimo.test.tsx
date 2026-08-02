@@ -146,8 +146,33 @@ describe('MascotaPublica — avisar sin cuenta', () => {
     expect(datos.lng ?? null).toBeNull();
 
     // Ya avisó: agradecemos y sacamos el botón (no hay nada que volver a tocar).
-    expect(textoDe(tree.root)).toContain('su familia ya sabe');
+    expect(textoDe(tree.root)).toContain('mandamos tu aviso');
     expect(botonLoVi(tree)).toBeUndefined();
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
+  it('no afirma que la familia SE ENTERÓ: eso la pantalla no lo puede saber', async () => {
+    // `avistar_sin_cuenta` es `returns void` A PROPÓSITO (si devolviera algo,
+    // sería un oráculo para enumerar reportes probando uuids). O sea que el
+    // cliente NO puede distinguir "encolado" de "descartado" —reporte cerrado
+    // mientras la persona miraba, aviso repetido, o alguien bloqueado— ni
+    // sabe si la cadena de correo/push llegó a destino.
+    //
+    // Lo único cierto es que mandamos el aviso, y es lo único que se dice. La
+    // copia vieja ("Listo, su familia ya sabe") afirmaba conocimiento ajeno:
+    // mandaba a esa persona a su casa creyendo que del otro lado ya sabían.
+    const tree = await montar();
+    await act(async () => {
+      botonLoVi(tree).props.onPress();
+    });
+
+    const texto = textoDe(tree.root);
+    // Salió bien: se dice, y se agradece.
+    expect(texto).toMatch(/mandamos tu aviso/i);
+    expect(texto).toContain('Gracias por parar');
+    // Pero no se habla por la familia.
+    expect(texto).not.toMatch(/ya sabe|ya est[áa] avisad|ya se enter|le lleg[óo]|lo recibi/i);
 
     await act(async () => tree.unmount());
   }, 30000);
@@ -164,7 +189,7 @@ describe('MascotaPublica — avisar sin cuenta', () => {
     });
 
     const texto = textoDe(tree.root);
-    expect(texto).not.toContain('su familia ya sabe');
+    expect(texto).not.toContain('mandamos tu aviso');
     expect(texto).toContain('Revisá tu internet');
     // El botón sigue estando: hay algo que hacer.
     expect(botonLoVi(tree)).toBeTruthy();
@@ -175,7 +200,7 @@ describe('MascotaPublica — avisar sin cuenta', () => {
       botonLoVi(tree).props.onPress();
     });
     expect(mockAvisar).toHaveBeenCalledTimes(2);
-    expect(textoDe(tree.root)).toContain('su familia ya sabe');
+    expect(textoDe(tree.root)).toContain('mandamos tu aviso');
 
     await act(async () => tree.unmount());
   }, 30000);
