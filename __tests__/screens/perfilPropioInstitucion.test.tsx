@@ -156,3 +156,11 @@ describe('mi propio perfil dice si soy una cuenta institucional', () => {
     expect(textos(await montar())).not.toContain('verificad');
   });
 });
+
+describe('el correo propio en el Perfil se muestra tapado hasta que lo tocás', () => {
+  it('el correo propio sale enmascarado hasta que lo tocás', async () => {
+    const arbol = await montar();
+    expect(textos(arbol)).toContain('v***@ejemplo.cl');
+    expect(textos(arbol)).not.toContain('vet@ejemplo.cl');
+  });
+});

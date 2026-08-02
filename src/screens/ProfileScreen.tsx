@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Image, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -9,6 +9,7 @@ import { vencido } from '../lib/cicloVida';
 import { isReunited } from '../lib/reunion';
 import { insigniasDe } from '../lib/insignias';
 import { camposDeContactoParaGuardar, getMyProfile, Profile, updateMyProfile } from '../services/profile';
+import { enmascararCorreo } from '../lib/enmascararCorreo';
 import InsigniaInstitucion from '../components/InsigniaInstitucion';
 import { getPerfilPublico } from '../services/perfilPublico';
 import { uploadPetPhoto } from '../services/storage';
@@ -82,11 +83,16 @@ export default function ProfileScreen({ navigation }: any) {
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  // Tu propio correo, tapado por defecto (ver enmascararCorreo): un toque lo
+  // revela y otro lo vuelve a tapar.
+  const [correoVisible, setCorreoVisible] = useState(false);
+
   const [editingPerfil, setEditingPerfil] = useState(false);
   const [nombreDraft, setNombreDraft] = useState('');
   const [telefonoDraft, setTelefonoDraft] = useState('');
   const [redTipoDraft, setRedTipoDraft] = useState<RedSocialTipo>('instagram');
   const [redUsuarioDraft, setRedUsuarioDraft] = useState('');
+  const [mostrarRedDraft, setMostrarRedDraft] = useState(true);
   const [savingPerfil, setSavingPerfil] = useState(false);
 
   const cargar = useCallback(() => {
@@ -299,6 +305,7 @@ export default function ProfileScreen({ navigation }: any) {
     const red = parseRedSocial(profile?.red_social);
     setRedTipoDraft(red?.tipo ?? 'instagram');
     setRedUsuarioDraft(red?.usuario ?? '');
+    setMostrarRedDraft(profile?.mostrar_red_social ?? true);
     setEditingPerfil(true);
   };
 
@@ -319,7 +326,7 @@ export default function ProfileScreen({ navigation }: any) {
         nombre,
         // Si el perfil vino degradado (mi_perfil() no disponible), esto no
         // manda telefono ni red_social: ver camposDeContactoParaGuardar.
-        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialUrl, profile?.mostrar_red_social ?? true),
+        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialUrl, mostrarRedDraft),
       });
       notify('Guardado', 'Tu perfil se actualizó.');
       setEditingPerfil(false);
@@ -384,8 +391,17 @@ export default function ProfileScreen({ navigation }: any) {
                 {nombreMostrado}
               </AppText>
               {tieneNombre ? (
-                <AppText muted size={13}>
-                  {user?.email}
+                <AppText
+                  muted
+                  size={13}
+                  onPress={() => setCorreoVisible((v) => !v)}
+                  accessibilityLabel={
+                    correoVisible
+                      ? `${user?.email}. Tocá para ocultar tu correo.`
+                      : 'Correo oculto. Tocá para mostrarlo.'
+                  }
+                >
+                  {correoVisible ? user?.email : enmascararCorreo(user?.email)}
                 </AppText>
               ) : null}
               {telefonoMostrado ? (
@@ -511,6 +527,20 @@ export default function ProfileScreen({ navigation }: any) {
                     Tu teléfono solo lo ves tú (lo usamos para el afiche). Tu red social será un
                     enlace tocable a tu perfil.
                   </AppText>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTexto}>
+                      <AppText size={14}>Mostrar mi red social en mi perfil público</AppText>
+                      <AppText muted size={12}>
+                        Apagala y no la ve nadie, ni siquiera con el link directo a tu perfil.
+                      </AppText>
+                    </View>
+                    <Switch
+                      value={mostrarRedDraft}
+                      onValueChange={setMostrarRedDraft}
+                      trackColor={{ false: colors.line, true: colors.brand }}
+                      thumbColor={colors.white}
+                    />
+                  </View>
                 </>
               )}
               <View style={styles.editActionsRow}>
@@ -953,6 +983,16 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     gap: spacing.sm,
   },
   avisoContacto: { marginTop: -spacing.xs, marginBottom: spacing.sm, lineHeight: 16 },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  switchTexto: {
+    flex: 1,
+    gap: 2,
+  },
   redesLabel: {
     marginBottom: spacing.xs,
   },
