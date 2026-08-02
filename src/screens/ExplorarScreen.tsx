@@ -15,6 +15,14 @@ import { useMyLocation } from '../hooks/useMyLocation';
 import { notify } from '../lib/notify';
 import { desdeDeRango, filtrosDesdeRuta, RangoTiempo } from '../lib/petFilters';
 import { radioExplorarSugeridoKm } from '../lib/radioSugerido';
+import {
+  COLORES,
+  COLOR_ETIQUETA,
+  type ColorPelaje,
+  TAMANOS,
+  TAMANO_ETIQUETA,
+  type Tamano,
+} from '../lib/senasMascota';
 import { FiltrosBusqueda } from '../services/busqueda';
 
 // EXPLORAR: unifica las viejas pestañas Mapa + Lista + Comunidad en una sola.
@@ -73,6 +81,10 @@ export default function ExplorarScreen({ navigation, route }: any) {
   const [busquedaDiferida, setBusquedaDiferida] = useState('');
   const [conRecompensa, setConRecompensa] = useState(false);
   const [rango, setRango] = useState<RangoTiempo>('todo');
+  // Señas estructuradas (migración 0054). Uno de cada uno, no varios: el
+  // filtro es "mostrame los negros", no "los negros y los grises".
+  const [colorFiltro, setColorFiltro] = useState<ColorPelaje | null>(null);
+  const [tamanoFiltro, setTamanoFiltro] = useState<Tamano | null>(null);
   const [comunaFiltro, setComunaFiltro] = useState<string | null>(null);
   const [comunaPickerOpen, setComunaPickerOpen] = useState(false);
   const [vista, setVista] = useState<Vista>('lista');
@@ -87,6 +99,8 @@ export default function ExplorarScreen({ navigation, route }: any) {
     (rango !== 'todo' ? 1 : 0) +
     (conRecompensa ? 1 : 0) +
     (comunaFiltro ? 1 : 0) +
+    (colorFiltro ? 1 : 0) +
+    (tamanoFiltro ? 1 : 0) +
     (cercaDeMi ? 1 : 0);
 
   // Filtros con los que se llega desde los accesos de Inicio (los cuatro chips
@@ -161,8 +175,25 @@ export default function ExplorarScreen({ navigation, route }: any) {
       desde: desdeDeRango(rango, Date.now()),
       orden: cerca ? 'cerca' : 'recientes',
       comuna: comunaFiltro,
+      // `null` cuando no se eligió nada, y eso importa: `buscarReportes` solo
+      // agrega los parámetros nuevos a la llamada si acá viene algo. Mandarlos
+      // siempre dejaría Explorar en blanco contra una base sin la 0054.
+      color: colorFiltro,
+      tamano: tamanoFiltro,
     }),
-    [cerca, location.coords, radioKm, estado, especie, busquedaDiferida, conRecompensa, rango, comunaFiltro],
+    [
+      cerca,
+      location.coords,
+      radioKm,
+      estado,
+      especie,
+      busquedaDiferida,
+      conRecompensa,
+      rango,
+      comunaFiltro,
+      colorFiltro,
+      tamanoFiltro,
+    ],
   );
 
   return (
@@ -222,6 +253,29 @@ export default function ExplorarScreen({ navigation, route }: any) {
           <View style={styles.chipsRow}>
             {especieFiltros.map((f) => (
               <Chip key={f.key} label={f.label} active={especie === f.key} onPress={() => setEspecie(f.key)} />
+            ))}
+          </View>
+          {/* SEÑAS (0054). Van DENTRO del panel plegable y no sueltas arriba:
+              diez chips más siempre visibles taparían la lista, que es lo que
+              la persona vino a mirar. Volver a tocar el mismo chip lo suelta. */}
+          <View style={styles.chipsRow}>
+            {COLORES.map((c) => (
+              <Chip
+                key={c}
+                label={COLOR_ETIQUETA[c]}
+                active={colorFiltro === c}
+                onPress={() => setColorFiltro((v) => (v === c ? null : c))}
+              />
+            ))}
+          </View>
+          <View style={styles.chipsRow}>
+            {TAMANOS.map((t) => (
+              <Chip
+                key={t}
+                label={TAMANO_ETIQUETA[t]}
+                active={tamanoFiltro === t}
+                onPress={() => setTamanoFiltro((v) => (v === t ? null : t))}
+              />
             ))}
           </View>
           <View style={styles.chipsRow}>

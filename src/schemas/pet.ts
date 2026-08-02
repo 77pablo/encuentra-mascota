@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { COLORES, ESTERILIZADOS, MAX_COLORES, SEXOS, TAMANOS } from '../lib/senasMascota';
 
 export const petSchema = z.object({
   estado: z.enum(['perdida', 'encontrada']),
@@ -20,6 +21,17 @@ export const petSchema = z.object({
   // único campo del schema que puede no llegar a la base: si la 0046 no está
   // aplicada, `createPet` reintenta sin él.
   ambito: z.enum(['interior', 'exterior']).optional(),
+  // SEÑAS ESTRUCTURADAS (migración 0054). Las cuatro son OMITIBLES a propósito:
+  // quien acaba de perder a su animal no está para llenar un formulario, y lo
+  // que falta no descarta ninguna coincidencia (ver src/lib/senasMascota.ts).
+  //
+  // Son, junto con `ambito`, los únicos campos del schema que pueden no existir
+  // en la base: si la 0054 no está aplicada, `createPet` reintenta sin ellos.
+  // El número de chip NO está acá: no vive en `pets` (ver services/petChip.ts).
+  colores: z.array(z.enum(COLORES)).max(MAX_COLORES).optional(),
+  tamano: z.enum(TAMANOS).optional(),
+  sexo: z.enum(SEXOS).optional(),
+  esterilizado: z.enum(ESTERILIZADOS).optional(),
 });
 
 export type PetInput = z.infer<typeof petSchema>;
