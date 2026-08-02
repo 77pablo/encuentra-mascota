@@ -1,0 +1,2 @@
+-- 0059: interruptor "mostrar mi red social" (tanda 13, área B).
+-- Se rellena en la tarea B1 del plan 2026-08-02-privacidad-y-4-funciones.

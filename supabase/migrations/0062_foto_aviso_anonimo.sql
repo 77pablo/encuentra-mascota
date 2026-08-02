@@ -1,0 +1,1 @@
+-- 0062: foto en el aviso anónimo (área D, tarea D4).
