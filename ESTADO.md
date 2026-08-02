@@ -88,18 +88,29 @@ error (columna sin default → backfill → set default) y tiene test contra la 
 3. **"Sí, volvió a casa" perdía el final feliz para siempre** (la nota y la foto ya no se podían
    cargar nunca más). Ahora abre el panel que ya existía.
 
-### 🔧 Criticals de la tanda 11 que quedaron SIN arreglar
-- 🔴 **El ciclo de vida de reportes tiene un hueco grande.** `PreguntaSiAparecio` silencia a
-  `NudgeVigencia` mientras la pregunta está activa, pero como con `preguntado_en = null` la pregunta
-  está **siempre** activa, para quien no contesta: el hito 21 se repite indefinidamente diciendo "esta
-  es la última vez", **"Archivar por ahora" y "Sigue perdida" quedan inalcanzables** desde la ficha, el
-  segundo nudge (30 días) no aparece nunca, y a los 45 el reporte vence en silencio mientras la
-  tarjeta sigue diciendo "se queda acá el tiempo que haga falta". Es el caso de la mayoría.
-- 🔴 **La ubicación del aviso anónimo se pide y no se ve.** Se pide permiso de GPS, se difumina y se
-  guarda en `datos.lat/lng`, pero **nadie la lee**: el mapa se pinta solo desde `sightings` y el aviso
-  anónimo no crea fila ahí. El push dice "entrá a ver dónde fue" y no hay ningún pin.
-- 🔴 **`perfil_publico` cuenta adopciones sin filtrar vigencia** y el feed sí la filtra: un refugio con
-  40 publicaciones sin renovar muestra "40 · En adopción" y el feed no muestra ninguna.
+### ✅ Los 6 Criticals de la tanda 11 — TODOS ARREGLADOS
+Los tres primeros en el fix wave (`5d87874`), los otros tres después (`9275c19`, `bd7fd2b` y la
+migración **`0053`**, aplicada y verificada).
+
+4. **El cierre de casos prometía lo que no cumplía.** Su propio docstring decía "después del 21 no se
+   pregunta más" y el código no lo implementaba: con `preguntado_en` en null —o sea, para todo el que
+   no contesta, que es la mayoría— el hito 21 salía en CADA apertura, indefinidamente, diciendo "esta
+   es la última vez que te preguntamos". A los 100 días seguía preguntando. Ahora hay un tope real en
+   el vencimiento. Y los subtextos afirmaban cantidades de días que podían ser falsas: quien abría la
+   app al día 20 leía "pasó una semana" (el hito que se muestra es el más alto **alcanzado**).
+5. **Se pedía permiso de GPS para un dato que nadie lee.** La tarjeta del aviso anónimo ofrecía
+   "Sumar dónde estoy", la RPC guardaba el punto difuminado… y el mapa se pinta solo desde
+   `sightings`, donde un aviso anónimo no crea fila. Encima el push decía "entrá a ver dónde fue"
+   sobre un mapa sin ningún pin nuevo. Se sacó el pedido; la RPC sigue aceptando lat/lng para el día
+   que exista dónde mostrarla.
+6. **`perfil_publico` contaba adopciones sin filtrar vigencia** mientras el feed sí la filtraba: un
+   refugio con 40 publicaciones sin renovar mostraba "40 · En adopción" y el feed no mostraba
+   ninguna. Migración `0053`, verificada contra la base con dos adopciones de prueba (una de 200 días
+   y una nueva): perfil **1**, feed **1**. El test más útil no compara contra una frase escrita a
+   mano — **compara la expresión de vigencia del perfil contra la del feed**, así que cambiar una sin
+   la otra se pone rojo.
+
+### 🔧 Lo que quedó abierto (medios y menores)
 - 🟡 El rate-limit del aviso anónimo es **por reporte**, no por persona: tres vecinos que escanean el
   mismo afiche en cinco minutos reciben "su familia ya sabe" y solo el primero avisó. Con el `pet_id`
   público, además, es bloqueable a voluntad.

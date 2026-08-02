@@ -339,15 +339,11 @@ describe('0052 no puede romper NADA de lo que ya existe', () => {
   });
 });
 
-// Este guardrail viaja SIEMPRE con la ultima migracion del repo (venia en
-// migracion0048.test.ts). Su sentido es avisar cuando aparece una migracion
-// nueva sin que se revise el orden de aplicacion.
-describe('0052 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(52);
-  });
-});
+// El guardrail de "esta es la ultima migracion del repo" NO vive aca: se MUDO a
+// `migracion0053.test.ts`, que es la mas nueva. Viaja siempre con ella; en este
+// archivo quedaria clavado en 52 y solo diria que alguien agrego una migracion,
+// que es justo lo que paso a proposito.
+//
+// Se MUEVE, no se copia: en la tanda 10 tres agentes lo copiaron cada uno al
+// suyo y quedaron tres copias afirmando 46, 47 y 48 — dos rojas para siempre, y
+// el final previsible de eso es que alguien borre el guardrail por molesto.
