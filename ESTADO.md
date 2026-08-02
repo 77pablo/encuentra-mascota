@@ -9,27 +9,44 @@ disjuntas: `0054`, `0055`, `0057` y el cliente) y su **fix wave**, commit `31b59
 **Encontró 3 Criticals y 7 Altos, y ninguno lo veía la suite:** los 2517 tests estaban en verde con
 los tres Criticals adentro. Dos de los tres los hallaron **dos revisores por caminos distintos**.
 
-**Lo que falta para cerrar la tanda 12, en este orden:**
-1. 🔑 **Pablo: generar un token de Supabase** (<https://supabase.com/dashboard/account/tokens>),
-   guardarlo en un archivo con el Bloc de notas y pasar la ruta — **no pegarlo en el chat**. Fuera de
-   OneDrive. Borrarlo y revocarlo al terminar.
-2. **Medir tres números antes del backfill de la `0055`** (ver el bloque de la tanda 12, abajo). Si el
-   "sello" lo comparte una sola fila, esa parte NO se aplica: sería des-renovarle el reporte a alguien.
-3. **Redesplegar `send-notifications` ANTES de aplicar** — ver el punto de más abajo: la que está viva
-   en producción es de la tanda 8 y no conoce el aviso anónimo, que ya está encendido en la base.
-4. **Aplicar `0054` → `0055` → `0057`** validando cada una dentro de `begin … rollback`, y verificar
-   con ataques reales (chip corto, oráculo de chip desde `anon`, hacerse admin, otorgar insignia).
-5. **Subir el `dist`** con las tandas 10, 11 y 12 juntas. **Migraciones primero, web después**: al
-   revés no rompe nada, pero durante la ventana se pierden en silencio todas las señas y todos los
-   chips que la gente cargue, con textos en pantalla prometiendo lo contrario.
+### ✅ MIGRACIONES APLICADAS Y VERIFICADAS (2-ago)
+`0054` → `0055` → `0057` **aplicadas a producción**, después de validarlas ejecutándolas de verdad
+dentro de `begin … rollback` contra esa misma base. **30 ataques antes de aplicar y 20 después, todos
+pasados**, más 4 por HTTP como `anon` (401 / 42501). `send-notifications` **redesplegada ANTES** de
+aplicar (humo: `OPTIONS` → 204, `POST`/`GET` sin credenciales → 401).
 
-### 🔴 Hallazgo de infraestructura que no es de la tanda 12
-**La `send-notifications` que está viva en producción no conoce el aviso anónimo.** La `0050` (tanda
-11) está aplicada desde el 1-ago y encola eventos `avistamiento_anonimo`, pero la función desplegada
-es de la tanda 8 (22-jul): su `quiereEsteTipo` termina en `return p.pistas`, así que **hoy esos avisos
-se filtran por el interruptor equivocado** (el de "pistas") y salen con el texto genérico — es el
-Critical #2 que la revisión de la tanda 11 arregló *en el repo* y que nadie desplegó. Se arregla
-redesplegando; no hace falta tocar código.
+Lo que se comprobó ejecutándolo, no leyéndolo:
+- **El oráculo de chip está cerrado:** el dueño ve `chip_coincide = true`, un tercero autenticado ve
+  `false` y `anon` ve `false`. Ninguna columna de la RPC devuelve el número.
+- **Las 5 escaladas de privilegios rechazadas con `42501`** (hacerse admin, auto-desuspenderse,
+  auto-verificarse la insignia, reescribir `fecha_nacimiento`, insertarse un perfil admin), **con el
+  control de que editar el perfil propio sigue funcionando** — sin ese control, un `revoke` de más se
+  habría leído como "todo seguro" mientras nadie podía guardar su teléfono.
+- Columnas escribibles por `authenticated` en `profiles`, medidas en la base:
+  **`nombre`, `foto_perfil`, `telefono`, `red_social`** y nada más. Sin `INSERT`.
+- **El camino del runbook otorga la insignia de verdad** (impersonando al admin), y queda firmada en
+  `institucion_verificada_por`. Sin ser admin: "no autorizado".
+- **La puerta anónima:** el segundo vecino a los 2 minutos **pasa** (era el Critical), el doble toque
+  se descarta, la misma nota con otras mayúsculas se descarta, y 40 avisos con notas distintas cortan
+  en 10; cinco horas martillando cortan en 30.
+- **El backfill tocó una sola fila** (el reporte de prueba de Pablo, `renovado_en = creado_en`) y
+  **archivó 0 reportes**. Sin residuo: 0 chips, 0 instituciones, 0 avisos anónimos, 0 datos de prueba.
+
+**Lo único que falta: subir el `dist`** (drag-and-drop a Cloudflare), ya exportado, con las tandas 10,
+11 y 12 juntas. Bundles: `index-99dfccac691d0a00a122bf5fa316c106.js` (3.9 MB) + el chunk de 3.1 KB del
+`import()` de expo-sharing. El `dist` lleva `_worker.js`, `_headers`, `_redirects`, el manifest, el SW
+y las tres páginas estáticas (`borrar-cuenta/`, `privacidad/`, `terminos/`).
+
+⚠️ **Pablo: revocar el token de Supabase** (<https://supabase.com/dashboard/account/tokens>). El
+archivo ya lo borré, pero estaba en OneDrive, así que se sincronizó a la nube.
+
+### ✅ Arreglado de paso: el aviso anónimo estaba roto en producción desde el 1-ago
+No era de la tanda 12. La `0050` (tanda 11) está aplicada desde el 1-ago y encola eventos
+`avistamiento_anonimo`, pero la función desplegada seguía siendo la de la tanda 8 (22-jul): su
+`quiereEsteTipo` termina en `return p.pistas`, así que esos avisos **se filtraban por el interruptor
+equivocado** y salían con el texto genérico — el Critical #2 que la revisión de la tanda 11 arregló en
+el repo y que nadie desplegó. El redespliegue de hoy lo cierra. **Lección repetida: aplicar una
+migración sin redesplegar la función que consume su cola deja el agujero abierto y mudo.**
 
 ## 👉 DÓNDE RETOMAR (1-ago-2026, madrugada — sesión autónoma)
 
@@ -202,9 +219,8 @@ aplica**. (Dato tranquilizador medido en la revisión: la `0001` es del 16-jul-2
 fila puede ser anterior; con 45 días, aplicar hoy **no archiva ningún reporte**.)
 
 ### Lo que sigue faltando
-1. **Aplicar `0054`, `0055` y `0057`** (la `0056` quedó libre: microchip no necesitó migración),
-   validando cada una dentro de `begin … rollback`.
-2. **Subir el `dist`** con las tandas 10, 11 y 12 juntas, **después** de las migraciones.
+**Solo subir el `dist`** (ya exportado). Las tres migraciones quedaron aplicadas y verificadas el
+2-ago — ver el bloque de arriba de todo. La `0056` quedó libre: microchip no necesitó migración.
 
 ## 🗓️ TANDA 11 — cierre de casos · avisar sin cuenta · bandeja · adopción (1-ago)
 
