@@ -1,4 +1,6 @@
-import { readdirSync, readFileSync } from 'fs';
+// `readdirSync` se fue con el guardrail de "ultima migracion" (ver el final
+// del archivo): hoy vive en `__tests__/db/migracion0057.test.ts`.
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // GUARDRAIL ESTATICO de la 0053 — el perfil publico cuenta lo que se PUEDE VER.
@@ -93,17 +95,22 @@ describe('el numero del perfil y el del feed cuentan LO MISMO', () => {
   });
 });
 
-// Este guardrail viaja SIEMPRE con la migracion mas nueva del repo. Su gracia
-// es ponerse rojo cuando aparece otra sin que nadie revise el orden de
-// aplicacion. Si se agrega una 0054, hay que MOVERLO (no duplicarlo): en la
-// tanda 10, tres agentes lo copiaron a la vez y quedaron tres copias afirmando
-// numeros distintos, dos de ellas rojas para siempre.
-describe('0053 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(53);
-  });
-});
+// ───────────────────────────────────────────────────────────────────────────
+// EL GUARDRAIL DE "ULTIMA MIGRACION" SE MUDO DE ACA.
+//
+// Vivia en este archivo con `toBe(53)` y ahora esta en
+// `__tests__/db/migracion0057.test.ts` con `toBe(57)` (tanda 12, cuentas
+// institucionales). Viaja SIEMPRE con la migracion mas nueva del repo: su
+// gracia es ponerse rojo cuando aparece otra sin que nadie revise el orden de
+// aplicacion. Se MUEVE, no se duplica — en la tanda 10, tres agentes lo
+// copiaron a la vez y quedaron tres copias afirmando numeros distintos, dos de
+// ellas rojas para siempre.
+//
+// Todo lo de arriba SIGUE VIGENTE: la 0053 es un archivo historico y su
+// contenido no cambia. Una aclaracion, eso si: la definicion VIVA de
+// `perfil_publico` ya no la escribe la 0053 sino la 0057, que la recreo
+// partiendo de esta version para sumarle las columnas de institucion. La
+// comparacion de vigencia 0053↔0052 de mas arriba queda como registro de lo que
+// hizo esta migracion; el guardrail que protege la definicion VIVA (0057↔0052)
+// esta en el test de la 0057.
+// ───────────────────────────────────────────────────────────────────────────

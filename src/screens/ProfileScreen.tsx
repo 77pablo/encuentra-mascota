@@ -9,6 +9,7 @@ import { vencido } from '../lib/cicloVida';
 import { isReunited } from '../lib/reunion';
 import { insigniasDe } from '../lib/insignias';
 import { camposDeContactoParaGuardar, getMyProfile, Profile, updateMyProfile } from '../services/profile';
+import InsigniaInstitucion from '../components/InsigniaInstitucion';
 import { getPerfilPublico } from '../services/perfilPublico';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
@@ -540,6 +541,14 @@ export default function ProfileScreen({ navigation }: any) {
             />
           )}
         </Card>
+
+        {/* CUENTA INSTITUCIONAL (0057). No es decoración: como la verificación
+            la otorga la moderación a mano, esta es la ÚNICA forma que tiene una
+            veterinaria de saber que el trámite quedó hecho — si no, escribe de
+            nuevo para preguntar. Y es lo que explica que Publicar le ofrezca
+            cargar en lote. Se dibuja sola (null) para una cuenta común, con el
+            perfil en null y con la 0057 sin aplicar. */}
+        <InsigniaInstitucion institucion={profile?.institucion ?? null} />
 
         {/* Insignias propias: las mismas que ve un vecino en tu perfil público,
             que hasta ahora solo se renderizaban allá. Si el perfil es nuevo no

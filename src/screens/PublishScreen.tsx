@@ -32,6 +32,10 @@ import { SelectorAmbito } from '../components/SelectorAmbito';
 import { RECOMPENSA_SI } from '../lib/recompensa';
 import { validarSenas } from '../lib/senaPrivada';
 import { guardarSenasPrivadas } from '../services/senasPrivadas';
+// Carga en lote para cuentas institucionales (migracion 0057). Un refugio con
+// 15 animales no los sube de a uno con este formulario.
+import { getMyProfile, Profile } from '../services/profile';
+import { ofertaTrasPublicar, siguienteDelLote } from '../lib/loteInstitucional';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -104,6 +108,34 @@ export default function PublishScreen({ navigation, route }: any) {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // --- CUENTA INSTITUCIONAL (0057) ---
+  // Se lee una vez y no bloquea nada: si falla, `perfil` queda en null y la
+  // pantalla se comporta exactamente como antes. Publicar un reporte es la
+  // función central de la app; la carga en lote es un extra y no puede
+  // impedirla un hipo al leer el perfil.
+  const [perfil, setPerfil] = useState<Profile | null>(null);
+  useEffect(() => {
+    if (!user) {
+      setPerfil(null);
+      return;
+    }
+    let vivo = true;
+    getMyProfile(user.id)
+      .then((p) => {
+        if (vivo) setPerfil(p);
+      })
+      .catch((e) =>
+        console.warn('No se pudo leer tu perfil (carga en lote):', e?.message ?? e),
+      );
+    return () => {
+      vivo = false;
+    };
+  }, [user]);
+  // `institucion` es null si la cuenta no está verificada Y TAMBIÉN si la 0057
+  // no está aplicada (la RPC vieja no trae esas columnas). Las dos cosas
+  // significan lo mismo acá: nada cambia.
+  const institucion = perfil?.institucion ?? null;
 
   // --- F1: "Compartir tarjeta" tras publicar (bloque autocontenido, agente A) ---
   const [tarjetaPet, setTarjetaPet] = useState<Pet | null>(null); // dispara el montaje off-screen
@@ -215,6 +247,47 @@ export default function PublishScreen({ navigation, route }: any) {
   // (50 m contra 315 m de mediana). Ver `preguntarAmbito`.
   const mostrarAmbito = preguntarAmbito({ especie, estado });
 
+  // Deja el formulario listo para el SIGUIENTE animal del lote. Qué se conserva
+  // y qué se limpia lo decide `siguienteDelLote` (función pura, con tests): lo
+  // importante es que la foto, las señas y el vínculo con "Mi mascota" del
+  // animal anterior NO se arrastren.
+  const prepararSiguienteDelLote = () => {
+    const sig = siguienteDelLote({
+      estado,
+      especie,
+      comuna,
+      comunaManual,
+      comunasAlcance,
+      coords,
+      ambito,
+      raza,
+      nombre,
+      descripcion,
+      ofreceRecompensa,
+      sena1,
+      sena2,
+      fotoUris,
+      confirmado,
+      origenMyPet,
+    });
+    setEstado(sig.estado);
+    setEspecie(sig.especie);
+    setComuna(sig.comuna);
+    setComunaManual(sig.comunaManual);
+    setComunasAlcance(sig.comunasAlcance);
+    setCoords(sig.coords);
+    setAmbito(sig.ambito);
+    setRaza(sig.raza);
+    setNombre(sig.nombre);
+    setDescripcion(sig.descripcion);
+    setOfreceRecompensa(sig.ofreceRecompensa);
+    setSena1(sig.sena1);
+    setSena2(sig.sena2);
+    setFotoUris(sig.fotoUris);
+    setConfirmado(sig.confirmado);
+    setOrigenMyPet(sig.origenMyPet);
+  };
+
   const onSubmit = async () => {
     // Portero (pulido): la pestaña Publicar ya bloquea la entrada a un
     // invitado (`porteroDeTab` en TabNavigator), pero esta pantalla también
@@ -308,15 +381,34 @@ export default function PublishScreen({ navigation, route }: any) {
       } catch (e: any) {
         console.warn('No se pudo guardar la seña secreta del reporte:', e?.message ?? e);
       }
-      // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
-      // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
-      // interrumpimos: ese flujo no necesita acompañamiento de búsqueda.
+      // Qué se le ofrece a quien acaba de publicar. La guía de "qué hacer
+      // ahora" está escrita para el dueño angustiado de una mascota perdida; a
+      // un refugio que va por el animal 7 de 15 no le sirve. Ver
+      // `ofertaTrasPublicar` (función pura, con tests).
+      const oferta = ofertaTrasPublicar({ esInstitucion: !!institucion, estado });
       let destino: string;
       // [tanda6-A] La tarjeta se ofrece al terminar SOLO si el usuario no se
       // va a una guía (ya tiene bastante ahí; no encadenamos dos confirms).
       // Vale para las dos guías: perdida (func. previa) y encontrada (func. 4).
       let ofrecerAlTerminar = true;
-      if (estado === 'perdida') {
+      if (oferta.tipo === 'lote') {
+        // [0057] CARGA EN LOTE. Se queda en el formulario con lo común puesto.
+        const otro = await confirmAction(
+          '¡Publicado!',
+          '¿Cargás otro animal? Mantenemos la comuna, el punto del mapa y el estado; el resto se limpia.',
+        );
+        if (otro) {
+          prepararSiguienteDelLote();
+          // Sin tarjeta y sin navegar: sería interrumpir quince veces seguidas.
+          return;
+        }
+        // 'Mapa' ya no existe desde las 5 pestañas: se vuelve a Explorar, que
+        // es donde vive el mapa hoy.
+        destino = 'Explorar';
+      } else {
+        // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la
+        // guía de "qué hacer ahora" en vez de solo volver al mapa. En
+        // "encontrada", la guía de "encontré una mascota" (func. 4).
         const quiereGuia = await confirmAction(
           '¡Publicado!',
           'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
@@ -325,16 +417,7 @@ export default function PublishScreen({ navigation, route }: any) {
         // 'Mapa' ya no existe desde las 5 pestañas (bug latente preexistente,
         // arreglado en la reconciliación del merge): el que no va a la guía
         // vuelve a Explorar, que es donde vive el mapa hoy.
-        destino = quiereGuia ? 'GuiaPerdida' : 'Explorar';
-      } else {
-        // Simétrico al flujo de "perdida": ofrecemos la guía de "encontré una
-        // mascota" (func. 4) en vez de solo confirmar.
-        const quiereGuia = await confirmAction(
-          '¡Publicado!',
-          'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
-        );
-        ofrecerAlTerminar = !quiereGuia;
-        destino = quiereGuia ? 'GuiaEncontrada' : 'Explorar';
+        destino = quiereGuia ? oferta.destino : 'Explorar';
       }
       // [tanda6-A] Oferta de "Compartir tarjeta" (agente A): único punto de
       // llamada, para no repetirla trenzada en cada rama de arriba.
@@ -356,6 +439,26 @@ export default function PublishScreen({ navigation, route }: any) {
         <AppText muted size={14} style={styles.pageSubtitle}>
           Completa los datos y ayúdanos a encontrar a esta mascota.
         </AppText>
+
+        {/* CUENTA INSTITUCIONAL (0057). Se dibuja sola para una persona y
+            también mientras la 0057 no esté aplicada. No es un cartel: es
+            decirle al refugio, antes de empezar, que no va a tener que repetir
+            la comuna quince veces. */}
+        {institucion ? (
+          <Card style={styles.section}>
+            <View style={styles.loteFila}>
+              <Ionicons name="layers-outline" size={18} color={colors.brand} />
+              <AppText size={13} style={styles.loteTexto}>
+                Publicás como{' '}
+                <AppText weight="bold" size={13}>
+                  {institucion.nombre}
+                </AppText>
+                . Al terminar te ofrecemos cargar otro animal conservando la comuna y el
+                punto del mapa.
+              </AppText>
+            </View>
+          </Card>
+        ) : null}
 
         <Card style={styles.section}>
           <Title size={16} style={styles.sectionTitle}>
@@ -619,6 +722,15 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  loteFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  loteTexto: {
+    flex: 1,
+    lineHeight: 18,
   },
   ayuda: {
     lineHeight: 17,

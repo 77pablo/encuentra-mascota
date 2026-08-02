@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { institucionDe, type Institucion } from '../lib/institucion';
 
 export interface Profile {
   id: string;
@@ -8,6 +9,12 @@ export interface Profile {
   red_social: string | null;
   creado_en: string;
   es_admin?: boolean;
+  // Cuenta institucional verificada (migracion 0057), o null. Es lo que
+  // habilita la carga en lote en Publicar y lo que le confirma a una
+  // veterinaria que su verificacion quedo hecha. Se calcula con
+  // `institucionDe`, que exige `institucion_verificada_en` — un dato que el
+  // usuario NO puede escribir (revoke update por columna, 0057).
+  institucion?: Institucion | null;
   // true solo cuando este perfil vino del escalon de respaldo de
   // getMyProfile (mi_perfil() todavia no existe). En ese caso telefono y
   // red_social son null porque no se pudieron leer, NO porque el usuario los
@@ -55,12 +62,78 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
       telefono: null,
       red_social: null,
       es_admin: false,
+      // Este escalon lee `profiles` con el grant publico por columna, que NO
+      // incluye lo institucional del dueño mas alla de lo publico; y de todos
+      // modos, si `mi_perfil()` no esta desplegada la 0057 tampoco. Fallar
+      // cerrado aca solo significa "no se ofrece la carga en lote", que es un
+      // extra, no una perdida de datos.
+      institucion: null,
       contactoNoDisponible: true,
     } as Profile;
   }
 
-  const filas = (data ?? []) as Profile[];
-  return filas[0] ?? null;
+  const fila = ((data ?? []) as any[])[0];
+  if (!fila) return null;
+  // `institucionDe` devuelve null si la 0057 no esta aplicada (la RPC vieja no
+  // trae esas claves) o si la cuenta no esta verificada. Las dos cosas
+  // significan lo mismo para la app.
+  return { ...fila, institucion: institucionDe(fila) } as Profile;
+}
+
+// Quién publicó algo: su nombre público y, si es una cuenta institucional
+// verificada, qué institución es (migración 0057).
+export interface AutorPublico {
+  nombre: string | null;
+  institucion: Institucion | null;
+}
+
+const CAMPOS_AUTOR = 'nombre, eliminado_en';
+const CAMPOS_AUTOR_CON_INSTITUCION =
+  'nombre, eliminado_en, institucion_tipo, institucion_nombre, institucion_comuna,' +
+  ' institucion_contacto, institucion_verificada_en';
+
+// 42703 = "column does not exist". Es lo que devuelve PostgREST cuando la app
+// ya subió y la 0057 todavía no. NO se puede tratar como "no hay autor": eso
+// borraría la fila "Publicado por …" de TODAS las fichas durante la ventana de
+// despliegue. Se reintenta con el select de siempre.
+//
+// PostgREST también puede envolverlo con su propio código; se mira además el
+// mensaje, que es donde viaja el nombre de la columna.
+function esColumnaInexistente(error: any): boolean {
+  if (!error) return false;
+  if (error.code === '42703') return true;
+  return /column .*institucion_/i.test(String(error.message ?? ''));
+}
+
+function autorDe(data: any): AutorPublico | null {
+  // Una lápida (cuenta borrada) no se enlaza ni se firma.
+  if (!data || data.eliminado_en) return null;
+  return {
+    nombre: (data.nombre ?? '').trim() || null,
+    institucion: institucionDe(data),
+  };
+}
+
+// Lee el autor en UNA consulta. Silencioso ante cualquier otro error: la ficha
+// se lee entera sin la firma, igual que antes de la 0057.
+export async function getAutorPublico(userId: string): Promise<AutorPublico | null> {
+  const conInstitucion = await supabase
+    .from('profiles')
+    .select(CAMPOS_AUTOR_CON_INSTITUCION)
+    .eq('id', userId)
+    .maybeSingle();
+  if (!conInstitucion.error) return autorDe(conInstitucion.data);
+  // Un corte de red, un JWT vencido o un 500 NO se arreglan repitiendo la
+  // consulta sin columnas: eso solo esconde el problema y duplica el tráfico.
+  if (!esColumnaInexistente(conInstitucion.error)) return null;
+
+  const legado = await supabase
+    .from('profiles')
+    .select(CAMPOS_AUTOR)
+    .eq('id', userId)
+    .maybeSingle();
+  if (legado.error) return null;
+  return autorDe(legado.data);
 }
 
 // Nombre público de una persona (la columna `nombre` es legible desde 0018).
@@ -70,7 +143,7 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
 export async function getNombrePublico(userId: string): Promise<string | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('nombre, eliminado_en')
+    .select(CAMPOS_AUTOR)
     .eq('id', userId)
     .maybeSingle();
   if (error || !data || data.eliminado_en) return null;
