@@ -1,24 +1,24 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (2-ago-2026, cierre del día)
+## 👉 DÓNDE RETOMAR (2-ago-2026, noche — spec APROBADA, escribiendo el plan)
 
-**Dos cosas pendientes tuyas, y una tanda diseñada sin empezar.**
+**Pablo aprobó la spec entera y revocó el token de Supabase.** Queda UNA cosa suya pendiente:
 
-### Lo tuyo, en orden
 1. **Subir el `dist`** (ya exportado: `index-eb9ae5d7ef8da61b08fdb54323edde27.js`). La `0058` ya está
    aplicada, así que se puede subir cuando quieras.
-2. **Revocar el token de Supabase** (<https://supabase.com/dashboard/account/tokens>). Lo borré del
-   disco, pero estaba en OneDrive y se sincronizó a la nube.
 
-### La tanda siguiente: diseñada, NO aprobada, NO empezada
-Spec en **`docs/superpowers/specs/2026-08-02-privacidad-y-4-funciones-design.md`**. Son cinco cosas:
-ocultar el contacto (el pedido original de Pablo: número en el afiche, red social, correo
-enmascarado), el afiche en dos toques, la bandeja de moderación que avisa, cerrarle el círculo a
-quien avisó, y foto en el aviso anónimo.
+### La tanda siguiente: aprobada, plan en escritura
+Spec en **`docs/superpowers/specs/2026-08-02-privacidad-y-4-funciones-design.md`** — **APROBADA por
+Pablo el 2-ago (noche), entera, con las decisiones finas delegadas a criterio conservador en el
+plan.** Son cinco cosas: ocultar el contacto (número en el afiche, red social, correo enmascarado),
+el afiche en dos toques, la bandeja de moderación que avisa, cerrarle el círculo a quien avisó, y
+foto en el aviso anónimo.
 
-**Lo primero al retomar es que Pablo lea esa spec y la apruebe.** Después va `writing-plans`, y recién
-ahí los implementadores. No saltearse eso: la tanda 11 tenía 4 errores en el plan que encontraron los
-4 agentes, y la tanda 12 se fusionó sin revisión con 3 Criticals adentro.
+**El plan está ESCRITO**: `docs/superpowers/plans/2026-08-02-privacidad-y-4-funciones.md` — 16
+tareas en 4 áreas paralelas (A afiche · B perfil · C moderación · D aviso anónimo) sobre ramas
+`feat/t13-a…d`, migraciones `0059`–`0062` (la `0056` sigue libre). Sigue la ejecución con
+implementadores + revisión adversarial ANTES de aplicar nada: la tanda 11 tenía 4 errores en el
+plan que encontraron los 4 agentes, y la tanda 12 se fusionó sin revisión con 3 Criticals adentro.
 
 **Las dos decisiones difíciles ya están tomadas** (están en la spec con su fundamento): el correo de
 seguimiento es **opcional y de finalidad única**, y la foto del aviso anónimo **solo la ve el dueño,
@@ -34,8 +34,7 @@ desde la tanda A, el correo no se expone nunca, y lo único realmente público e
 Bundle exportado y listo: `index-eb9ae5d7ef8da61b08fdb54323edde27.js`. Drag-and-drop de `dist` a
 Cloudflare Pages. Va **después** de la migración (ya aplicada), así que se puede subir cuando quieras.
 
-⚠️ **Revocar el token de Supabase** (<https://supabase.com/dashboard/account/tokens>). El archivo lo
-borré, pero estaba en OneDrive y se sincronizó a la nube.
+✅ **Token de Supabase revocado por Pablo (2-ago, noche).**
 
 ### Lo que se hizo en esta sesión
 1. **Revisión adversarial de la tanda 12** (la que faltaba): 3 Criticals y 7 Altos, arreglados en
