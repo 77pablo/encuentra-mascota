@@ -571,6 +571,51 @@ describe('componerAviso - busqueda_guardada', () => {
   });
 });
 
+// Denuncia nueva (Tanda 13 · C, migración 0060): aviso dirigido a UN admin (el
+// que encoló el trigger de la 0060), igual que escaneo_collar/busqueda_guardada:
+// el destinatario sale de targetUserId, no pasa por ningún interruptor de tipo
+// (ni siquiera el de 'pistas', donde caería por descarte). El cuerpo apunta a
+// la bandeja de Moderación y nunca lleva el texto libre del denunciante: ese
+// dato no viaja en el evento (ver 0060), a propósito.
+describe('resolverDestinatarios - denuncia_nueva', () => {
+  const evDenuncia: EventoAviso = {
+    id: 'd1', tipo: 'denuncia_nueva', petId: '', actorId: null,
+    targetUserId: 'admin-1', datos: {},
+  };
+
+  it('va SOLO al admin destinatario, sin pasar por el interruptor de pistas', () => {
+    const ctx: Contexto = {
+      ...ctxBase,
+      prefs: {
+        'admin-1': { userId: 'admin-1', zona: true, avistamientos: true, pistas: false,
+                     coincidencias: true, canalEmail: true, canalPush: true },
+      },
+    };
+    expect(resolverDestinatarios(evDenuncia, ctx)).toEqual([
+      { userId: 'admin-1', canales: ['email', 'push'] },
+    ]);
+  });
+
+  it('sin targetUserId no hay a quien avisar (defensivo)', () => {
+    const sinTarget: EventoAviso = { ...evDenuncia, targetUserId: null };
+    expect(resolverDestinatarios(sinTarget, ctxBase)).toEqual([]);
+  });
+});
+
+describe('componerAviso - denuncia_nueva', () => {
+  it('compone un aviso que apunta a la bandeja, sin texto del denunciante', () => {
+    const ev: EventoAviso = {
+      id: 'd2', tipo: 'denuncia_nueva', petId: '', actorId: null,
+      targetUserId: 'admin-1',
+      datos: { tipo_denuncia: 'reporte', motivo: 'spam' } as EventoAviso['datos'],
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.titulo).toBe('Entró una denuncia nueva');
+    expect(aviso.cuerpo).toContain('Perfil → Moderación');
+    expect(aviso.cuerpo).not.toContain('spam-detalle-libre');
+  });
+});
+
 describe('componerAviso', () => {
   it('usa el nombre de la mascota cuando lo hay', () => {
     const ev: EventoAviso = { id: 'e8', tipo: 'avistamiento', petId: 'p1', actorId: 'v', datos: {} };

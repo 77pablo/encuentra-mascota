@@ -19,7 +19,10 @@ export type TipoEvento =
   | 'busqueda_guardada'
   // Lo encola alguien SIN CUENTA desde la pantalla pública del reporte
   // (`avistar_sin_cuenta`, migración 0050). Único tipo con actorId siempre null.
-  | 'avistamiento_anonimo';
+  | 'avistamiento_anonimo'
+  // Lo encola el trigger de la 0060 para cada admin activo, cuando entra una
+  // denuncia nueva (bandeja de Moderación). Sin pet ni actor.
+  | 'denuncia_nueva';
 
 export type EventoAviso = {
   id: string;
@@ -55,6 +58,12 @@ export type EventoAviso = {
     // búsqueda guardada de alguien (ver enqueue_busquedas_guardadas, 0031).
     estado?: string;
     nombre?: string;
+    // 'denuncia_nueva' (0060): SOLO claves de listas cerradas (tipo y motivo
+    // salen de MOTIVOS_DENUNCIA/TipoDenuncia del cliente). El detalle libre
+    // del denunciante NO viaja acá — y `componerAviso` ni siquiera los usa:
+    // el aviso apunta a la bandeja, no repite el contenido.
+    tipo_denuncia?: string;
+    motivo?: string;
   };
 };
 
@@ -181,12 +190,17 @@ export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Desti
     elBloqueoApagaElAviso(evento.tipo) ? ctx.bloqueadosConActor ?? [] : [],
   );
 
-  // 'escaneo_collar' y 'busqueda_guardada': destinatario único y directo =
-  // evento.targetUserId (el dueño de la ficha o de la búsqueda guardada), NO
-  // el dueño de un reporte. Ninguno pasa por el interruptor de tipo: guardar
-  // la búsqueda (o colgar la placa) YA es el opt-in explícito. Solo se
-  // respeta el filtro de canales (y el bloqueo).
-  if (evento.tipo === 'escaneo_collar' || evento.tipo === 'busqueda_guardada') {
+  // 'escaneo_collar', 'busqueda_guardada' y 'denuncia_nueva': destinatario
+  // único y directo = evento.targetUserId (el dueño de la ficha, de la
+  // búsqueda guardada, o el admin que encoló la 0060), NO el dueño de un
+  // reporte. Ninguno pasa por el interruptor de tipo: guardar la búsqueda (o
+  // colgar la placa, o ser el admin al que le llegó la denuncia) YA es el
+  // opt-in explícito. Solo se respeta el filtro de canales (y el bloqueo).
+  if (
+    evento.tipo === 'escaneo_collar' ||
+    evento.tipo === 'busqueda_guardada' ||
+    evento.tipo === 'denuncia_nueva'
+  ) {
     const target = evento.targetUserId ?? null;
     if (!target || target === evento.actorId) return [];
     if (bloqueados.has(target)) return [];
@@ -282,6 +296,21 @@ export function componerAviso(
       titulo: 'Apareció un reporte que calza con tu búsqueda',
       cuerpo: `${estadoLabel} en ${comunaTexto} — ${especieLabel}${nombreReporte ? ` «${nombreReporte}»` : ''}`,
       ruta: `/mascota/${evento.petId}`,
+    };
+  }
+
+  // 'denuncia_nueva' (0060): aviso dirigido al admin, sin reporte ni actor.
+  // Apunta a la bandeja de Moderación, nunca al contenido denunciado ni al
+  // texto del denunciante (ese detalle libre no viaja en el evento, a
+  // propósito). `ruta: '/'` es intencional: la pantalla de Moderación no
+  // tiene ruta web pública, y un deep link roto es peor que ir al inicio.
+  if (evento.tipo === 'denuncia_nueva') {
+    return {
+      titulo: 'Entró una denuncia nueva',
+      cuerpo:
+        'Hay contenido esperando revisión. Los Términos prometen plazos: ' +
+        'entrá a Perfil → Moderación para verla.',
+      ruta: '/',
     };
   }
 

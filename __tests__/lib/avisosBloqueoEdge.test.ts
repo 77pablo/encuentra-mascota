@@ -21,11 +21,12 @@ describe('send-notifications consulta los bloqueos del actor', () => {
   });
 
   it('pasa `bloqueadosConActor` en TODOS los contextos que arma', () => {
-    // `armarContexto` tiene tres caminos de retorno (collar, busqueda guardada,
-    // y el generico por reporte). Si uno se olvida, ese tipo de aviso sigue
-    // llegandole a un bloqueado y nadie se entera.
+    // `armarContexto` tiene cuatro caminos de retorno (collar, busqueda
+    // guardada, denuncia nueva, y el generico por reporte). Si uno se
+    // olvida, ese tipo de aviso sigue llegandole a un bloqueado y nadie se
+    // entera.
     const retornos = notifs.match(/return \{ duenoPetId[^}]*\}/g) ?? [];
-    expect(retornos.length).toBe(3);
+    expect(retornos.length).toBe(4);
     for (const r of retornos) expect(r).toContain('bloqueadosConActor');
   });
 

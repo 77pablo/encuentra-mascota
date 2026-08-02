@@ -35,7 +35,9 @@ interface EventoRow {
     | 'pista'
     | 'coincidencia'
     | 'escaneo_collar'
-    | 'busqueda_guardada';
+    | 'busqueda_guardada'
+    | 'avistamiento_anonimo'
+    | 'denuncia_nueva';
   // pet_id es nullable desde la 0027: un 'escaneo_collar' no tiene reporte.
   pet_id: string | null;
   actor_id: string | null;
@@ -293,6 +295,36 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
   // autor del reporte y las prefs se pedirían para la persona equivocada (se
   // ignoraría su preferencia real de canales).
   if (ev.tipo === 'busqueda_guardada') {
+    const target = ev.target_user_id;
+    if (!target) return null; // sin destinatario no hay a quién avisarle
+    const prefs: Record<string, Prefs> = {};
+    const { data } = await supabase
+      .from('notification_prefs')
+      .select('*')
+      .eq('user_id', target)
+      .maybeSingle();
+    if (data) {
+      const row = data as Record<string, boolean | string>;
+      prefs[target] = {
+        userId: target,
+        zona: row.zona as boolean,
+        avistamientos: row.avistamientos as boolean,
+        pistas: row.pistas as boolean,
+        coincidencias: row.coincidencias as boolean,
+        canalEmail: row.canal_email as boolean,
+        canalPush: row.canal_push as boolean,
+      };
+    }
+    return { duenoPetId: target, nombrePet: null, zonas: [], prefs, seguidoresComuna: [], bloqueadosConActor };
+  }
+
+  // 'denuncia_nueva' (0060) TAMPOCO tiene reporte (pet_id = null, igual que
+  // 'escaneo_collar'): el destinatario es directo (ev.target_user_id, el
+  // admin al que le tocó la denuncia). No hay ficha de mascota que buscar, así
+  // que este branch va antes del `select` a pets por el mismo motivo que el
+  // de 'escaneo_collar': con pet_id=null esa consulta devolvería null y el
+  // aviso se perdería.
+  if (ev.tipo === 'denuncia_nueva') {
     const target = ev.target_user_id;
     if (!target) return null; // sin destinatario no hay a quién avisarle
     const prefs: Record<string, Prefs> = {};
