@@ -1,5 +1,47 @@
 # Estado del proyecto — Encuentra tu Mascota
 
+## 👉 DÓNDE RETOMAR (2-ago-2026, noche)
+
+**Migración `0058` APLICADA y verificada. Lo único que falta es subir el `dist`.**
+
+Bundle exportado y listo: `index-eb9ae5d7ef8da61b08fdb54323edde27.js`. Drag-and-drop de `dist` a
+Cloudflare Pages. Va **después** de la migración (ya aplicada), así que se puede subir cuando quieras.
+
+⚠️ **Revocar el token de Supabase** (<https://supabase.com/dashboard/account/tokens>). El archivo lo
+borré, pero estaba en OneDrive y se sincronizó a la nube.
+
+### Lo que se hizo en esta sesión
+1. **Revisión adversarial de la tanda 12** (la que faltaba): 3 Criticals y 7 Altos, arreglados en
+   `31b598d`. Migraciones `0054`/`0055`/`0057` aplicadas y web en producción verificada.
+2. **Los 6 Medios que dejó esa revisión + la promesa legal incumplida** (4 agentes en paralelo,
+   `c9a6c9b`), más la revisión final de rama.
+3. **`0058` aplicada** (2-ago, noche): **50 ataques ejecutados contra la base real** — 15 de la 0058
+   en rollback, 15 después de aplicar, y los 20 de la 0054/0057 **repetidos** para comprobar que la
+   `0058` no desandó nada (recrea `buscar_coincidencias` y toca `profiles`). El oráculo de chip sigue
+   cerrado y las cinco escaladas de privilegios siguen rechazadas.
+
+Lo que se comprobó ejecutándolo, no leyéndolo: corregir el nombre de una institución **no borra** su
+contacto ni su comuna, y mandar `''` **sí** lo borra; suspender **esconde la insignia pero conserva el
+nombre** (si no, se rompía el chat); reactivar **la devuelve entera con sus datos**; el helper de la
+regla **no es llamable por nadie** (42501, sería un oráculo de `suspendido_en`); borrar la cuenta **no
+revienta contra el CHECK** y deja las columnas limpias **conservando quién firmó**; y un
+`p_radio_km` de 99.999 km **ya no barre el país**.
+
+### Deuda anotada, con nombre y apellido
+- **Nada de la accesibilidad se probó con un lector de pantalla real.** La conclusión sale de leer la
+  tabla de props de la versión instalada de react-native-web. Es sólido, no es lo mismo que VoiceOver.
+- **Nueve pantallas** (`AdopcionFeedScreen`, `AlertZoneScreen`, `EncontreScreen`, `EditAdoptionScreen`,
+  `PublicarAdopcionScreen`, `ProfileScreen`, `HomeScreen`, `SelectorAmbito`, `PlanBusqueda`) tienen
+  grupos de "elegí uno" que se anuncian como casillas: ya no son mudos, pero les falta `rol="opcion"`
+  y el `radiogroup`. Es mecánico y hay dos ejemplos hechos.
+- **Seis promesas más sin cumplir en los documentos legales** (el correo al detectar un menor de 14, el
+  aviso in-app ante una brecha, los 30 días si se cierra la app, la tabla de plazos de moderación sin
+  ningún recordatorio detrás, y la Agencia de Protección de Datos citada como si ya existiera).
+- **`moderar_reactivar` no deja rastro** en `denuncias`, a diferencia de retirar y suspender.
+- **El aviso anónimo sigue esquivando el bloqueo** si la persona cierra sesión, y el techo de volumen
+  es por reporte, así que se puede ocupar desde afuera. Es un intercambio elegido, no un descuido.
+- `src/ui/Input.tsx` no admite `autoCorrect`: el teclado puede aprender el número de chip.
+
 ## 👉 DÓNDE RETOMAR (2-ago-2026, tarde — revisión adversarial de la tanda 12)
 
 Se corrió la **revisión adversarial de rama** que faltaba (4 revisores en paralelo sobre áreas
