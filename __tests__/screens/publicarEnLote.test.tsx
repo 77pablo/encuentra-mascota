@@ -2,7 +2,7 @@ import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { Text, TouchableOpacity } from 'react-native';
 import PublishScreen from '../../src/screens/PublishScreen';
-import { Button, Input } from '../../src/ui';
+import { Button, Chip, Input } from '../../src/ui';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';
 
 // CARGA EN LOTE PARA INSTITUCIONES (migración 0057).
@@ -50,11 +50,15 @@ jest.mock('../../src/services/pets', () => ({
 jest.mock('../../src/services/storage', () => ({
   uploadPetPhotos: () => Promise.resolve(['https://foto/1.jpg']),
   borrarFotosSubidas: () => Promise.resolve(),
-  esRechazoDePermiso: () => false,
+  esRechazoDefinitivo: () => false,
   estoySuspendido: () => Promise.resolve(false),
 }));
 jest.mock('../../src/services/senasPrivadas', () => ({
   guardarSenasPrivadas: () => Promise.resolve(true),
+}));
+const mockGuardarChip = jest.fn();
+jest.mock('../../src/services/petChip', () => ({
+  guardarChip: (...a: any[]) => mockGuardarChip(...a),
 }));
 
 const mockGetMyProfile = jest.fn();
@@ -209,6 +213,55 @@ describe('a una institución se le ofrece cargar el siguiente', () => {
     expect(dos.estado).toBe(uno.estado);
     // …y con SU descripción, no la del anterior.
     expect(dos.descripcion).toContain('Gata blanca');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LO QUE ESTE ARCHIVO NO MIRABA, Y ERA LO PEOR QUE SE PODÍA ARRASTRAR.
+  //
+  // El test de acá arriba comparaba `descripcion`, `comuna`, `lat` y `estado`
+  // entre las dos publicaciones — y las señas estructuradas estaban en ese
+  // mismo objeto, sin que nadie las mirara. El fixture nunca tocaba el selector
+  // ni el campo de chip, así que los dos viajaban `undefined` en las dos
+  // llamadas y el assert pasaba por vacío.
+  // ─────────────────────────────────────────────────────────────────────────
+  it('el animal #2 NO hereda las señas ni el chip del #1', async () => {
+    mockConfirm.mockResolvedValue(true);
+    const arbol = await montar();
+
+    // Animal #1: perro negro, grande, con su chip leído por el veterinario.
+    await act(async () => {
+      arbol.root.findAllByType(Chip).find((c: any) => c.props.label === 'Negro').props.onPress();
+    });
+    await act(async () => {
+      arbol.root.findAllByType(Chip).find((c: any) => c.props.label === 'Grande').props.onPress();
+    });
+    await act(async () => {
+      inputDe(arbol, 'Ej: 985112003456789').props.onChangeText('985112003456789');
+    });
+    await publicar(arbol, 'Quiltro negro grande, muy manso, apareció en la plaza.');
+
+    // Animal #2: una gata blanca chiquita. El refugio NO vuelve a tocar el
+    // selector ni el campo de chip: acaba de leer que "el resto se limpia", y
+    // los dos están más abajo en el scroll.
+    mockConfirm.mockResolvedValue(false);
+    await publicar(arbol, 'Gata blanca con manchas, muy chiquita.');
+
+    expect(mockCreatePet).toHaveBeenCalledTimes(2);
+    const [uno, dos] = mockCreatePet.mock.calls.map((c) => c[0]);
+
+    // Control: el #1 sí llevaba las señas (si no, el test pasa por vacío).
+    expect(uno.colores).toEqual(['negro']);
+    expect(uno.tamano).toBe('grande');
+
+    // Heredadas, `senas_contradicen` (0054) DESCARTA la coincidencia buena:
+    // la dueña de la gata publica "blanca/chica" y el par queda descartado.
+    expect(dos.colores).toBeUndefined();
+    expect(dos.tamano).toBeUndefined();
+
+    // Y el chip, que vale 1000 puntos y dispara "casi seguro es tu mascota",
+    // se guarda UNA sola vez: para el animal cuyo chip se leyó de verdad.
+    expect(mockGuardarChip).toHaveBeenCalledTimes(1);
+    expect(mockGuardarChip).toHaveBeenCalledWith('pet-1', 'yo', '985112003456789');
   });
 
   it('decir que no lo saca del formulario, como a cualquiera', async () => {

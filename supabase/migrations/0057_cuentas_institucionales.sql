@@ -132,8 +132,27 @@ grant select (institucion_tipo, institucion_nombre, institucion_comuna,
 --    va a fallar con 42501 (o peor, dejar de guardar ese campo en silencio).
 -- ------------------------------------------------------------------
 revoke update on public.profiles from public, anon, authenticated;
-grant update (nombre, foto_perfil, telefono, red_social, fecha_nacimiento)
+-- Exactamente lo que escribe `updateMyProfile`, y NADA mas.
+--
+-- `fecha_nacimiento` NO esta en la lista, aunque sea "un dato del dueño": en la
+-- app NADIE la actualiza. Entra una sola vez, por la metadata del registro, via
+-- `handle_new_user` (definer, corre como el owner y no necesita este grant).
+-- Concederla no habilitaba ninguna pantalla y si habilitaba un PATCH directo
+-- contra PostgREST: es el UNICO registro de la edad declarada, y el control de
+-- edad minima (14, `src/schemas/auth.ts`) solo corre en el cliente al
+-- registrarse. Quien miente la edad para entrar podia despues reescribirla, o
+-- al reves. Con la 21.719 encima, mejor cerrada.
+grant update (nombre, foto_perfil, telefono, red_social)
        on public.profiles to authenticated;
+
+-- Y lo mismo con INSERT, que el grant por defecto de Supabase da sobre TODAS
+-- las columnas. Hoy no es explotable porque `handle_new_user` ya creo la fila y
+-- el PK rebota el duplicado, pero es un solo punto de falla: la 0017 solto a
+-- proposito la FK `profiles -> auth.users`, asi que si alguna vez se borra a
+-- mano una fila de `profiles` (limpieza de cuentas de prueba) y sobrevive la de
+-- `auth.users`, esa sesion puede insertarse un perfil nuevo con `es_admin` en
+-- true. La app no hace ni un insert sobre `profiles`: no rompe nada.
+revoke insert on public.profiles from public, anon, authenticated;
 
 -- ------------------------------------------------------------------
 -- 4) Otorgar y revocar la condicion institucional.
@@ -144,10 +163,22 @@ grant update (nombre, foto_perfil, telefono, red_social, fecha_nacimiento)
 --
 --    NO HAY PANTALLA PARA ESTO Y ESTA BIEN. Al principio la verificacion se
 --    hace a mano: alguien de moderacion mira el RUT / la patente / el correo
---    institucional y corre la RPC desde el SQL editor. Automatizarlo antes de
---    tener la primera veterinaria adentro seria construir para nadie. La RPC
---    existe (y no un `update` a mano) para que el dia que haya panel no haga
---    falta otra migracion, y para que quede registro de quien firmo.
+--    institucional y corre la RPC. Automatizarlo antes de tener la primera
+--    veterinaria adentro seria construir para nadie. La RPC existe (y no un
+--    `update` a mano) para que el dia que haya panel no haga falta otra
+--    migracion, y para que quede registro de quien firmo.
+--
+--    ⚠️ COMO SE CORRE, QUE NO ES OBVIO: llamarla pelada desde el SQL Editor
+--    FALLA con "no autorizado". El gate de abajo es `es_admin()`, que resuelve
+--    con `auth.uid()`, y en el SQL Editor no hay JWT: la consulta entra como
+--    `postgres` y `auth.uid()` es NULL. Hay que ponerse el sombrero del admin
+--    dentro de una transaccion (`set local role authenticated` +
+--    `set local request.jwt.claims`). El SQL listo para copiar, con el control
+--    de que el sombrero quedo puesto, esta en:
+--
+--        docs/otorgar-insignia-institucional.sql
+--
+--    (Es la misma trampa que ya nos costo una verificacion de la 0045.)
 -- ------------------------------------------------------------------
 create or replace function public.institucion_otorgar(
   p_user_id uuid,
@@ -211,6 +242,53 @@ end;
 $$;
 revoke all on function public.institucion_revocar(uuid) from public, anon;
 grant execute on function public.institucion_revocar(uuid) to authenticated;
+
+-- ------------------------------------------------------------------
+-- 4 bis) EL ANTI-SPAM NO PUEDE CORTAR LA CARGA EN LOTE.
+--
+--    `check_pet_rate_limit` (0002) topa en 5 publicaciones por hora por
+--    usuario, sin excepciones. Toda esta funcion se justifica con "un refugio
+--    con 15 animales": tal como estaba, el lote reventaba en el animal #6 con
+--    "Alcanzaste el limite de publicaciones por ahora" — DESPUES de subir la
+--    foto, que ademas quedaba huerfana en el bucket, y con un mensaje que
+--    invita a reintentar, o sea a repetir la huerfana.
+--
+--    La exencion es para cuentas VERIFICADAS, no para cualquiera que se ponga
+--    un nombre: `institucion_verificada_en` no es escribible por el usuario (el
+--    revoke de la seccion 3) y solo la escribe `institucion_otorgar`, que exige
+--    ser admin. O sea que el permiso de publicar en volumen queda atado al
+--    mismo acto humano que ya audita moderacion.
+--
+--    `create or replace` sin drop: el tipo de retorno sigue siendo `trigger`,
+--    asi que el trigger `pets_rate_limit` de la 0002 no se desengancha (y no
+--    hay ni un milisegundo sin anti-spam).
+-- ------------------------------------------------------------------
+create or replace function public.check_pet_rate_limit()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare recientes int;
+begin
+  -- Exentas las verificadas. Va PRIMERO para no pagar el count en el caso que
+  -- justamente publica muchas filas seguidas.
+  if exists (
+    select 1 from public.profiles
+     where id = new.user_id and institucion_verificada_en is not null
+  ) then
+    return new;
+  end if;
+
+  select count(*) into recientes
+  from public.pets
+  where user_id = new.user_id
+    and creado_en > now() - interval '1 hour';
+  if recientes >= 5 then
+    raise exception 'Alcanzaste el límite de publicaciones por ahora. Intenta de nuevo en un rato.';
+  end if;
+  return new;
+end;
+$$;
 
 -- ------------------------------------------------------------------
 -- 5) `perfil_publico` — se parte de la 0053 (la version mas nueva).

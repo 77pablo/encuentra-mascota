@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import PetCard from './PetCard';
 import SeguirComunaButton from './SeguirComunaButton';
-import { Button, EmptyState, ErrorState, Loading, Screen } from '../ui';
-import { spacing } from '../theme';
+import { AppText, Button, EmptyState, ErrorState, Loading, Screen } from '../ui';
+import { radius, spacing } from '../theme';
 import type { Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 import { useBusquedaReportes } from '../hooks/useBusquedaReportes';
@@ -58,7 +58,7 @@ export default function ReportesLista({
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
   const requireAuth = useRequireAuth();
-  const { reportes, cargando, cargandoMas, error, hayMas, recargar, cargarMas } =
+  const { reportes, cargando, cargandoMas, error, hayMas, senasIgnoradas, recargar, cargarMas } =
     useBusquedaReportes(filtros);
 
   if (cargando) {
@@ -171,6 +171,22 @@ export default function ReportesLista({
       data={reportes}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
+      // Cuando la base no tiene la 0054, los filtros de color y tamano NO se
+      // aplicaron: lo que sigue no es lo que la persona pidio. Callarlo era lo
+      // peor de los dos mundos — los chips quedaban pintados como activos y el
+      // contador decia "(2)", asi que quien busca a su gato negro veia perros
+      // dorados y no podia distinguir "no hay ninguno cerca" de "el filtro no
+      // existe". Antes esto solo se avisaba por `console.warn`.
+      ListHeaderComponent={
+        senasIgnoradas ? (
+          <View style={styles.avisoSenas}>
+            <AppText size={13}>
+              Los filtros de color y tamano no estan disponibles ahora mismo: estos resultados no
+              los tienen en cuenta.
+            </AppText>
+          </View>
+        ) : null
+      }
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       onEndReached={hayMas ? cargarMas : undefined}
       onEndReachedThreshold={0.4}
@@ -194,6 +210,14 @@ export default function ReportesLista({
 }
 
 const crearEstilos = (colors: Colors) => StyleSheet.create({
+  avisoSenas: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.brand,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
   list: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,

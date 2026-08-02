@@ -56,7 +56,7 @@ jest.mock('../../src/services/pets', () => ({
 jest.mock('../../src/services/storage', () => ({
   uploadPetPhotos: () => Promise.resolve(['https://foto/1.jpg']),
   borrarFotosSubidas: () => Promise.resolve(),
-  esRechazoDePermiso: () => false,
+  esRechazoDefinitivo: () => false,
   estoySuspendido: () => Promise.resolve(false),
 }));
 

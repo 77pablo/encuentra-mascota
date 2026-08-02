@@ -132,22 +132,30 @@ end $$;
 -- Se descarto por eso, no por dificultad.
 --
 -- LO QUE SI SE PUEDE, Y ES LO QUE HACE ESTA VERSION: dejar de tratar "otro
--- aviso" como "el mismo aviso". El corte pasa a comparar el CONTENIDO —nota
--- normalizada y punto redondeado— dentro de la misma ventana de 5 minutos:
---   · el martilleo del boton, que es para lo que se escribio el rate-limit,
---     se sigue descartando (misma nota, mismo punto, o los dos vacios);
---   · tres vecinos que escriben cosas distintas pasan los tres;
---   · quien ocupa el cupo con basura ya solo se descarta A SI MISMO. Sigue
---     pudiendo hacer ruido, pero ya no puede callar a nadie. Cambiar censura
---     invisible por spam visible es un cambio bueno: el dato le llega igual a
---     la familia.
+-- aviso" como "el mismo aviso", SIN quedarse sin techo de volumen. Son dos
+-- cortes, no uno, y hacen falta los dos (ver el detalle en el cuerpo):
 --
--- LO QUE ESTO NO ARREGLA, dicho claro: nada impide inundar la cola con notas
--- distintas. No hay tope por volumen a proposito — CUALQUIER tope por reporte
--- se puede ocupar desde afuera con el mismo `pet_id` publico, y eso nos
--- devolveria justo el bug (b) que estamos sacando. El abuso por VOLUMEN se
--- ataja en la capa de pedidos (rate-limit del gateway), no en SQL, y no es algo
--- que esta migracion pueda desplegar.
+--   (a) DEDUPE POR CONTENIDO, con la ventana segun haya o no contenido. Con
+--       nota, 5 minutos (el contenido identifica el aviso). SIN nota, un
+--       minuto: es el caso mayoritario —la nota es opcional y el punto ya no
+--       se manda nunca— y con la ventana larga los tres vecinos del afiche
+--       vuelven a colapsar en uno, que es el bug (a) intacto. Un minuto
+--       alcanza para el doble toque del mismo dedo y deja pasar a la segunda
+--       persona.
+--
+--   (b) TECHO POR VOLUMEN: 10 por hora y 30 por dia, por reporte. Sin esto,
+--       "el mismo aviso no se repite" deja pasar avisos infinitos con notas
+--       distintas, y cada uno es un correo MAS un push al dueño; 300 llamadas
+--       queman la cuota diaria de correo de TODA la app.
+--
+-- EL TECHO NO ES GRATIS: cualquier tope por reporte se puede ocupar desde
+-- afuera con el mismo `pet_id` publico, o sea que reintroduce en parte el bug
+-- (b). Por eso es alto y no de uno — 10/hora deja pasar a diez personas
+-- distintas (un caso real no llega ni cerca) y ocupar el cupo cuesta diez
+-- pedidos por hora sostenidos, mucho mas caro que el uno-cada-cinco-minutos de
+-- la 0050. No es una solucion, es un intercambio elegido a ojos abiertos: la
+-- unica salida real seria identificar a quien avisa, que es exactamente lo que
+-- esta pantalla existe para no hacer.
 --
 -- SE MANTIENE TODO LO DEMAS DE LA 0050 sin tocar: `security definer` con
 -- search_path fijo, `returns void`, el silencio ante reportes inexistentes /
@@ -242,21 +250,83 @@ begin
   v_lat := round(p_lat::numeric, 5);
   v_lng := round(p_lng::numeric, 5);
 
-  -- Rate-limit por CONTENIDO, no por reporte. Misma ventana de 5 minutos de la
-  -- 0050; lo que cambio es que ahora hace falta que el aviso sea EL MISMO.
-  -- `is not distinct from` y no `=`: la nota es opcional y la mayoria llegan
-  -- nulas — con `=`, null = null da null y no dedupearia justo el caso mas
-  -- comun, que es el doble toque del boton sin escribir nada.
+  -- (a) DEDUPE POR CONTENIDO — el mismo aviso, otra vez.
+  --
+  -- LA VENTANA ES ASIMETRICA Y ESE ES EL PUNTO. Comparar contenido con una
+  -- ventana unica de 5 minutos NO arregla el bug que esta seccion vino a
+  -- arreglar, porque el caso MAYORITARIO no tiene contenido que comparar:
+  --   · la nota es opcional ("Algo que ayude (opcional)"), y quien sostiene al
+  --     perro con una mano y toca el boton con la otra no escribe nada;
+  --   · el punto NO se manda nunca — el pedido de GPS se saco en la tanda 11
+  --     ("Sumar donde estoy" quedo como codigo muerto), asi que lat/lng son
+  --     null en el 100% de los avisos reales.
+  -- O sea que para el aviso tipico la clave es (null, null, null) PARA TODO EL
+  -- MUNDO, y con `is not distinct from` (null casa con null) los tres vecinos
+  -- que escanean el mismo afiche vuelven a colapsar en uno: avisa el primero y
+  -- a los otros dos la pantalla les dice "le mandamos tu aviso a su familia"
+  -- habiendolo descartado. Exactamente el bug (a) de mas arriba.
+  --
+  -- Entonces: cuando NO hay nota, la ventana baja a un minuto. Alcanza para lo
+  -- unico que el dedupe sin contenido puede distinguir —el doble toque del
+  -- mismo dedo— y deja pasar a la segunda persona. Cuando SI hay nota, el
+  -- contenido identifica el aviso y la ventana de 5 minutos de la 0050 se
+  -- mantiene.
   if exists (
     select 1 from public.notification_events ne
     where ne.tipo = 'avistamiento_anonimo'
       and ne.pet_id = p_pet_id
-      and ne.creado_en > now() - interval '5 minutes'
+      and ne.creado_en > now() - (case
+            when v_nota_norm is null and v_lat is null and v_lng is null
+              then interval '1 minute'
+            else interval '5 minutes'
+          end)
       and nullif(lower(btrim(regexp_replace(coalesce(ne.datos->>'nota', ''), '\s+', ' ', 'g'))), '')
             is not distinct from v_nota_norm
       and round((ne.datos->>'lat')::numeric, 5) is not distinct from v_lat
       and round((ne.datos->>'lng')::numeric, 5) is not distinct from v_lng
   ) then
+    return;
+  end if;
+
+  -- (b) TECHO DE VOLUMEN — y por que vuelve a existir.
+  --
+  -- La 0050 tenia un tope duro (1 aviso por reporte cada 5 minutos). Al pasar
+  -- el corte a "que el aviso sea el mismo", ese techo desaparecio: con notas
+  -- distintas no quedaba NINGUN limite. Y cada fila de esta cola es un correo
+  -- MAS un push al dueño, con la nota del desconocido citada textual, asi que
+  -- sin techo:
+  --   · alguien bloqueado cierra sesion y manda 500 avisos numerados, y el
+  --     "el acoso posible es un mensaje suelto, no una conversacion" que esta
+  --     escrito veinte lineas mas abajo deja de ser cierto;
+  --   · el plan de correo son 300 envios/dia PARA TODO EL PROYECTO: 300
+  --     llamadas seguidas desde un solo `pet_id` publico dejan sin avisos a
+  --     toda la app ese dia (coincidencias incluidas).
+  -- La version anterior de este archivo declaraba que el volumen "se ataja en
+  -- la capa de pedidos (rate-limit del gateway)". No hay ninguno configurado:
+  -- era una mitigacion inexistente, no diferida.
+  --
+  -- EL TECHO NO ES GRATIS y conviene decirlo: cualquier tope por reporte se
+  -- puede ocupar desde afuera con el mismo `pet_id` publico, o sea que
+  -- reintroduce en parte el bug (b). Por eso es ALTO y no de 1: 10 por hora
+  -- deja pasar a diez personas distintas —un caso real de verdad no llega ni
+  -- cerca— mientras que ocupar el cupo cuesta diez pedidos por hora sostenidos
+  -- en vez de uno cada cinco minutos. Es peor para el atacante y mejor para el
+  -- vecino que el tope de la 0050, que era lo que habia.
+  if (
+    select count(*) from public.notification_events ne
+    where ne.tipo = 'avistamiento_anonimo'
+      and ne.pet_id = p_pet_id
+      and ne.creado_en > now() - interval '1 hour'
+  ) >= 10 then
+    return;
+  end if;
+
+  if (
+    select count(*) from public.notification_events ne
+    where ne.tipo = 'avistamiento_anonimo'
+      and ne.pet_id = p_pet_id
+      and ne.creado_en > now() - interval '1 day'
+  ) >= 30 then
     return;
   end if;
 

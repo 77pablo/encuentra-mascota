@@ -1,4 +1,7 @@
 import type { Ambito } from './radioSugerido';
+// SOLO EL TIPO. `import type` se borra al compilar, así que este archivo sigue
+// siendo puro: no arrastra el componente (ni react-native) a los tests de lib.
+import type { Senas } from '../components/SelectorSenas';
 
 // CARGA EN LOTE PARA CUENTAS INSTITUCIONALES (tanda 12, migración 0057).
 //
@@ -32,6 +35,12 @@ export interface FormularioReporte {
   fotoUris: string[];
   confirmado: boolean;
   origenMyPet: string | null;
+  // Señas estructuradas y número de chip (0054). Están declarados acá para que
+  // `tsc` obligue a decidir qué pasa con ellos: mientras no formaban parte de
+  // este tipo, la pantalla los dejaba pasar al animal siguiente y no había nada
+  // que se pusiera rojo.
+  senas: Senas;
+  chip: string;
 }
 
 /**
@@ -70,6 +79,23 @@ export function siguienteDelLote(prev: FormularioReporte): FormularioReporte {
     // el QR del collar del #1 pasa a decir que está perdido otro perro. Es un
     // bug mudo: nada en la pantalla lo muestra.
     origenMyPet: null,
+
+    // LAS SEÑAS DEL ANIMAL ANTERIOR SON PEOR QUE SU DESCRIPCIÓN. La regla de
+    // la 0054 descarta el par cuando los dos lados contestaron y se
+    // contradicen: la gata #2 publicada con "negro/grande" del perro #1 hace
+    // que el reporte de su dueña ("blanca/chica") quede descartado. O sea que
+    // heredarlas no ensucia el motor, lo APAGA justo para estos animales.
+    //
+    // Se escribe el objeto literal en vez de reusar `SENAS_VACIAS`: así cada
+    // animal arranca con sus propios arreglos (la pantalla los muta al marcar
+    // un color) y, si mañana `Senas` suma un campo, `tsc` marca esta línea.
+    senas: { colores: [], tamano: null, sexo: null, esterilizado: null },
+
+    // EL CHIP ES EL PEOR DE TODOS. Vale 1000 puntos contra menos de 100 de
+    // todo lo demás junto y dispara "casi seguro es tu mascota". Heredado, la
+    // familia del animal #1 recibe esa certeza apuntando a otro animal, y no
+    // hay forma de que nadie lo note: el número nunca se devuelve al cliente.
+    chip: '',
   };
 }
 

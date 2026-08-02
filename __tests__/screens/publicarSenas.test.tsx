@@ -63,7 +63,7 @@ jest.mock('../../src/services/senasPrivadas', () => ({
 jest.mock('../../src/services/storage', () => ({
   uploadPetPhotos: () => Promise.resolve(['https://foto/1.jpg']),
   borrarFotosSubidas: () => Promise.resolve(),
-  esRechazoDePermiso: () => false,
+  esRechazoDefinitivo: () => false,
   estoySuspendido: () => Promise.resolve(false),
 }));
 
@@ -75,9 +75,10 @@ jest.mock('../../src/hooks/useRequireAuth', () => ({
 }));
 
 const mockNotify = jest.fn();
+const mockConfirm = jest.fn();
 jest.mock('../../src/lib/notify', () => ({
   notify: (...a: any[]) => mockNotify(...a),
-  confirmAction: () => Promise.resolve(false),
+  confirmAction: (...a: any[]) => mockConfirm(...a),
 }));
 
 const montados: any[] = [];
@@ -159,6 +160,8 @@ beforeEach(() => {
   mockCreatePet.mockResolvedValue({ id: 'pet-1', estado: 'perdida', especie: 'perro', fotos: [] });
   mockGuardarChip.mockReset();
   mockGuardarChip.mockResolvedValue(true);
+  mockConfirm.mockReset();
+  mockConfirm.mockResolvedValue(false);
   mockNotify.mockReset();
 });
 
@@ -279,6 +282,45 @@ describe('el número de chip', () => {
     expect(mockCreatePet).toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalled();
     (console.warn as jest.Mock).mockRestore();
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // …PERO HAY QUE DECIRLO. Justo arriba del campo la pantalla promete "si
+  // alguien publica una mascota encontrada con el mismo chip, te avisamos
+  // enseguida. Es el dato que más sirve de todos". Cuando el guardado fallaba,
+  // lo único que pasaba era un `console.warn`: la persona se iba creyendo que
+  // tenía el cruce activo, y en Editar iba a ver el campo vacío, así que
+  // tampoco se enteraba ahí.
+  // ───────────────────────────────────────────────────────────────────────
+  const textoDeLosConfirm = () => mockConfirm.mock.calls.map((c) => `${c[0]} ${c[1]}`).join(' || ');
+
+  it('si el chip no se guarda, el "¡Publicado!" lo dice', async () => {
+    mockGuardarChip.mockRejectedValue(new Error('boom'));
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const arbol = await montar(PERRO_LISTO);
+    await escribir(arbol, PLACEHOLDER, '985112003456789');
+    await publicar(arbol);
+    expect(textoDeLosConfirm()).toMatch(/chip no se pudo guardar/i);
+    (console.warn as jest.Mock).mockRestore();
+  });
+
+  it('y también cuando devuelve `false` sin lanzar (la tabla no está)', async () => {
+    // Este es el camino que nadie miraba: `guardarChip` devuelve false cuando
+    // falta la migración 0054, sin excepción. Con la base sin migrar, TODOS
+    // los chips que se tipearan se descartaban en silencio.
+    mockGuardarChip.mockResolvedValue(false);
+    const arbol = await montar(PERRO_LISTO);
+    await escribir(arbol, PLACEHOLDER, '985112003456789');
+    await publicar(arbol);
+    expect(textoDeLosConfirm()).toMatch(/chip no se pudo guardar/i);
+  });
+
+  it('y NO lo dice cuando sí se guardó (si no, el aviso no significa nada)', async () => {
+    const arbol = await montar(PERRO_LISTO);
+    await escribir(arbol, PLACEHOLDER, '985112003456789');
+    await publicar(arbol);
+    expect(mockGuardarChip).toHaveBeenCalled();
+    expect(textoDeLosConfirm()).not.toMatch(/chip/i);
   });
 
   it('la pantalla dice que el chip no se publica', async () => {

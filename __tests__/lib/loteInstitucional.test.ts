@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import {
   ofertaTrasPublicar,
   siguienteDelLote,
@@ -32,6 +34,8 @@ const BASE: FormularioReporte = {
   coords: { lat: -33.45, lng: -70.6 },
   confirmado: true,
   origenMyPet: 'ficha-123',
+  senas: { colores: ['negro', 'blanco'], tamano: 'grande', sexo: 'macho', esterilizado: 'si' },
+  chip: '985112003456789',
 };
 
 describe('siguienteDelLote — lo del animal anterior NO se arrastra', () => {
@@ -53,6 +57,33 @@ describe('siguienteDelLote — lo del animal anterior NO se arrastra', () => {
     // a un impostor que describe la cicatriz del perro anterior.
     expect(sig.sena1).toBe('');
     expect(sig.sena2).toBe('');
+  });
+
+  it('LAS SEÑAS ESTRUCTURADAS SE VAN. Heredadas, el motor DESCARTA la coincidencia buena', () => {
+    // Peor que arrastrar la descripción: `senas_contradicen` (0054) descarta el
+    // par cuando los dos lados contestaron y se contradicen. La gata #2
+    // publicada con "negro/grande" del perro #1 hace que el reporte de su dueña
+    // ("blanca/chica") quede DESCARTADO — la coincidencia salía antes de la
+    // 0054 y deja de salir después. La función que existe para mejorar el
+    // motor terminaría apagándolo justo para los animales cargados en lote.
+    expect(sig.senas).toEqual({ colores: [], tamano: null, sexo: null, esterilizado: null });
+  });
+
+  it('EL NÚMERO DE CHIP SE VA. Es el único dato que la app vende como prueba', () => {
+    // El chip vale 1000 puntos contra menos de 100 de todo lo demás junto, y
+    // dispara el aviso más fuerte que existe ("casi seguro es tu mascota").
+    // Heredado, la familia del animal #1 recibe esa certeza apuntando a otro
+    // animal. Y es MUDO: el chip nunca se devuelve al cliente, así que nadie
+    // ve el error nunca.
+    expect(sig.chip).toBe('');
+  });
+
+  it('las señas nuevas son un objeto nuevo, no una referencia compartida', () => {
+    // Si se devolviera siempre la misma constante, marcar un color en el animal
+    // #2 se lo marcaría también al #3 (y a un objeto que la pantalla muta).
+    const otro = siguienteDelLote(BASE);
+    expect(otro.senas).not.toBe(sig.senas);
+    expect(otro.senas.colores).not.toBe(sig.senas.colores);
   });
 
   it('la recompensa no se hereda', () => {
@@ -172,5 +203,55 @@ describe('las guías que nombra este archivo existen en el navigator', () => {
       expect(oferta.tipo).toBe('guia');
       expect(registradas.has((oferta as any).destino)).toBe(true);
     }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// EL GUARDIÁN QUE HABRÍA CAZADO EL BUG DE VERDAD
+//
+// `siguienteDelLote` es pura y estaba bien testeada, y aun así el animal #2
+// salía con las señas y el chip del #1. El agujero no estaba en la función:
+// estaba en la PANTALLA, que aplica el resultado campo por campo con dieciséis
+// `setX(sig.campo)` escritos a mano. Las señas y el chip llegaron por otra rama
+// de la tanda 12 y en la fusión nadie los sumó a esa lista — y como
+// `FormularioReporte` tampoco los declaraba, `tsc` no tenía de qué agarrarse.
+//
+// Este test lee el archivo real de la pantalla y exige que cada campo que la
+// función devuelve tenga su `sig.<campo>` aplicado. No hay lista escrita acá:
+// la lista sale de ejecutar la función, así que agregar un campo y olvidarse
+// del setter se pone rojo solo.
+// ───────────────────────────────────────────────────────────────────────────
+describe('la pantalla aplica TODO lo que la función devuelve', () => {
+  const fuente: string = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'screens', 'PublishScreen.tsx'),
+    'utf8',
+  );
+  const desde = fuente.indexOf('const prepararSiguienteDelLote');
+  const cuerpo = fuente.slice(desde, fuente.indexOf('\n  };', desde));
+  const campos = Object.keys(siguienteDelLote(BASE));
+
+  it('el parser encuentra la función y su cuerpo (si no, pasa por vacío)', () => {
+    expect(desde).toBeGreaterThan(-1);
+    expect(cuerpo).toContain('siguienteDelLote(');
+    // Si el cuerpo se leyera cortado, casi no habría `sig.` y todo pasaría.
+    expect((cuerpo.match(/sig\./g) ?? []).length).toBeGreaterThanOrEqual(15);
+    expect(campos.length).toBeGreaterThanOrEqual(16);
+  });
+
+  it('no falta ni un campo por aplicar', () => {
+    const faltan = campos.filter((campo) => !cuerpo.includes(`sig.${campo}`));
+    expect(faltan).toEqual([]);
+  });
+
+  it('y todos los campos del formulario se le pasan a la función', () => {
+    // El otro lado del mismo bug: si la pantalla no le PASA el campo, la
+    // función no puede limpiarlo aunque quiera.
+    const abre = cuerpo.indexOf('siguienteDelLote(');
+    const llamada = cuerpo.slice(abre, cuerpo.indexOf('});', abre));
+    // Anti-vacuidad: si el corte saliera vacío, `faltan` daría todos los campos
+    // (rojo) o el regex pasaría por casualidad. Exigimos ver la llamada entera.
+    expect(llamada).toContain('estado,');
+    const faltan = campos.filter((campo) => !new RegExp(`\\b${campo}\\b`).test(llamada));
+    expect(faltan).toEqual([]);
   });
 });

@@ -58,22 +58,35 @@ export async function estoySuspendido(): Promise<boolean> {
   return data === true;
 }
 
-// ¿Postgres/PostgREST rechazó la escritura por permisos? Gemelo de
-// `esPermisoDenegado` de `lib/dbErrors.ts`, que no se exporta: se mira el
-// código (`42501` = insufficient_privilege) y, si no viene, el texto, porque
-// PostgREST a veces devuelve la violación de RLS sin `code`.
+// ¿La base rechazó la escritura de forma DEFINITIVA? Dos casos: permisos
+// (`42501` = insufficient_privilege, o el texto de RLS cuando PostgREST lo
+// devuelve sin `code`) y el anti-spam de publicaciones (`P0001`).
 //
-// Importa que sea ESTE caso y no "cualquier error": un rechazo de la base
+// Importa que sea ESTE conjunto y no "cualquier error": un rechazo de la base
 // significa que la fila NO entró, así que las fotos que iba a referenciar son
 // basura segura. Un error de red, en cambio, deja en duda si el insert entró;
 // borrar ahí las fotos de un reporte vivo sería peor que dejar una huérfana.
-export function esRechazoDePermiso(error: unknown): boolean {
+//
+// (Antes se llamaba `esRechazoDePermiso` y solo cubría el primer caso, así que
+// llegar al límite de publicaciones dejaba fotos huérfanas en cada intento.)
+export function esRechazoDefinitivo(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const codigo = 'code' in error ? String((error as { code: unknown }).code ?? '') : '';
   if (codigo === '42501') return true;
+  // El anti-spam de publicaciones (`check_pet_rate_limit`, 0002) corta con un
+  // `raise exception`, que PostgREST devuelve como `P0001`. Es un rechazo TAN
+  // definitivo como el de permisos —la fila no entró— y hay que tratarlo igual:
+  // sin esto, alcanzar el límite dejaba las fotos recién subidas huérfanas en el
+  // bucket, y el mensaje invita a reintentar, así que se multiplicaban. Es el
+  // único `P0001` que puede recibir un insert de `pets`.
+  if (codigo === 'P0001') return true;
   const texto = ('message' in error ? String((error as { message: unknown }).message ?? '') : '')
     .toLowerCase();
-  return texto.includes('row-level security') || texto.includes('permission denied');
+  return (
+    texto.includes('row-level security') ||
+    texto.includes('permission denied') ||
+    texto.includes('límite de publicaciones')
+  );
 }
 
 // Borra del bucket fotos que acabamos de subir y que ya no va a referenciar

@@ -165,7 +165,18 @@ create table if not exists public.pet_chips (
   creado_en timestamptz not null default now(),
   -- Mismo tope que `my_pets.chip` (0027). Es sobre el texto crudo, así que tiene
   -- que ser más ancho que los 15 caracteres del número limpio.
-  constraint pet_chips_chip_largo check (length(btrim(chip)) between 1 and 40)
+  --
+  -- Y EL MÍNIMO VA SOBRE EL NÚMERO LIMPIO, NO SOBRE EL TEXTO. Un mínimo de 1
+  -- dejaba entrar `chip = '1'` por la API con cualquier token de sesión: esa
+  -- fila cruza con cualquier otra basura de un carácter, vale 1000 puntos y
+  -- dispara "casi seguro es tu mascota". `CHIP_LARGO_MIN` del cliente (9) solo
+  -- corre en el cliente, y esta tabla se escribe con un POST directo.
+  -- El regexp es el mismo `CHIP_BASURA_SQL` de `chip_norm` y de
+  -- `normalizarChip`: si se separan, "985 112" y "985112" dejan de cruzarse.
+  constraint pet_chips_chip_largo check (
+    length(btrim(chip)) <= 40
+    and length(regexp_replace(chip, '[^A-Za-z0-9]', '', 'g')) between 9 and 40
+  )
 );
 
 alter table public.pet_chips enable row level security;
@@ -347,6 +358,24 @@ as $$
     select
       p.id, p.estado, p.especie, p.ubicacion,
       p.colores, p.tamano, p.sexo, p.esterilizado,
+      -- EL CHIP SOLO SE CRUZA PARA EL DUEÑO DEL REPORTE QUE SE CONSULTA.
+      --
+      -- Esta función es `security definer` y tiene `execute` para `anon`, así
+      -- que cualquiera puede pedir las coincidencias de CUALQUIER reporte. Si
+      -- `chip_coincide` saliera para todos, sería un oráculo: creo un reporte,
+      -- le escribo un chip candidato, pregunto por la mascota de la víctima y
+      -- la respuesta me dice si adiviné. Con eso el estafador que dice "la
+      -- tengo" pasa a poder recitar el chip y se vuelve indistinguible del
+      -- dueño — exactamente contra lo que argumenta la cabecera de este
+      -- archivo para no publicar el número. Y encima el cartel de la ficha le
+      -- decía "el chip coincide con EL TUYO" a un desconocido.
+      --
+      -- `p_radio_km` no tiene tope (viene así desde la 0014), así que el
+      -- barrido podía ser de todo el país sin costo.
+      -- `coalesce` obligatorio: sin sesión `auth.uid()` es NULL y la comparación
+      -- da NULL, no false. Un NULL acá se propagaría a `chip_coincide` (que
+      -- promete no ser nunca nulo) y al `order by`.
+      coalesce(p.user_id = auth.uid(), false) as es_mio,
       (
         select c.chip_norm
         from public.pet_chips c
@@ -363,8 +392,9 @@ as $$
       p.id, p.estado, p.especie, p.nombre, p.descripcion, p.fotos,
       p.lat, p.lng, p.creado_en,
       st_distance(p.ubicacion, b.ubicacion) / 1000.0 as distancia_km,
-      -- Nunca NULL: si alguno de los dos no tiene chip, es `false`.
-      (b.chip_norm is not null and c.chip_norm is not null and c.chip_norm <> ''
+      -- Nunca NULL: si alguno de los dos no tiene chip, es `false`. Y `es_mio`
+      -- adelante: para un tercero (o para `anon`) el chip no se cruza nunca.
+      (b.es_mio and b.chip_norm is not null and c.chip_norm is not null and c.chip_norm <> ''
         and b.chip_norm = c.chip_norm) as chip_coincide,
       b.colores as b_colores, b.tamano as b_tamano, b.sexo as b_sexo,
       b.esterilizado as b_esterilizado,
@@ -373,7 +403,7 @@ as $$
         b.colores, p.colores, b.tamano, p.tamano,
         b.sexo, p.sexo, b.esterilizado, p.esterilizado,
         st_distance(p.ubicacion, b.ubicacion) / 1000.0,
-        (b.chip_norm is not null and c.chip_norm is not null and c.chip_norm <> ''
+        (b.es_mio and b.chip_norm is not null and c.chip_norm is not null and c.chip_norm <> ''
           and b.chip_norm = c.chip_norm)
       ) as puntaje
     from public.pets p
@@ -583,17 +613,42 @@ begin
     order by p.creado_en desc, p.id
     limit v_tope
   loop
-    insert into public.notification_events (tipo, pet_id, actor_id, datos)
-    values ('coincidencia', m.id, v_yo.user_id,
-            jsonb_build_object('match_pet_id', v_yo.id,
-                               'match_estado', v_yo.estado::text,
-                               'match_especie', v_yo.especie::text,
-                               'chip', true));
-    if not v_hubo then
-      v_hubo := true;
-      v_primero_id := m.id;
-      v_primero_estado := m.estado::text;
-      v_primero_especie := m.especie::text;
+    -- NO REPETIR EL MISMO AVISO POR EL MISMO PAR.
+    --
+    -- Sin esto, `pet_chips` era una fábrica de pushes: la tabla no tiene
+    -- ningún anti-spam (a diferencia de `pets`, que topa en 5 publicaciones
+    -- por hora) y este trigger corre en cada `update of chip`. Alguien que
+    -- conozca el chip de la mascota de otro publica UN reporte de estado
+    -- opuesto y después alterna el número (bueno → basura → bueno) contra la
+    -- API: cada vuelta manda "El chip coincide: casi seguro es tu mascota".
+    -- Y es el ÚNICO aviso que la víctima no puede apagar bloqueando, porque
+    -- `elBloqueoApagaElAviso` exime a 'coincidencia' a propósito.
+    --
+    -- La ventana es de un día y mira el PAR (a quién se le avisa + de qué
+    -- reporte), así que un chip corregido de verdad sigue avisando mañana, y
+    -- un chip que va y viene no cuesta ni un push de más.
+    if not exists (
+      select 1 from public.notification_events ne
+      where ne.tipo = 'coincidencia'
+        and ne.pet_id = m.id
+        and ne.datos->>'match_pet_id' = v_yo.id::text
+        and ne.creado_en > now() - interval '1 day'
+    ) then
+      insert into public.notification_events (tipo, pet_id, actor_id, datos)
+      values ('coincidencia', m.id, v_yo.user_id,
+              jsonb_build_object('match_pet_id', v_yo.id,
+                                 'match_estado', v_yo.estado::text,
+                                 'match_especie', v_yo.especie::text,
+                                 'chip', true));
+      -- `v_hubo` se marca solo si de verdad se encoló algo: si todos los
+      -- destinatarios estaban deduplicados, el aviso al que escribió el chip
+      -- (abajo) tampoco tiene por qué salir de nuevo.
+      if not v_hubo then
+        v_hubo := true;
+        v_primero_id := m.id;
+        v_primero_estado := m.estado::text;
+        v_primero_especie := m.especie::text;
+      end if;
     end if;
   end loop;
 

@@ -20,6 +20,13 @@ import { ThemeProvider } from '../../src/theme/ThemeProvider';
 //     consultar la base — incluido el reencuentro, que es el dato que esta
 //     función existe para producir.
 
+// Montar una pantalla real con el stack de react-native tarda ~5 s sueltos y
+// llega a mas de 25 s con la maquina cargada: con el timeout por defecto de
+// jest (5 s) estas suites fallan en la corrida completa y pasan en aislamiento.
+// El primer test que se pasa de tiempo desmonta el arbol, asi que los demas caen
+// en cascada con "Can't access .root on unmounted test renderer" y parece otra cosa.
+jest.setTimeout(30000);
+
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: (_props: any) => null,
   MaterialCommunityIcons: (_props: any) => null,

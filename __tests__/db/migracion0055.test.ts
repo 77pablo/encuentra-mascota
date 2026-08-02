@@ -275,10 +275,72 @@ describe('el rate-limit deja de ser un boton para silenciar avisos ajenos', () =
     expect((rl55.match(/is not distinct from/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 
-  it('sigue siendo la misma ventana de 5 minutos sobre el mismo reporte', () => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // LO QUE ESTE ARCHIVO DABA POR ARREGLADO Y NO LO ESTABA.
+  //
+  // Comparar contenido no alcanza, porque el aviso MAYORITARIO no tiene
+  // contenido que comparar: la nota es opcional y el punto no se manda nunca
+  // (el pedido de GPS se saco en la tanda 11 y `usarUbicacion` quedo como
+  // codigo muerto en PublicPetScreen). Para ese aviso la clave es
+  // (null, null, null) para todo el mundo y, con `is not distinct from`, los
+  // tres vecinos del afiche volvian a colapsar en uno: el bug entero, intacto,
+  // debajo de un test en verde que solo miraba que el SQL nombrara los campos.
+  // ─────────────────────────────────────────────────────────────────────────
+  it('SIN nota la ventana es corta: el segundo vecino no se pisa con el primero', () => {
+    expect(rl55).toContain("interval '1 minute'");
+    // Y la ventana corta se elige solo cuando no hay NADA que comparar. Si la
+    // condicion mirara unicamente la nota, el dia que el punto vuelva a
+    // mandarse dos avisos distintos del mismo lugar se dedupearian mal.
+    const caso = rl55.slice(rl55.indexOf('case'), rl55.indexOf('end', rl55.indexOf('case')));
+    expect(caso).toContain('v_nota_norm is null');
+    expect(caso).toContain('v_lat is null');
+    expect(caso).toContain('v_lng is null');
+    expect(caso).toContain("interval '1 minute'");
+  });
+
+  it('CON nota se mantiene la ventana de 5 minutos de la 0050', () => {
     expect(rl55).toContain("interval '5 minutes'");
     expect(rl55).toContain("ne.tipo = 'avistamiento_anonimo'");
     expect(rl55).toContain('ne.pet_id = p_pet_id');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EL TECHO DE VOLUMEN, QUE ESTE ARCHIVO HABIA SACADO SIN REEMPLAZO.
+  //
+  // La 0050 topaba en 1 aviso cada 5 minutos por reporte. Al pasar el corte a
+  // "que el aviso sea el mismo", con notas distintas no quedaba NINGUN limite —
+  // y cada fila de esta cola es un correo MAS un push al dueño, con el texto
+  // del desconocido citado. El archivo declaraba que el volumen se atajaba "en
+  // la capa de pedidos (rate-limit del gateway)": no hay ninguno configurado.
+  // ─────────────────────────────────────────────────────────────────────────
+  describe('el techo de volumen por reporte', () => {
+    const topes = [...cuerpo55.matchAll(/interval '1 (hour|day)'\s*\)\s*>=\s*(\d+)/g)].map((m) => ({
+      ventana: m[1],
+      tope: Number(m[2]),
+    }));
+
+    it('existe y es por hora Y por dia (una sola ventana se sortea esperando)', () => {
+      expect(topes.map((t) => t.ventana).sort()).toEqual(['day', 'hour']);
+    });
+
+    it('no vuelve al tope de 1 de la 0050, que era el boton de silenciar', () => {
+      // Un tope bajo se ocupa desde afuera con el `pet_id` publico y descarta
+      // en silencio los avisos legitimos: es el bug que esta migracion vino a
+      // sacar. Tiene que dejar pasar a varias personas distintas.
+      for (const t of topes) expect(t.tope).toBeGreaterThanOrEqual(5);
+    });
+
+    it('y queda MUY por debajo de la cuota diaria de correo de toda la app', () => {
+      // 300 envios/dia para todo el proyecto: un solo reporte no puede
+      // quemarla y dejar sin avisos al resto (coincidencias incluidas).
+      const porDia = topes.find((t) => t.ventana === 'day')!.tope;
+      expect(porDia).toBeLessThanOrEqual(50);
+    });
+
+    it('el techo corta en silencio, como todo lo demas de esta puerta', () => {
+      const desde = cuerpo55.indexOf("interval '1 hour'");
+      expect(cuerpo55.slice(desde, desde + 200)).toMatch(/then\s*return;/);
+    });
   });
 
   it('el corte sigue retornando en silencio', () => {

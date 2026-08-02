@@ -253,6 +253,25 @@ describe('buscarReportes: los filtros nuevos solo viajan si se usan', () => {
     expect(pagina.reportes).toHaveLength(1);
     // Y queda escrito: sin esto, el filtro "no hace nada" y nadie sabe por qué.
     expect(console.warn).toHaveBeenCalled();
+    // …pero un `console.warn` no lo ve NINGÚN usuario. La página se devuelve
+    // marcada para que la pantalla pueda decir que estos resultados no tienen
+    // en cuenta el filtro: quien busca a su gato negro y ve perros dorados no
+    // puede distinguir "no hay ninguno cerca" de "el filtro no existe", y los
+    // chips siguen pintados como activos con el contador en "(2)".
+    expect(pagina.senasIgnoradas).toBe(true);
+  });
+
+  it('y NO se marca cuando el filtro sí se aplicó (si no, el aviso no dice nada)', async () => {
+    resultados = [{ data: [{ id: 'a', creado_en: 'x', distancia_km: null }], error: null }];
+    const pagina = await buscarReportes({ color: 'negro' });
+    expect(rpcArgs).toHaveLength(1);
+    expect(pagina.senasIgnoradas).toBeFalsy();
+  });
+
+  it('ni en la búsqueda de siempre, sin filtros de seña', async () => {
+    resultados = [{ data: [], error: null }];
+    const pagina = await buscarReportes({});
+    expect(pagina.senasIgnoradas).toBeFalsy();
   });
 
   it('un error de verdad NO se reintenta ni se traga', async () => {

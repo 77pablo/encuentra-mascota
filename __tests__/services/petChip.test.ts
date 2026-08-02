@@ -20,6 +20,11 @@ import { guardarChip, leerChip } from '../../src/services/petChip';
 
 const llamadas: any[] = [];
 let resultado: { data: any; error: any } = { data: null, error: null };
+// Cola opcional para los caminos que hacen DOS consultas (borrar el chip: el
+// delete y, si volvio con cero filas, la comprobacion de si la fila sigue ahi).
+// Vacia = todas las consultas devuelven `resultado`, como siempre.
+let cola: { data: any; error: any }[] = [];
+const siguiente = () => (cola.length > 0 ? cola.shift()! : resultado);
 
 function builder() {
   const b: any = {
@@ -29,15 +34,15 @@ function builder() {
     }),
     upsert: jest.fn((fila: any, opts: any) => {
       llamadas.push({ op: 'upsert', fila, opts });
-      return Promise.resolve(resultado);
+      return Promise.resolve(siguiente());
     }),
     delete: jest.fn(() => {
       llamadas.push({ op: 'delete' });
       return b;
     }),
     eq: jest.fn(() => b),
-    maybeSingle: jest.fn(() => Promise.resolve(resultado)),
-    then: (res: any, rej: any) => Promise.resolve(resultado).then(res, rej),
+    maybeSingle: jest.fn(() => Promise.resolve(siguiente())),
+    then: (res: any, rej: any) => Promise.resolve(siguiente()).then(res, rej),
   };
   return b;
 }
@@ -55,6 +60,7 @@ beforeEach(() => {
   llamadas.length = 0;
   tablas.length = 0;
   resultado = { data: null, error: null };
+  cola = [];
   jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
@@ -137,6 +143,51 @@ describe('guardarChip', () => {
     // se le puede decir que sí.
     resultado = { data: null, error: { code: '42501', message: 'row-level security' } };
     await expect(guardarChip('p1', 'u1', '')).rejects.toBeTruthy();
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // …Y EL MODO DE FALLO QUE EL TEST DE ARRIBA NO PODÍA VER.
+  //
+  // Ese test mockea `42501`, que es justo la respuesta que PostgREST NO da
+  // cuando la RLS rechaza un DELETE: no devuelve error, borra cero filas y
+  // responde 204. O sea que verificaba la rama del error explícito y dejaba sin
+  // cubrir el silencio, que es el modo de fallo real — el mismo que ya había
+  // aparecido en `borrarTip`, en `deleteSighting` y en la 0017.
+  //
+  // Y cero filas es AMBIGUO: puede ser "la RLS lo rechazó" o "no había ningún
+  // chip que borrar". Por eso no alcanza con contar filas: hay que desempatar.
+  // ─────────────────────────────────────────────────────────────────────────
+  it('cero filas borradas + la fila SIGUE ahí = no se borró, y se dice', async () => {
+    cola = [
+      { data: [], error: null }, // el delete: 204 sin error, cero filas
+      { data: { pet_id: 'p1' }, error: null }, // …y la fila sigue existiendo
+    ];
+    await expect(guardarChip('p1', 'u1', '')).rejects.toBeTruthy();
+  });
+
+  it('cero filas borradas + la fila YA no está = vaciar un campo vacío es un éxito', async () => {
+    // Sin este desempate, quien abre Editar sin chip cargado y guarda vería un
+    // error inventado cada vez.
+    cola = [
+      { data: [], error: null },
+      { data: null, error: null },
+    ];
+    expect(await guardarChip('p1', 'u1', '')).toBe(true);
+  });
+
+  it('el borrado normal devuelve las filas y no hace la segunda consulta', async () => {
+    cola = [{ data: [{ pet_id: 'p1' }], error: null }];
+    expect(await guardarChip('p1', 'u1', '')).toBe(true);
+    // Una sola pasada por la tabla: el desempate solo se paga cuando hace falta.
+    expect(tablas).toEqual(['pet_chips']);
+  });
+
+  it('el delete PIDE las filas borradas (sin `.select()` no hay nada que contar)', async () => {
+    cola = [{ data: [{ pet_id: 'p1' }], error: null }];
+    await guardarChip('p1', 'u1', '');
+    const ops = llamadas.map((l) => l.op);
+    expect(ops).toContain('delete');
+    expect(ops.indexOf('select')).toBeGreaterThan(ops.indexOf('delete'));
   });
 });
 

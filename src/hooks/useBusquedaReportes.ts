@@ -25,6 +25,10 @@ export interface EstadoBusqueda {
   cargandoMas: boolean; // páginas siguientes
   error: string | null;
   hayMas: boolean;
+  // La base no tiene la 0054: los filtros de color/tamaño NO se aplicaron, así
+  // que lo que se está mostrando no es lo que la persona pidió. Quien dibuje
+  // esta lista tiene que decirlo.
+  senasIgnoradas: boolean;
   recargar: () => void;
   cargarMas: () => void;
 }
@@ -39,6 +43,9 @@ export function useBusquedaReportes(
   const [cargando, setCargando] = useState(true);
   const [cargandoMas, setCargandoMas] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // La base no tiene la 0054: los filtros de color/tamano no se aplicaron y lo
+  // que se esta mostrando NO es lo que la persona pidio. La pantalla lo dice.
+  const [senasIgnoradas, setSenasIgnoradas] = useState(false);
 
   // Identifica la búsqueda vigente: si vuelve una respuesta de otra, se ignora.
   const peticionRef = useRef(0);
@@ -62,6 +69,7 @@ export function useBusquedaReportes(
         setReportes(pagina.reportes);
         setCursor(pagina.cursor);
         setHayMas(pagina.cursor !== null);
+        setSenasIgnoradas(pagina.senasIgnoradas === true);
       })
       .catch((e: any) => {
         if (miPeticion !== peticionRef.current) return;
@@ -108,5 +116,14 @@ export function useBusquedaReportes(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave, cursor, hayMas, limite]);
 
-  return { reportes, cargando, cargandoMas, error, hayMas, recargar: primeraPagina, cargarMas };
+  return {
+    reportes,
+    cargando,
+    cargandoMas,
+    error,
+    hayMas,
+    senasIgnoradas,
+    recargar: primeraPagina,
+    cargarMas,
+  };
 }

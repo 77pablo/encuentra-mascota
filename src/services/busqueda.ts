@@ -48,6 +48,13 @@ export interface Cursor {
 export interface Pagina {
   reportes: PetConDistancia[];
   cursor: Cursor | null; // null = no hay más páginas
+  // true = la base no tiene la 0054 y los filtros de color/tamaño NO se
+  // aplicaron, así que estos resultados NO son los que la persona pidió. Sin
+  // esto, la pantalla mostraba la lista completa con los chips pintados como
+  // activos y el contador en "(2)": alguien que busca a su gato negro veía
+  // perros dorados y no tenía forma de distinguir "no hay ninguno cerca" de
+  // "el filtro no existe". El `console.warn` que había no lo ve ningún usuario.
+  senasIgnoradas?: boolean;
 }
 
 export const TAMANO_PAGINA = 20;
@@ -94,12 +101,13 @@ export async function buscarReportes(
 
   const pedir = (args: Record<string, unknown>) => supabase.rpc('buscar_reportes', args);
 
-  const pagina = (data: unknown): Pagina => {
+  const pagina = (data: unknown, senasIgnoradas = false): Pagina => {
     const reportes = (data ?? []) as PetConDistancia[];
     return {
       reportes,
       // Si vino una página incompleta, ya no hay más: nos ahorramos una consulta.
       cursor: reportes.length < limite ? null : cursorDe(reportes),
+      senasIgnoradas,
     };
   };
 
@@ -123,7 +131,9 @@ export async function buscarReportes(
   );
   const sinSenas = await pedir(base);
   if (sinSenas.error) throw sinSenas.error;
-  return pagina(sinSenas.data);
+  // Se devuelve marcado: la pantalla tiene que poder decir que estos NO son los
+  // resultados que se pidieron (ver `senasIgnoradas` arriba).
+  return pagina(sinSenas.data, true);
 }
 
 // Cuenta reportes activos en una comuna (casa o alcance), para el encabezado del

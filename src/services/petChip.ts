@@ -101,11 +101,36 @@ export async function guardarChip(
   // vacía: una fila así haría creer a la UI que hay un chip cargado y, peor,
   // su `chip_norm` sería '' y podría cruzarse con cualquier otra basura.
   if (limpio === null) {
-    const { error } = await supabase.from(TABLA).delete().eq('pet_id', petId);
+    // `.select()` OBLIGATORIO. Un delete rechazado por la RLS no devuelve error
+    // en PostgREST: borra 0 filas y responde 204. Sin pedir las filas borradas,
+    // esta función informaba "listo" sin haber sacado nada — y acá el dueño
+    // está sacando a propósito un dato sensible, así que "se borró" sin
+    // borrarse es la peor mentira posible. Es la cuarta vez que este mismo
+    // silencio aparece en el repo (`borrarTip`, `deleteSighting`, y el de la
+    // 0017).
+    const { data, error } = await supabase.from(TABLA).delete().eq('pet_id', petId).select('pet_id');
     if (error) {
       if (esTablaFaltante(error)) return false;
       throw error;
     }
+    if ((data ?? []).length > 0) return true;
+
+    // CERO FILAS ES AMBIGUO y no se puede tratar como fracaso a secas: puede
+    // ser que la RLS lo haya rechazado, o simplemente que no hubiera ningún
+    // chip guardado (vaciar un campo que ya estaba vacío es un éxito). Se
+    // desempata preguntando si la fila sigue ahí.
+    const { data: quedo, error: errorLectura } = await supabase
+      .from(TABLA)
+      .select('pet_id')
+      .eq('pet_id', petId)
+      .maybeSingle();
+    if (errorLectura) {
+      if (esTablaFaltante(errorLectura)) return false;
+      throw errorLectura;
+    }
+    // Sigue existiendo después de pedir el borrado: no se borró. Se lanza para
+    // que la pantalla lo diga, igual que cualquier otro fallo de guardado.
+    if (quedo) throw new Error('No se pudo borrar el número de chip.');
     return true;
   }
 

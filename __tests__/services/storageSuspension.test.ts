@@ -1,6 +1,6 @@
 import {
   borrarFotosSubidas,
-  esRechazoDePermiso,
+  esRechazoDefinitivo,
   estoySuspendido,
 } from '../../src/services/storage';
 
@@ -72,31 +72,31 @@ describe('estoySuspendido', () => {
   });
 });
 
-describe('esRechazoDePermiso', () => {
+describe('esRechazoDefinitivo', () => {
   it('reconoce el 42501 por código', () => {
-    expect(esRechazoDePermiso({ code: '42501', message: 'new row violates policy' })).toBe(true);
+    expect(esRechazoDefinitivo({ code: '42501', message: 'new row violates policy' })).toBe(true);
   });
 
   it('reconoce la violación de RLS por texto (PostgREST a veces no manda code)', () => {
-    expect(esRechazoDePermiso({ message: 'new row violates row-level security policy' })).toBe(true);
-    expect(esRechazoDePermiso({ message: 'permission denied for table pets' })).toBe(true);
+    expect(esRechazoDefinitivo({ message: 'new row violates row-level security policy' })).toBe(true);
+    expect(esRechazoDefinitivo({ message: 'permission denied for table pets' })).toBe(true);
   });
 
   it('NO trata como rechazo un error de red: ahí no sabemos si la fila entró', () => {
     // Es la razón de que el borrado sea solo para este caso. Borrar las fotos
     // de un reporte que sí se creó sería peor que dejar una huérfana.
-    expect(esRechazoDePermiso({ message: 'Failed to fetch' })).toBe(false);
-    expect(esRechazoDePermiso(new Error('Network request failed'))).toBe(false);
+    expect(esRechazoDefinitivo({ message: 'Failed to fetch' })).toBe(false);
+    expect(esRechazoDefinitivo(new Error('Network request failed'))).toBe(false);
   });
 
   it('NO trata como rechazo una violación de constraint (el texto es otro)', () => {
-    expect(esRechazoDePermiso({ code: '23514', message: 'violates check constraint' })).toBe(false);
+    expect(esRechazoDefinitivo({ code: '23514', message: 'violates check constraint' })).toBe(false);
   });
 
   it('tolera null, undefined y strings sueltos', () => {
-    expect(esRechazoDePermiso(null)).toBe(false);
-    expect(esRechazoDePermiso(undefined)).toBe(false);
-    expect(esRechazoDePermiso('42501')).toBe(false);
+    expect(esRechazoDefinitivo(null)).toBe(false);
+    expect(esRechazoDefinitivo(undefined)).toBe(false);
+    expect(esRechazoDefinitivo('42501')).toBe(false);
   });
 });
 

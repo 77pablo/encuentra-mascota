@@ -8,7 +8,7 @@ import { petSchema } from '../schemas/pet';
 import { moderarTextoReporte } from '../lib/moderarTexto';
 import {
   borrarFotosSubidas,
-  esRechazoDePermiso,
+  esRechazoDefinitivo,
   estoySuspendido,
   uploadPetPhotos,
 } from '../services/storage';
@@ -261,8 +261,15 @@ export default function PublishScreen({ navigation, route }: any) {
 
   // Deja el formulario listo para el SIGUIENTE animal del lote. Qué se conserva
   // y qué se limpia lo decide `siguienteDelLote` (función pura, con tests): lo
-  // importante es que la foto, las señas y el vínculo con "Mi mascota" del
-  // animal anterior NO se arrastren.
+  // importante es que la foto, las señas (las secretas Y las estructuradas), el
+  // número de chip y el vínculo con "Mi mascota" del animal anterior NO se
+  // arrastren.
+  //
+  // OJO AL AGREGAR UN CAMPO: esta lista se escribe a mano dos veces (lo que se
+  // le pasa a la función y lo que se aplica de vuelta), y así fue como las
+  // señas y el chip de la 0054 se arrastraron al animal siguiente. Hay un test
+  // que lee este archivo y exige que las dos listas estén completas
+  // (`__tests__/lib/loteInstitucional.test.ts`).
   const prepararSiguienteDelLote = () => {
     const sig = siguienteDelLote({
       estado,
@@ -281,6 +288,8 @@ export default function PublishScreen({ navigation, route }: any) {
       fotoUris,
       confirmado,
       origenMyPet,
+      senas,
+      chip,
     });
     setEstado(sig.estado);
     setEspecie(sig.especie);
@@ -298,6 +307,8 @@ export default function PublishScreen({ navigation, route }: any) {
     setFotoUris(sig.fotoUris);
     setConfirmado(sig.confirmado);
     setOrigenMyPet(sig.origenMyPet);
+    setSenas(sig.senas);
+    setChip(sig.chip);
   };
 
   const onSubmit = async () => {
@@ -391,12 +402,12 @@ export default function PublishScreen({ navigation, route }: any) {
       // [M-6] Si el insert lo RECHAZA la base por permisos (suspensión llegada
       // entre el chequeo y el insert, base sin la RPC, cualquier otra policy),
       // las fotos recién subidas ya no las referencia nadie: se borran acá.
-      // Solo en ese caso — ver `esRechazoDePermiso` en services/storage.ts.
+      // Solo en ese caso — ver `esRechazoDefinitivo` en services/storage.ts.
       let nuevoPet: Pet;
       try {
         nuevoPet = await createPet(parsed.data, urls, user!.id, origenMyPet);
       } catch (e: any) {
-        if (esRechazoDePermiso(e)) await borrarFotosSubidas(urls, user!.id);
+        if (esRechazoDefinitivo(e)) await borrarFotosSubidas(urls, user!.id);
         throw e;
       }
       // La seña se guarda DESPUÉS y aparte, y su fracaso NO tumba la publicación:
@@ -413,13 +424,30 @@ export default function PublishScreen({ navigation, route }: any) {
       //
       // Solo si hay algo que guardar: sin esto, publicar sin chip crearía y
       // borraría una fila en `pet_chips` por cada reporte.
+      //
+      // Y SI NO SE GUARDA, HAY QUE DECIRLO. Justo arriba del campo, la pantalla
+      // promete: "si alguien publica una mascota encontrada con el mismo chip,
+      // te avisamos enseguida. Es el dato que más sirve de todos". Un
+      // `console.warn` no cumple esa promesa con nadie: la persona se va
+      // creyendo que tiene el cruce por chip activo, y en Editar va a ver el
+      // campo vacío, así que tampoco se entera ahí. `guardarChip` además
+      // devuelve `false` (sin lanzar) cuando falta la tabla, y ese `false` no
+      // lo miraba nadie: con la 0054 sin aplicar se descartaban TODOS los
+      // chips que se tipearan, en silencio.
+      let chipPendiente = false;
       if (normalizarChip(chip)) {
         try {
-          await guardarChip(nuevoPet.id, user!.id, chip);
+          chipPendiente = !(await guardarChip(nuevoPet.id, user!.id, chip));
         } catch (e: any) {
           console.warn('No se pudo guardar el número de chip del reporte:', e?.message ?? e);
+          chipPendiente = true;
         }
       }
+      // Se cuelga del "¡Publicado!" que ya existe en vez de abrir un diálogo
+      // más: encadenar avisos es la forma más rápida de que no se lea ninguno.
+      const avisoChip = chipPendiente
+        ? ' Ojo: el número de chip no se pudo guardar. Agregalo desde Editar, es el dato que más sirve.'
+        : '';
       // Qué se le ofrece a quien acaba de publicar. La guía de "qué hacer
       // ahora" está escrita para el dueño angustiado de una mascota perdida; a
       // un refugio que va por el animal 7 de 15 no le sirve. Ver
@@ -434,7 +462,8 @@ export default function PublishScreen({ navigation, route }: any) {
         // [0057] CARGA EN LOTE. Se queda en el formulario con lo común puesto.
         const otro = await confirmAction(
           '¡Publicado!',
-          '¿Cargás otro animal? Mantenemos la comuna, el punto del mapa y el estado; el resto se limpia.',
+          '¿Cargás otro animal? Mantenemos la comuna, el punto del mapa y el estado; el resto se limpia.' +
+            avisoChip,
         );
         if (otro) {
           prepararSiguienteDelLote();
@@ -450,7 +479,7 @@ export default function PublishScreen({ navigation, route }: any) {
         // "encontrada", la guía de "encontré una mascota" (func. 4).
         const quiereGuia = await confirmAction(
           '¡Publicado!',
-          'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?',
+          'Tu reporte ya aparece en el mapa. ¿Quieres una guía de qué hacer ahora?' + avisoChip,
         );
         ofrecerAlTerminar = !quiereGuia;
         // 'Mapa' ya no existe desde las 5 pestañas (bug latente preexistente,

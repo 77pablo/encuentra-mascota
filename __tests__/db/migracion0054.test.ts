@@ -3,6 +3,7 @@ import { join } from 'path';
 import {
   CHIP_BASURA_SQL,
   CHIP_LARGO_MAX,
+  CHIP_LARGO_MIN,
   COLORES,
   ESTERILIZADOS,
   MAX_COLORES,
@@ -245,11 +246,43 @@ describe('pet_chips: el dato mas fuerte y el mas sensible', () => {
   });
 
   it('el largo maximo del chip en la base cubre lo que acepta el cliente', () => {
-    const m = codigo.match(/pet_chips_chip_largo\s*\n?\s*check \(length\(btrim\(chip\)\) between 1 and (\d+)\)/);
+    const m = codigo.match(/length\(btrim\(chip\)\) <= (\d+)/);
     expect(m).not.toBeNull();
     // Se guarda el texto tal como lo tipearon (con separadores), asi que el tope
     // de la base tiene que ser MAYOR que el del numero limpio.
     expect(Number(m![1])).toBeGreaterThanOrEqual(CHIP_LARGO_MAX);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EL MINIMO, QUE NADIE MIRABA — y era el lado que importaba.
+  //
+  // El CHECK original era `between 1 and 40`: la base aceptaba `chip = '1'`.
+  // `CHIP_LARGO_MIN` (9) solo corre en el cliente, y esta tabla se escribe con
+  // un POST directo contra PostgREST. Una fila asi cruza con cualquier otra
+  // basura de un caracter, vale 1000 puntos —contra menos de 100 de todo lo
+  // demas junto— y dispara "casi seguro es tu mascota", el aviso mas fuerte de
+  // la app y el unico que la victima no puede apagar bloqueando.
+  // ─────────────────────────────────────────────────────────────────────────
+  it('el largo MINIMO tambien esta en la base, no solo en el cliente', () => {
+    // Se busca la expresion literal (con la MISMA limpieza que usa el cliente)
+    // en vez de armar un regex: el patron trae corchetes y acento circunflejo.
+    const literal = `length(regexp_replace(chip, '${CHIP_BASURA_SQL}', '', 'g')) between `;
+    const i = codigo.indexOf(literal);
+    expect(i).toBeGreaterThan(-1);
+    const min = Number(codigo.slice(i + literal.length).match(/^(\d+)/)![1]);
+    expect(min).toBe(CHIP_LARGO_MIN);
+  });
+
+  it('y el minimo se mide sobre el NUMERO LIMPIO, no sobre el texto tipeado', () => {
+    // Sobre el texto crudo, `'- - - - - - - - -'` (nueve guiones) pasaria el
+    // minimo y dejaria `chip_norm = ''`, que es justo la basura que el guardia
+    // de mas abajo tiene que atajar. El minimo va sobre la misma expresion de
+    // limpieza que usa `chip_norm` y el cliente.
+    const check = codigo.slice(
+      codigo.indexOf('pet_chips_chip_largo'),
+      codigo.indexOf(')', codigo.indexOf('between 9 and')),
+    );
+    expect(check).toContain('regexp_replace(chip');
   });
 
   it('un chip que se normaliza a vacio nunca cruza con nadie', () => {

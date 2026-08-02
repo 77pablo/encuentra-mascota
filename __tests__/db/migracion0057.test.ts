@@ -53,8 +53,8 @@ function columnasDelGrant(codigo: string, verbo: 'select' | 'update'): string[][
 function cuerpoDeFuncion(codigo: string, nombre: string): string | null {
   const i = codigo.search(new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+public\\.${nombre}\\b`));
   if (i === -1) return null;
-  const fin = codigo.indexOf('$$;', i);
-  return codigo.slice(i, fin === -1 ? codigo.length : fin + 3);
+  const fin = codigo57.indexOf('$$;', i);
+  return codigo57.slice(i, fin === -1 ? codigo.length : fin + 3);
 }
 
 /** La expresion de vigencia que use un archivo, normalizada a un solo espacio. */
@@ -355,5 +355,63 @@ describe('0057 es la ultima migracion del repo', () => {
       .map((f) => parseInt(f.slice(0, 4), 10))
       .filter((n) => !Number.isNaN(n));
     expect(Math.max(...numeros)).toBe(57);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// EL GRANT DE UPDATE, CRUZADO CONTRA LO QUE EL CLIENTE ESCRIBE DE VERDAD.
+//
+// Los tests de arriba son lista NEGRA: comprueban que ciertos nombres no
+// aparezcan. Con eso, una sexta columna de mas pasaba en verde — y esa columna
+// de mas es justo la forma que tuvo la escalada de privilegios que esta
+// migracion existe para cerrar (el grant por defecto de Supabase da UPDATE
+// sobre TODAS las columnas, incluida `es_admin`).
+//
+// Este bloque va al reves: la lista sale de la FIRMA de `updateMyProfile`, o
+// sea de lo unico que la app escribe. Sobra una columna -> rojo. Falta una ->
+// rojo (guardar el perfil fallaria con 42501, o peor, en silencio).
+// ───────────────────────────────────────────────────────────────────────────
+describe('el grant de update sobre profiles es exactamente lo que la app escribe', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const servicio: string = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'services', 'profile.ts'),
+    'utf8',
+  );
+
+  // `fields: { nombre?: string; foto_perfil?: string; ... }`
+  const firma = servicio.slice(
+    servicio.indexOf('export async function updateMyProfile'),
+    servicio.indexOf('):', servicio.indexOf('export async function updateMyProfile')),
+  );
+  const escribe = [...firma.matchAll(/(\w+)\?:/g)].map((m) => m[1]).sort();
+
+  const grant = codigo57.slice(codigo57.indexOf('grant update ('), codigo57.indexOf('on public.profiles to authenticated'));
+  const concedidas = [...grant.matchAll(/\b([a-z_]+)\b/g)]
+    .map((m) => m[1])
+    .filter((c) => c !== 'grant' && c !== 'update')
+    .sort();
+
+  it('los dos parsers leyeron algo (si no, pasa por vacio)', () => {
+    expect(escribe.length).toBeGreaterThanOrEqual(4);
+    expect(concedidas.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('ni una columna de mas, ni una de menos', () => {
+    expect(concedidas).toEqual(escribe);
+  });
+
+  it('no queda ningun grant de update SIN lista de columnas', () => {
+    // `grant update on public.profiles to authenticated` (sin parentesis) es la
+    // forma mas barata de deshacer todo esto sin que nadie se entere: concede
+    // otra vez TODAS las columnas, `es_admin` incluida.
+    expect(codigo57).not.toMatch(/grant\s+update\s+on\s+public\.profiles/i);
+  });
+
+  it('y el INSERT tambien queda cerrado', () => {
+    // La 0017 solto la FK profiles -> auth.users a proposito. Si se borra a mano
+    // una fila de profiles y sobrevive la de auth.users, esa sesion podia
+    // insertarse un perfil nuevo con es_admin = true.
+    expect(codigo57).toMatch(/revoke\s+insert\s+on\s+public\.profiles\s+from[^;]*authenticated/i);
   });
 });
