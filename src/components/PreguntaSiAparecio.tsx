@@ -43,10 +43,23 @@ const pronombre: Record<Pet['especie'], 'lo' | 'la'> = {
 // preguntas por delante y a los 21 esta es la última, y decirlo cambia cómo se
 // lee. La del día 21 además promete explícitamente que el reporte NO se cae
 // solo por no contestar.
+// Los subtextos no afirman cuánto tiempo pasó EXACTO, y es a propósito.
+//
+// Antes decían "pasaron tres días" / "pasó una semana" / "pasaron tres
+// semanas", pero el hito que se muestra es el más alto ALCANZADO: alguien que
+// abre la app al día 20 veía el hito 7 y leía "pasó una semana", cuando habían
+// pasado veinte días. El texto tiene que ser cierto en toda la ventana del
+// hito, no solo el día exacto en que se cumple.
+//
+// Y el del 21 prometía "esta es la última vez que te preguntamos" sin que el
+// código lo cumpliera: sin respuesta, volvía a salir en cada apertura para
+// siempre. Ahora hay un tope real en `debePreguntar` (el vencimiento), así que
+// la promesa se puede sostener — pero se dice de una forma que sigue siendo
+// cierta aunque el reporte se reactive.
 const SUBTEXTO: Record<Hito, string> = {
-  3: 'Pasaron tres días desde que publicaste. Contanos cómo va: si ya está en casa sacamos el aviso, y si no, lo dejamos donde está.',
-  7: 'Pasó una semana. Sea cual sea la respuesta, saberlo ayuda a que el mapa muestre lo que está pasando de verdad.',
-  21: 'Pasaron tres semanas y esta es la última vez que te preguntamos. Si seguís buscando, tu reporte se queda acá el tiempo que haga falta.',
+  3: 'Ya pasaron unos días desde que publicaste. Contanos cómo va: si ya está en casa sacamos el aviso, y si no, lo dejamos donde está.',
+  7: 'Pasó más de una semana. Sea cual sea la respuesta, saberlo ayuda a que el mapa muestre lo que está pasando de verdad.',
+  21: 'Pasaron varias semanas. No te vamos a seguir preguntando: si seguís buscando, tu reporte se queda acá mientras esté al día.',
 };
 
 export const ERROR_AL_GUARDAR =

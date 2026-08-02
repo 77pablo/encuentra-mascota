@@ -161,11 +161,24 @@ describe('lo que dice, y cómo lo dice', () => {
     );
   });
 
-  it('a las tres semanas avisa que es la última vez que pregunta', async () => {
-    const texto = textoDe(await montar({ ...PET, creado_en: haceDias(21) }));
-    expect(texto.toLowerCase()).toContain('última vez');
+  it('a las tres semanas avisa que no va a seguir preguntando', async () => {
+    const texto = textoDe(await montar({ ...PET, creado_en: haceDias(21) })).toLowerCase();
+    expect(texto).toContain('no te vamos a seguir preguntando');
     // Y no a los 3 días, donde todavía quedan dos preguntas por delante.
-    expect(textoDe(await montar()).toLowerCase()).not.toContain('última vez');
+    expect(textoDe(await montar()).toLowerCase()).not.toContain('no te vamos a seguir');
+  });
+
+  it('ningún subtexto afirma una cantidad de días que puede ser falsa', async () => {
+    // El hito que se muestra es el más alto ALCANZADO, así que quien abre la app
+    // al día 20 ve el hito 7. Cuando ese texto decía "pasó una semana", mentía
+    // por trece días. Lo mismo el del hito 3 en toda su ventana, que llega hasta
+    // el día 6.
+    const alDia20 = textoDe(await montar({ ...PET, creado_en: haceDias(20) })).toLowerCase();
+    expect(alDia20).not.toContain('pasó una semana');
+    expect(alDia20).toContain('más de una semana');
+
+    const alDia6 = textoDe(await montar({ ...PET, creado_en: haceDias(6) })).toLowerCase();
+    expect(alDia6).not.toContain('pasaron tres días');
   });
 
   it('las tres salidas están, y concuerdan con la especie', async () => {

@@ -15,6 +15,8 @@
 // tiene abierto ya sabe que su animal no volvió, y repetirle la pregunta cada
 // semana sería crueldad automatizada.
 
+import { DIAS_VENCIMIENTO } from './cicloVida';
+
 export const HITOS = [3, 7, 21] as const;
 export type Hito = (typeof HITOS)[number];
 
@@ -67,6 +69,19 @@ export function debePreguntar(
   const diasDesde = (t: string) => (ahora.getTime() - Date.parse(t)) / DIA_MS;
   const transcurridos = diasDesde(r.creado_en);
   if (!Number.isFinite(transcurridos)) return callarse;
+
+  // TOPE: pasado el vencimiento dejamos de preguntar.
+  //
+  // Esto faltaba y hacía falsa la promesa escrita arriba ("Después del 21 NO se
+  // pregunta más"). Con `preguntado_en` en null —o sea, para todo el que no
+  // contesta, que es la mayoría— el hito 21 volvía a salir en CADA apertura,
+  // indefinidamente, diciendo "esta es la última vez que te preguntamos". A los
+  // 100 días seguía preguntando.
+  //
+  // El corte va en el vencimiento y no en un número nuevo porque a partir de
+  // ahí la pregunta correcta ya no es "¿apareció?" sino que el reporte salió de
+  // las búsquedas, que es otra conversación.
+  if (transcurridos >= DIAS_VENCIMIENTO) return callarse;
 
   // El hito que toca es el MÁS ALTO ya alcanzado, no el primero: quien abre la
   // app por primera vez al mes ve una sola pregunta, la del tiempo real, y no

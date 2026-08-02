@@ -61,6 +61,27 @@ describe('los tres momentos', () => {
   });
 });
 
+describe('la promesa de "no te preguntamos más" se cumple de verdad', () => {
+  // El docstring del módulo decía "después del 21 NO se pregunta más" y el
+  // código NO lo implementaba: `preguntado_en` en null —o sea, todo el que no
+  // contesta, que es la mayoría— hacía que el hito 21 volviera a salir en CADA
+  // apertura, indefinidamente, con un texto que decía "esta es la última vez
+  // que te preguntamos". A los 100 días seguía preguntando.
+  //
+  // El corte va en el vencimiento (45 días) porque a partir de ahí la pregunta
+  // correcta ya no es "¿apareció?" sino que el reporte salió de las búsquedas.
+  it('sigue preguntando el hito 21 mientras el reporte está vigente', () => {
+    expect(debePreguntar(base, enDias(30))).toEqual({ preguntar: true, hito: 21 });
+    expect(debePreguntar(base, enDias(44))).toEqual({ preguntar: true, hito: 21 });
+  });
+
+  it('deja de preguntar cuando el reporte vence, aunque nunca haya respondido', () => {
+    expect(debePreguntar(base, enDias(45)).preguntar).toBe(false);
+    expect(debePreguntar(base, enDias(100)).preguntar).toBe(false);
+    expect(debePreguntar(base, enDias(365)).preguntar).toBe(false);
+  });
+});
+
 describe('cuándo hay que quedarse callado', () => {
   it('nunca pregunta si ya volvió a casa', () => {
     expect(debePreguntar({ ...base, reunida_en: enDias(1).toISOString() }, enDias(21)).preguntar).toBe(
