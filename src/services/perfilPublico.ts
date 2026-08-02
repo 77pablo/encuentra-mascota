@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { institucionDe, type Institucion } from '../lib/institucion';
 import { Pet } from './pets';
 
 // Perfil público de otra persona: lo que ven los demás. NUNCA incluye teléfono
@@ -17,6 +18,11 @@ export interface PerfilPublico {
   // animales publicados mostrando "0 en adopción" es el mismo bug de siempre
   // escrito de otra forma. Con null, la pantalla no dibuja la baldosa.
   adopciones: number | null;
+  // Cuenta institucional verificada (migración 0057), o null. Acá `null` no
+  // tiene la ambigüedad que sí tiene `adopciones`: "no es una institución" y
+  // "la 0057 todavía no está aplicada" se ven igual, y está bien — en los dos
+  // casos lo correcto es no dibujar ninguna insignia. Ver src/lib/institucion.ts.
+  institucion: Institucion | null;
 }
 
 // Lee el perfil público por la RPC segura. Devuelve null si la cuenta está
@@ -43,6 +49,7 @@ export async function getPerfilPublico(userId: string): Promise<PerfilPublico | 
     // `== null` a propósito: cubre ausente Y null de la base, y deja pasar el
     // 0 legítimo de quien de verdad no publicó ninguna.
     adopciones: fila.adopciones == null ? null : Number(fila.adopciones),
+    institucion: institucionDe(fila),
   };
 }
 

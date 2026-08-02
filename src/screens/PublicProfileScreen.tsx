@@ -9,6 +9,7 @@ import {
   PerfilPublico,
 } from '../services/perfilPublico';
 import { Pet } from '../services/pets';
+import InsigniaInstitucion from '../components/InsigniaInstitucion';
 import { insigniasDe } from '../lib/insignias';
 import { iconoRedSocial, parseRedSocial } from '../lib/redSocial';
 import { mesAnoDe } from '../lib/time';
@@ -288,6 +289,13 @@ export default function PublicProfileScreen({ route, navigation }: any) {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* CUENTA INSTITUCIONAL (0057). Va inmediatamente debajo de la portada
+            porque es lo que contesta la primera pregunta de quien entra a este
+            perfil: "¿quién es?". Se dibuja sola (null) para una persona, y
+            también mientras la 0057 no esté aplicada — en esa ventana la RPC
+            vieja no trae las columnas y `perfil.institucion` es null. */}
+        <InsigniaInstitucion institucion={perfil.institucion ?? null} />
 
         {/* Acciones sobre esta persona: denunciar / bloquear. No se muestran en
             el perfil propio. */}

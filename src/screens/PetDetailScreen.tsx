@@ -54,7 +54,11 @@ import TarjetaGenerador from '../components/TarjetaGenerador';
 import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
 import { faltaWhatsapp } from '../lib/afiche';
 import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
-import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
+// `getAutorPublico` reemplaza a `getNombrePublico` (0057): trae el nombre Y la
+// institución verificada en una sola consulta. `Chip` sigue haciendo falta para
+// las señas estructuradas de la 0054.
+import { AutorPublico, getAutorPublico, getMyProfile, Profile } from '../services/profile';
+import InsigniaInstitucion from '../components/InsigniaInstitucion';
 import { AppText, AvisoEstafa, Badge, Button, Card, Chip, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -134,7 +138,8 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [dejandoPista, setDejandoPista] = useState(false);
   const [borrandoPista, setBorrandoPista] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<Profile | null>(null);
-  const [duenoNombre, setDuenoNombre] = useState<string | null>(null);
+  // Quien publico: nombre publico + institucion verificada (migracion 0057).
+  const [dueno, setDueno] = useState<AutorPublico | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
   // "Compartir tarjeta" (F1): monta TarjetaGenerador off-screen, que se
   // encarga de capturar y compartir (mismo patrón que el afiche, ver abajo).
@@ -218,17 +223,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
     };
   }, [pet]);
 
-  // Nombre público del dueño, para la fila "Publicado por … →" que enlaza a su
-  // perfil público. Silencioso: si no se puede leer, no se muestra la fila.
+  // Quién publicó, para la fila "Publicado por … →" que enlaza a su perfil
+  // público. Desde la 0057 trae además la institución verificada, en la MISMA
+  // consulta (`getAutorPublico`), para no pedir dos veces la misma fila.
+  // Silencioso: si no se puede leer, no se muestra la fila.
   useEffect(() => {
     if (!pet) {
-      setDuenoNombre(null);
+      setDueno(null);
       return;
     }
     let vivo = true;
-    getNombrePublico(pet.user_id)
-      .then((n) => {
-        if (vivo) setDuenoNombre(n);
+    getAutorPublico(pet.user_id)
+      .then((a) => {
+        if (vivo) setDueno(a);
       })
       .catch((e) => {
         // Igual que en AdopcionDetail: el reporte se lee entero sin el nombre.
@@ -641,16 +648,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
           {timeAgo(pet.creado_en)}
         </AppText>
 
-        {!esMio && duenoNombre ? (
+        {!esMio && dueno?.nombre ? (
           <TouchableOpacity
             style={styles.duenoRow}
             activeOpacity={0.7}
             onPress={() => navigation.navigate('PublicProfile', { userId: pet.user_id })}
           >
             <Ionicons name="person-circle-outline" size={16} color={colors.brand} />
-            <AppText size={13} color={colors.brand} style={styles.duenoTexto}>
-              Publicado por {duenoNombre}
-            </AppText>
+            <View style={styles.duenoTexto}>
+              <AppText size={13} color={colors.brand}>
+                Publicado por {dueno.nombre}
+              </AppText>
+              {/* Sello COMPACTO (0057): el nombre ya está una línea arriba y el
+                  contacto vive en el perfil público, a un toque. La versión
+                  entera acá convertiría la firma en una tarjeta. */}
+              <InsigniaInstitucion institucion={dueno.institucion} compacta />
+            </View>
             <Ionicons name="chevron-forward" size={14} color={colors.brand} />
           </TouchableOpacity>
         ) : null}
@@ -1346,6 +1359,10 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   duenoTexto: {
     flexShrink: 1,
+    // Dos líneas cuando hay sello institucional (0057): el nombre arriba y
+    // "Veterinaria verificada" debajo. Sin institución hay una sola y la fila
+    // se ve idéntica a como se veía antes.
+    gap: 2,
   },
   descriptionCard: {
     marginTop: spacing.xs,

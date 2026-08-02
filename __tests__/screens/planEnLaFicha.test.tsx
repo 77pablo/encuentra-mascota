@@ -76,6 +76,10 @@ jest.mock('../../src/services/storage', () => ({ uploadPetPhoto: jest.fn() }));
 jest.mock('../../src/services/profile', () => ({
   getMyProfile: () => Promise.resolve(null),
   getNombrePublico: () => Promise.resolve('Dueño'),
+  // [0057] La ficha pasó a leer al autor con `getAutorPublico`, que trae el
+  // nombre Y la institución verificada en una sola consulta. Sin esta clave
+  // el mock devuelve undefined y la pantalla revienta al montarse.
+  getAutorPublico: jest.fn(() => Promise.resolve({ nombre: 'Dueño', institucion: null })),
 }));
 jest.mock('../../src/services/sightings', () => ({ listSightings: () => Promise.resolve([]) }));
 jest.mock('../../src/services/tips', () => ({
