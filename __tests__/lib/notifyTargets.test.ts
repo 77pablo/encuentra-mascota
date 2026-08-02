@@ -435,9 +435,14 @@ describe('componerAviso - avistamiento_anonimo', () => {
       id: 'an2', tipo: 'avistamiento_anonimo', petId: 'p1', actorId: null,
       targetUserId: 'dueno', datos: { nota: 'está en la plaza, tranquila' },
     };
+    // Sin "Entrá a ver dónde fue", a diferencia del avistamiento normal: este
+    // no crea fila en `sightings`, así que el dueño llegaría a un mapa idéntico
+    // al que ya tenía. En cambio se dice de dónde salió, porque es el único
+    // texto que entra a la app sin ninguna cuenta detrás.
     expect(componerAviso(ev, ctxBase)).toEqual({
       titulo: 'Alguien vio a Pelusa',
-      cuerpo: '"está en la plaza, tranquila" · Entrá a ver dónde fue.',
+      cuerpo:
+        '"está en la plaza, tranquila" · Lo escribió alguien sin cuenta, desde el link público.',
       ruta: '/mascota/p1',
     });
   });

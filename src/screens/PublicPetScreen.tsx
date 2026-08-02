@@ -250,12 +250,17 @@ export default function PublicPetScreen({ route, navigation }: any) {
                 onChangeText={setNota}
                 multiline
               />
-              <Button
-                title={coords ? 'Ubicación agregada' : 'Sumar dónde estoy'}
-                icon={coords ? 'checkmark' : 'location'}
-                variant="secondary"
-                onPress={usarUbicacion}
-              />
+              {/* NO se ofrece sumar la ubicación, y es a propósito.
+                  El botón existía y pedía permiso de GPS, la RPC guardaba el
+                  punto difuminado en `datos.lat/lng`… y NADIE lo lee: el mapa
+                  de la ficha se pinta solo desde `sightings`, y un aviso
+                  anónimo no crea fila ahí. O sea que se le pedía a un vecino un
+                  permiso de ubicación para escribir una coordenada que no se
+                  muestra en ningún lado, y el aviso que le llegaba al dueño
+                  decía "entrá a ver dónde fue" sobre un mapa sin ningún pin
+                  nuevo.
+                  Mientras no haya dónde verla, no se pide. La RPC sigue
+                  aceptando lat/lng para el día que exista esa superficie. */}
               {errorAviso ? (
                 <AppText size={13} color={colors.lost}>
                   {errorAviso}

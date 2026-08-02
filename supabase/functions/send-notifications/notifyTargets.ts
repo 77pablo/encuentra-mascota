@@ -286,8 +286,8 @@ export function componerAviso(
     return {
       titulo: `Alguien vio a ${suya}`,
       cuerpo: nota
-        ? `"${nota}" · Entrá a ver dónde fue.`
-        : 'Alguien avisó que la vio, sin dejar sus datos. Entrá a ver dónde fue.',
+        ? `"${nota}" · Lo escribió alguien sin cuenta, desde el link público.`
+        : 'Alguien avisó que la vio desde el link público, sin dejar sus datos.',
       ruta,
     };
   }

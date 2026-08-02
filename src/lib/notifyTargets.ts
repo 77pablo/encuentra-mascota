@@ -292,11 +292,16 @@ export function componerAviso(
   // nota entera.
   if (evento.tipo === 'avistamiento_anonimo') {
     const nota = evento.datos.nota?.trim();
+    // "Entrá a ver dónde fue" NO va acá, aunque sí vaya en el avistamiento
+    // normal: este no crea ninguna fila en `sightings`, así que no hay pin
+    // nuevo que mirar. El texto mandaba al dueño a un mapa idéntico al de
+    // antes. Se dice, en cambio, de dónde salió el mensaje: es el único texto
+    // que llega a la app sin ninguna cuenta detrás.
     return {
       titulo: `Alguien vio a ${suya}`,
       cuerpo: nota
-        ? `"${nota}" · Entrá a ver dónde fue.`
-        : 'Alguien avisó que la vio, sin dejar sus datos. Entrá a ver dónde fue.',
+        ? `"${nota}" · Lo escribió alguien sin cuenta, desde el link público.`
+        : 'Alguien avisó que la vio desde el link público, sin dejar sus datos.',
       ruta,
     };
   }
