@@ -8,6 +8,10 @@ import { notify } from '../lib/notify';
 import { RECOMPENSA_SI, tieneRecompensa } from '../lib/recompensa';
 import { validarSenas } from '../lib/senaPrivada';
 import { guardarSenasPrivadas, obtenerSenasPrivadas } from '../services/senasPrivadas';
+// Señas estructuradas y número de chip (migración 0054).
+import { SelectorSenas, senasDeReporte, type Senas } from '../components/SelectorSenas';
+import { validarChip } from '../lib/senasMascota';
+import { guardarChip, leerChip } from '../services/petChip';
 import { AppText, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -60,6 +64,15 @@ export default function EditPetScreen({ route, navigation }: any) {
   // casillas vacías) y al guardar se BORRABA la seña real. Es la misma trampa
   // del perfil degradado que escribía '' encima del teléfono.
   const [senasLeidas, setSenasLeidas] = useState<boolean | null>(null);
+  // Señas estructuradas (0054). Estas SÍ viven en `pets`, así que llegan con el
+  // reporte y no hay nada que ir a buscar.
+  const [senas, setSenas] = useState<Senas>(() => senasDeReporte(pet));
+  // El número de chip (0054) vive en `pet_chips`, aparte, y se lee igual que la
+  // seña secreta — con el MISMO tercer estado, por la misma razón: sin él, "no
+  // tenés chip" y "no pudimos leerlo" se ven igual (casilla vacía) y guardar
+  // BORRARÍA el número real. Ver el comentario de `senasLeidas` acá arriba.
+  const [chip, setChip] = useState('');
+  const [chipLeido, setChipLeido] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -74,6 +87,20 @@ export default function EditPetScreen({ route, navigation }: any) {
       // `s === null` es ambiguo por diseño del servicio (no hay fila / no hay
       // migración / falló la red). Ante la duda NO tocamos lo guardado.
       setSenasLeidas(s !== null);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [pet.id]);
+
+  useEffect(() => {
+    let vivo = true;
+    // Tampoco tira nunca. `null` = no se pudo saber qué había (sin migración,
+    // sin permiso, sin red); `{ chip: null }` = se leyó y no hay ninguno.
+    leerChip(pet.id).then((r) => {
+      if (!vivo) return;
+      if (r) setChip(r.chip ?? '');
+      setChipLeido(r !== null);
     });
     return () => {
       vivo = false;
@@ -107,9 +134,27 @@ export default function EditPetScreen({ route, navigation }: any) {
       notify('Revisá la seña', senasOk.motivo);
       return;
     }
+    const chipOk = validarChip(chip);
+    if (!chipOk.ok) {
+      notify('Revisá el número de chip', chipOk.motivo);
+      return;
+    }
     setSaving(true);
     try {
-      await updatePet(pet.id, { estado, especie, raza, nombre, descripcion, recompensa });
+      await updatePet(pet.id, {
+        estado,
+        especie,
+        raza,
+        nombre,
+        descripcion,
+        recompensa,
+        // Sin ningún color se manda null y NO `[]`: son dos formas de decir lo
+        // mismo, y dejar las dos en la base hace que después se crucen mal.
+        colores: senas.colores.length > 0 ? senas.colores : null,
+        tamano: senas.tamano,
+        sexo: senas.sexo,
+        esterilizado: senas.esterilizado,
+      });
       // La seña SOLO se toca si primero pudimos leer qué había.
       //
       // Dos vacías significan "borrala" para el servicio, y eso es correcto
@@ -122,6 +167,12 @@ export default function EditPetScreen({ route, navigation }: any) {
         // Acá SÍ se deja propagar el error (a diferencia de al publicar): la
         // persona apretó "Guardar cambios" y tiene que enterarse si no quedó.
         await guardarSenasPrivadas(pet.id, pet.user_id, sena1, sena2);
+      }
+      // El chip, IGUAL: solo se toca si primero pudimos leer qué había. Repite
+      // exactamente la trampa de la seña secreta, y acá duele más todavía —
+      // conseguir el número de chip cuesta una visita al veterinario.
+      if (chipLeido) {
+        await guardarChip(pet.id, pet.user_id, chip);
       }
       notify('Guardado', 'Tu reporte se actualizó.');
       navigation.goBack();
@@ -204,6 +255,11 @@ export default function EditPetScreen({ route, navigation }: any) {
               atrae estafadores. Lo arreglás en persona con quien la encuentre.
             </AppText>
           ) : null}
+
+          {/* Señas estructuradas (0054). Se pueden completar después: un reporte
+              publicado con apuro casi nunca las trae, y este es el lugar natural
+              para agregarlas cuando la persona se sienta un rato. */}
+          <SelectorSenas valor={senas} onChange={setSenas} />
         </Card>
 
         <Card style={styles.section}>
@@ -236,6 +292,38 @@ export default function EditPetScreen({ route, navigation }: any) {
                 onChangeText={setSena2}
               />
             </>
+          )}
+        </Card>
+
+        {/* NÚMERO DE CHIP. Va en su propia tarjeta, después de la seña secreta,
+            porque comparte su naturaleza: no se publica y sirve para PROBAR de
+            quién es el animal. Y sobre todo: casi nadie lo tiene a mano al
+            publicar con apuro, así que este es el lugar donde de verdad se
+            carga —volviendo del veterinario, que es quien lo lee—. */}
+        <Card style={styles.section}>
+          <Title size={16} style={styles.sectionTitle}>
+            Número de chip
+          </Title>
+          <AppText muted size={12} style={styles.ayuda}>
+            No se publica y nadie más lo ve. Lo usamos solo para cruzarlo: si alguien
+            publica una mascota encontrada con el mismo chip, te avisamos enseguida. Es
+            el dato que más sirve de todos.
+          </AppText>
+          {chipLeido === false ? (
+            // Mismo criterio que la seña secreta: una casilla vacía podría
+            // querer decir "no tenés ninguno" o "no pudimos leerlo", y
+            // confundirlas hacía que guardar borrara el número real.
+            <AppText muted size={12} style={styles.ayuda}>
+              No pudimos leer tu número de chip ahora mismo, así que lo dejamos como
+              estaba: guardar este formulario no lo va a cambiar. Probá más tarde.
+            </AppText>
+          ) : (
+            <Input
+              placeholder="Ej: 985112003456789"
+              value={chip}
+              onChangeText={setChip}
+              keyboardType="numeric"
+            />
           )}
         </Card>
 

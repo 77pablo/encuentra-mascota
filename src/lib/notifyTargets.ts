@@ -42,6 +42,9 @@ export type EventoAviso = {
     match_pet_id?: string;
     match_estado?: string;
     match_especie?: string;
+    // 'coincidencia' (0054): true cuando el par comparte NÚMERO DE CHIP. Es lo
+    // ÚNICO que sale del chip; el número nunca viaja en la cola de avisos.
+    chip?: boolean;
     // 'escaneo_collar': datos de la ficha del collar y del escaneo.
     nombre_mascota?: string;
     // La nota que dejó quien avisó. La usan 'escaneo_collar' y
@@ -319,11 +322,26 @@ export function componerAviso(
     // La ruta lleva al OTRO reporte (el que calza), que es lo que la persona
     // quiere ver, no el suyo. match_estado es el estado del reporte que apareció:
     // si es 'encontrada' apareció un encontrado (y el de referencia es un perdido).
+    const ruta = `/mascota/${evento.datos.match_pet_id ?? evento.petId}`;
+    // EL CHIP CAMBIA EL AVISO (migración 0054). Un chip es único: dos reportes
+    // de estado opuesto que lo comparten son el mismo animal. Con el texto
+    // prudente de siempre, este push se perdería entre los otros diez.
+    //
+    // Solo viaja el booleano: el NÚMERO no sale nunca de la base, y menos en
+    // un push, que queda escrito en el centro de notificaciones del teléfono.
+    if (evento.datos.chip === true) {
+      return {
+        titulo: `El chip coincide: puede ser ${suya}`,
+        cuerpo:
+          'Publicaron un reporte con el mismo número de chip. Entrá a verlo: casi seguro es tu mascota.',
+        ruta,
+      };
+    }
     const otro = evento.datos.match_estado === 'encontrada' ? 'un encontrado' : 'un perdido';
     return {
       titulo: `Apareció ${otro} que podría ser ${suya}`,
       cuerpo: 'Alguien reportó una mascota que podría ser la tuya, cerca. Entrá a verla.',
-      ruta: `/mascota/${evento.datos.match_pet_id ?? evento.petId}`,
+      ruta,
     };
   }
 

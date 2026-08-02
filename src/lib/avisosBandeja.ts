@@ -95,6 +95,20 @@ export function textoDeAviso(a: Aviso): AvisoPresentado {
       };
 
     case 'coincidencia': {
+      // EL CHIP CAMBIA EL TEXTO (migración 0054). Un chip es único: si dos
+      // reportes de estado opuesto lo comparten, es el mismo animal. Decir
+      // "puede que sea la tuya" ahí haría que este aviso se postergue entre
+      // otros diez iguales, que es justo el problema que las señas resuelven.
+      //
+      // El evento trae SOLO el booleano: el número no viaja nunca (ver la 0054).
+      if (d.chip === true) {
+        return {
+          titulo: 'El chip coincide',
+          detalle:
+            'Publicaron un reporte con el MISMO número de chip que el tuyo. Entrá a verlo: casi seguro es tu mascota.',
+          icono: 'shield-checkmark-outline',
+        };
+      }
       // `match_estado` es el estado del OTRO reporte, el que calza. Sin él no se
       // puede afirmar de qué se trata, así que se dice de forma neutra.
       const otro = texto(d, 'match_estado');

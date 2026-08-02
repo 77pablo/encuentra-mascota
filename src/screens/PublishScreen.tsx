@@ -32,6 +32,11 @@ import { SelectorAmbito } from '../components/SelectorAmbito';
 import { RECOMPENSA_SI } from '../lib/recompensa';
 import { validarSenas } from '../lib/senaPrivada';
 import { guardarSenasPrivadas } from '../services/senasPrivadas';
+// Señas estructuradas (migración 0054): lo que hace que una coincidencia deje
+// de ser "misma especie + 15 km".
+import { SelectorSenas, SENAS_VACIAS, type Senas } from '../components/SelectorSenas';
+import { normalizarChip, validarChip } from '../lib/senasMascota';
+import { guardarChip } from '../services/petChip';
 import { AppText, AvisoEstafa, Button, Card, Chip, Input, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -85,6 +90,13 @@ export default function PublishScreen({ navigation, route }: any) {
   // Seña secreta de verificación (migración 0047). NO se publica en ningún lado.
   const [sena1, setSena1] = useState('');
   const [sena2, setSena2] = useState('');
+  // Señas estructuradas (0054). Estas SÍ se publican: son las que hay que gritar
+  // en la calle, y las que dejan al motor descartar lo que claramente no es.
+  const [senas, setSenas] = useState<Senas>(SENAS_VACIAS);
+  // El número de chip (0054). NO se publica y NO viaja en el insert de `pets`:
+  // vive en `pet_chips`, cerrado al dueño, y se guarda en otra llamada después
+  // de crear el reporte. Ver src/services/petChip.ts.
+  const [chip, setChip] = useState('');
   const [fotoUris, setFotoUris] = useState<string[]>(
     typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
   );
@@ -235,6 +247,12 @@ export default function PublishScreen({ navigation, route }: any) {
       recompensa,
       comuna: comuna ?? undefined,
       comunas_alcance: comunasAlcance,
+      // Lo que no se marcó no viaja: `undefined` y no null, para que
+      // `createPet` ni siquiera arme la clave (ver opcionalesDe).
+      colores: senas.colores.length > 0 ? senas.colores : undefined,
+      tamano: senas.tamano ?? undefined,
+      sexo: senas.sexo ?? undefined,
+      esterilizado: senas.esterilizado ?? undefined,
       ...coords,
     });
     if (!parsed.success) {
@@ -253,6 +271,14 @@ export default function PublishScreen({ navigation, route }: any) {
     const senasOk = validarSenas(sena1, sena2);
     if (!senasOk.ok) {
       notify('Revisá la seña', senasOk.motivo);
+      return;
+    }
+    // El chip tampoco pasa por el schema del reporte (no vive en `pets`). Se
+    // valida ANTES de subir las fotos, igual que el filtro de texto: si va a
+    // rebotar, no gastamos una subida al bucket.
+    const chipOk = validarChip(chip);
+    if (!chipOk.ok) {
+      notify('Revisá el número de chip', chipOk.motivo);
       return;
     }
     if (fotoUris.length === 0) {
@@ -307,6 +333,19 @@ export default function PublishScreen({ navigation, route }: any) {
         await guardarSenasPrivadas(nuevoPet.id, user!.id, sena1, sena2);
       } catch (e: any) {
         console.warn('No se pudo guardar la seña secreta del reporte:', e?.message ?? e);
+      }
+      // El chip va DESPUÉS y aparte (otra tabla, otra llamada), por la misma
+      // razón: el reporte ya existe y una mascota perdida importa más que un
+      // extra. Sin la 0054 aplicada devuelve false y no pasa nada.
+      //
+      // Solo si hay algo que guardar: sin esto, publicar sin chip crearía y
+      // borraría una fila en `pet_chips` por cada reporte.
+      if (normalizarChip(chip)) {
+        try {
+          await guardarChip(nuevoPet.id, user!.id, chip);
+        } catch (e: any) {
+          console.warn('No se pudo guardar el número de chip del reporte:', e?.message ?? e);
+        }
       }
       // Al publicar una PERDIDA (el momento de más angustia) ofrecemos la guía
       // de "qué hacer ahora" en vez de solo volver al mapa. En "encontrada" no
@@ -415,6 +454,12 @@ export default function PublishScreen({ navigation, route }: any) {
             onChangeText={setDescripcion}
             multiline
           />
+
+          {/* SEÑAS ESTRUCTURADAS (0054). Van justo debajo de la descripción
+              porque son lo mismo que la gente ya escribía ahí, pero marcado de
+              una forma que el motor de coincidencias puede leer. */}
+          <SelectorSenas valor={senas} onChange={setSenas} />
+
           <View style={styles.recompensaRow}>
             <Chip
               label={ofreceRecompensa ? 'Ofrezco recompensa' : '¿Ofrecés recompensa?'}
@@ -450,6 +495,25 @@ export default function PublishScreen({ navigation, route }: any) {
               placeholder="Ej: se sienta cuando le decís «cama»"
               value={sena2}
               onChangeText={setSena2}
+            />
+          </View>
+
+          {/* NÚMERO DE CHIP — el dato más fuerte del motor, y el más sensible.
+              Va en el bloque privado, pegado a la seña secreta, porque comparte
+              exactamente su lógica: sirve para PROBAR de quién es el animal, y
+              publicado deja de servir (el estafador lo lee del aviso). */}
+          <View style={styles.senaBloque}>
+            <Title size={15}>Número de chip (opcional)</Title>
+            <AppText muted size={12} style={styles.ayuda}>
+              No se publica y nadie más lo ve. Lo usamos solo para cruzarlo con los
+              otros reportes: si alguien publica una mascota encontrada con el mismo
+              chip, te avisamos enseguida. Es el dato que más sirve de todos.
+            </AppText>
+            <Input
+              placeholder="Ej: 985112003456789"
+              value={chip}
+              onChangeText={setChip}
+              keyboardType="numeric"
             />
           </View>
 

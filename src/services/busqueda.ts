@@ -4,6 +4,7 @@
 // al teléfono y filtraba en memoria. Acá el filtrado, el orden por cercanía y la
 // paginación los hace Postgres, y el cliente recibe de a una página.
 import { supabase } from '../lib/supabase';
+import { esMigracionSinAplicar } from '../lib/dbErrors';
 import { Pet } from './pets';
 
 export type Orden = 'recientes' | 'cerca';
@@ -19,6 +20,11 @@ export interface FiltrosBusqueda {
   desde?: Date | null; // rango de tiempo ("hoy", "última semana")
   orden?: Orden;
   comuna?: string | null; // feed por comuna: casa o alcance (Tanda 3)
+  // Señas estructuradas (migración 0054). Ver el comentario de `buscarReportes`:
+  // estos dos son los ÚNICOS filtros que pueden no existir en la base, así que
+  // solo se mandan cuando la persona eligió uno.
+  color?: string | null;
+  tamano?: string | null;
 }
 
 // Un reporte tal como vuelve de la búsqueda: los campos de siempre más la
@@ -54,12 +60,20 @@ function cursorDe(reportes: PetConDistancia[]): Cursor | null {
 
 // Trae una página de reportes. `cursor` viene de la página anterior; en la
 // primera llamada va en null.
+//
+// LOS DOS FILTROS DE SEÑA (0054) SOLO VIAJAN SI SE USAN, y no es una
+// optimización: es lo que hace que Explorar siga andando con la 0054 sin
+// aplicar. `buscar_reportes` gana dos parámetros, así que si los mandáramos
+// SIEMPRE, contra una base vieja PostgREST no encontraría ninguna firma que
+// calce (PGRST202) y la pantalla quedaría en blanco para todo el mundo, filtre
+// o no filtre la persona. Mandándolos solo cuando hay filtro puesto, el 99% de
+// las búsquedas resuelven contra la firma de siempre.
 export async function buscarReportes(
   filtros: FiltrosBusqueda = {},
   cursor: Cursor | null = null,
   limite: number = TAMANO_PAGINA,
 ): Promise<Pagina> {
-  const { data, error } = await supabase.rpc('buscar_reportes', {
+  const base = {
     p_lat: filtros.lat ?? null,
     p_lng: filtros.lng ?? null,
     p_radio_km: filtros.radioKm ?? null,
@@ -74,15 +88,42 @@ export async function buscarReportes(
     p_cursor_dist: cursor?.distancia ?? null,
     p_limite: limite,
     p_comuna: filtros.comuna?.trim() ? filtros.comuna.trim() : null,
-  });
-  if (error) throw error;
-
-  const reportes = (data ?? []) as PetConDistancia[];
-  return {
-    reportes,
-    // Si vino una página incompleta, ya no hay más: nos ahorramos una consulta.
-    cursor: reportes.length < limite ? null : cursorDe(reportes),
   };
+  const color = filtros.color?.trim() ? filtros.color.trim() : null;
+  const tamano = filtros.tamano?.trim() ? filtros.tamano.trim() : null;
+
+  const pedir = (args: Record<string, unknown>) => supabase.rpc('buscar_reportes', args);
+
+  const pagina = (data: unknown): Pagina => {
+    const reportes = (data ?? []) as PetConDistancia[];
+    return {
+      reportes,
+      // Si vino una página incompleta, ya no hay más: nos ahorramos una consulta.
+      cursor: reportes.length < limite ? null : cursorDe(reportes),
+    };
+  };
+
+  if (!color && !tamano) {
+    const { data, error } = await pedir(base);
+    if (error) throw error;
+    return pagina(data);
+  }
+
+  const conSenas = await pedir({ ...base, p_color: color, p_tamano: tamano });
+  if (!conSenas.error) return pagina(conSenas.data);
+  // Solo "esa función no existe" (PGRST202 / 42883) se reintenta. Un 42501 de
+  // permisos o un corte de red suben tal cual: si entraran acá, la búsqueda
+  // devolvería resultados sin filtrar ante cualquier problema y nadie se
+  // enteraría de que hay algo roto.
+  if (!esMigracionSinAplicar(conSenas.error)) throw conSenas.error;
+  // Queda escrito. El síntoma que ve la persona —"elegí Negro y salen perros
+  // blancos"— no dice por sí solo que falta correr una migración.
+  console.warn(
+    'buscarReportes: esta base todavía no tiene la 0054, así que los filtros de color y tamaño no se aplicaron.',
+  );
+  const sinSenas = await pedir(base);
+  if (sinSenas.error) throw sinSenas.error;
+  return pagina(sinSenas.data);
 }
 
 // Cuenta reportes activos en una comuna (casa o alcance), para el encabezado del
@@ -112,6 +153,14 @@ export interface Coincidencia {
   lng: number;
   creado_en: string;
   distancia_km: number;
+  // SEÑAS ESTRUCTURADAS (migración 0054). Las dos llegan `undefined` contra una
+  // base sin la 0054 —la RPC vieja devuelve las columnas de siempre y nada
+  // más—, así que ninguna pantalla puede asumir que estén.
+  //
+  // `chip_coincide` es lo ÚNICO que sale del chip: el número nunca se devuelve,
+  // por nadie. Ver supabase/migrations/0054 y src/services/petChip.ts.
+  chip_coincide?: boolean;
+  puntaje?: number;
 }
 
 export async function buscarCoincidencias(

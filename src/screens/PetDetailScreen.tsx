@@ -33,6 +33,14 @@ import {
   summaryLabel,
 } from '../lib/sightings';
 import { distanceLabel } from '../lib/geo';
+import {
+  COLOR_ETIQUETA,
+  SEXO_ETIQUETA,
+  TAMANO_ETIQUETA,
+  type ColorPelaje,
+  type Sexo,
+  type Tamano,
+} from '../lib/senasMascota';
 import { isReunited, reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { buildTimeline, TimelineTipo } from '../lib/timeline';
@@ -47,7 +55,7 @@ import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
 import { faltaWhatsapp } from '../lib/afiche';
 import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
 import { getMyProfile, getNombrePublico, Profile } from '../services/profile';
-import { AppText, AvisoEstafa, Badge, Button, Card, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
+import { AppText, AvisoEstafa, Badge, Button, Card, Chip, Confetti, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
 
@@ -56,6 +64,31 @@ const especieLabel: Record<Pet['especie'], string> = {
   gato: 'Gato',
   otro: 'Mascota',
 };
+
+// Las señas estructuradas (0054) en texto, listas para dibujar como chips.
+//
+// Devuelve lista vacía cuando no hay ninguna, que es el caso de TODOS los
+// reportes anteriores a la migración y de cualquier base sin ella aplicada (ahí
+// las claves ni siquiera llegan en la fila). Nunca dibuja un hueco.
+//
+// El NÚMERO DE CHIP no está acá y no puede estarlo: no viene en `pets` y no se
+// publica. Ver src/services/petChip.ts.
+export function resumenDeSenas(pet: Pet): string[] {
+  const salida: string[] = [];
+  for (const c of pet.colores ?? []) {
+    const etiqueta = COLOR_ETIQUETA[c as ColorPelaje];
+    if (etiqueta) salida.push(etiqueta);
+  }
+  const tamano = TAMANO_ETIQUETA[pet.tamano as Tamano];
+  if (tamano) salida.push(tamano);
+  // 'no_se' no se muestra: "No sé" ocupando un chip es ruido, y el que lo lee
+  // ya sabe que lo que no está es porque no se sabe.
+  const sexo = pet.sexo && pet.sexo !== 'no_se' ? SEXO_ETIQUETA[pet.sexo as Sexo] : null;
+  if (sexo) salida.push(sexo);
+  if (pet.esterilizado === 'si') salida.push('Esterilizado/a');
+  if (pet.esterilizado === 'no') salida.push('Sin esterilizar');
+  return salida;
+}
 
 // Ícono y color del punto de cada hito de la "Historia" del reporte.
 const timelineIcono: Record<TimelineTipo, keyof typeof Ionicons.glyphMap> = {
@@ -626,6 +659,18 @@ export default function PetDetailScreen({ route, navigation }: any) {
           <AppText size={15} style={styles.descriptionText}>
             {pet.descripcion}
           </AppText>
+          {/* SEÑAS ESTRUCTURADAS (0054). Debajo de la descripción y no en su
+              lugar: son lo mismo que la gente ya escribía ahí, pero marcado de
+              una forma que el motor de coincidencias puede leer. Se dibuja sola
+              (nada) cuando no hay ninguna — que es el caso de todos los
+              reportes anteriores a la migración. */}
+          {resumenDeSenas(pet).length > 0 ? (
+            <View style={styles.senasRow}>
+              {resumenDeSenas(pet).map((s) => (
+                <Chip key={s} label={s} />
+              ))}
+            </View>
+          ) : null}
         </Card>
 
         {/* CIERRE DE CASOS (0049): "¿apareció?" a los 3, 7 y 21 días. Solo en
@@ -1185,12 +1230,29 @@ export default function PetDetailScreen({ route, navigation }: any) {
             </AppText>
             <View style={styles.matchesList}>
               {matches.map((m) => (
-                <PetCard
-                  key={m.id}
-                  pet={m as unknown as Pet}
-                  distanceKm={m.distancia_km}
-                  onPress={() => navigation.push('PetDetail', { id: m.id })}
-                />
+                <View key={m.id}>
+                  {/* EL CHIP COINCIDE (0054). La RPC ya los pone primero. Acá
+                      se dice, porque si no esta tarjeta se ve idéntica a las
+                      otras diez y la persona la puede pasar de largo — y de
+                      todas las coincidencias que produce el motor, esta es la
+                      única que es casi una certeza.
+
+                      Lo que llega es SOLO el booleano: el número de chip no
+                      sale de la base, por nadie. */}
+                  {m.chip_coincide ? (
+                    <View style={styles.chipMatchAviso}>
+                      <Ionicons name="shield-checkmark" size={16} color={colors.found} />
+                      <AppText size={13} weight="bold" color={colors.found} style={styles.chipMatchTexto}>
+                        El chip coincide con el tuyo. Casi seguro es tu mascota.
+                      </AppText>
+                    </View>
+                  ) : null}
+                  <PetCard
+                    pet={m as unknown as Pet}
+                    distanceKm={m.distancia_km}
+                    onPress={() => navigation.push('PetDetail', { id: m.id })}
+                  />
+                </View>
               ))}
             </View>
           </View>
@@ -1504,6 +1566,22 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   matchesList: {
     gap: spacing.md,
+  },
+  senasRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  chipMatchAviso: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  chipMatchTexto: {
+    flex: 1,
+    lineHeight: 18,
   },
   reportSection: {
     marginTop: spacing.lg,

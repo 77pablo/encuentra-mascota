@@ -38,6 +38,14 @@ jest.mock('../../src/services/senasPrivadas', () => ({
     mockGuardar(id, uid, s1, s2),
 }));
 
+// El número de chip (0054) se lee aparte, igual que la seña. Acá no se prueba,
+// pero sin mock la pantalla saldría a buscarlo de verdad y ensuciaría la salida.
+// Su propia trampa de "vacío encima de algo real" vive en `editarSenas.test.tsx`.
+jest.mock('../../src/services/petChip', () => ({
+  leerChip: async () => ({ chip: null }),
+  guardarChip: async () => true,
+}));
+
 jest.mock('../../src/lib/notify', () => ({
   notify: jest.fn(),
   confirmAction: () => Promise.resolve(true),

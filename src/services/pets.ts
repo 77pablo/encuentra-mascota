@@ -47,6 +47,63 @@ export interface Pet {
   // anterior a ella, o la persona omitió la pregunta. Ver src/lib/radioSugerido.
   // OJO: `buscar_reportes` (RPC) NO lo devuelve; solo llega por `select('*')`.
   ambito?: 'interior' | 'exterior' | null;
+  // Rasgos estructurados del animal (migración 0054), para que una coincidencia
+  // deje de ser "misma especie + 15 km". Los cuatro son opcionales y llegan
+  // `undefined` en los mismos TRES casos que `ambito` (sin migración / reporte
+  // viejo / no contestaron), y los tres significan lo mismo para quien los lee:
+  // no sabemos. Igual que `ambito`, la RPC de búsqueda NO los devuelve: llegan
+  // por `select('*')`.
+  //
+  // El número de chip NO está acá y NO está en `pets`: vive en `pet_chips`,
+  // cerrado al dueño (ver services/petChip.ts). El guardrail de la 0047 que
+  // corre sobre esta interfaz lo cazaría igual, y con razón.
+  colores?: string[] | null;
+  tamano?: 'chico' | 'mediano' | 'grande' | null;
+  sexo?: 'macho' | 'hembra' | 'no_se' | null;
+  esterilizado?: 'si' | 'no' | 'no_se' | null;
+}
+
+// Columnas que pueden NO EXISTIR en la base, agrupadas por la migración que las
+// trae. Es el mapa que usa la degradación de abajo.
+//
+// Que sean grupos y no una lista plana importa: PostgREST nombra UNA sola
+// columna por error, así que con una lista plana harían falta tantos reintentos
+// como columnas falten —y cada reintento de un insert es una chance de publicar
+// dos veces—. Soltando el grupo entero de la migración que falta, alcanza con un
+// intento por migración. Y al revés: una base puede tener la 0046 y no la 0054,
+// así que soltar TODO junto le sacaría al reporte la calibración del radio sin
+// ningún motivo.
+const GRUPOS_OPCIONALES: readonly (readonly string[])[] = [
+  ['ambito'], // migración 0046
+  ['colores', 'tamano', 'sexo', 'esterilizado'], // migración 0054
+];
+
+/**
+ * ¿El error dice que falta alguna de las columnas que estamos mandando? Si sí,
+ * devuelve TODAS las del mismo grupo (para soltarlas juntas). Si no, null: el
+ * error es otro y hay que dejarlo subir sin reintentar nada.
+ */
+function grupoFaltante(error: unknown, enviadas: string[]): readonly string[] | null {
+  for (const grupo of GRUPOS_OPCIONALES) {
+    const presentes = grupo.filter((c) => enviadas.includes(c));
+    if (presentes.length === 0) continue;
+    if (presentes.some((c) => esColumnaFaltante(error, c))) return grupo;
+  }
+  return null;
+}
+
+/** Los campos opcionales que de verdad tienen valor (sin dato, sin clave). */
+function opcionalesDe(input: PetInput): Record<string, unknown> {
+  const extras: Record<string, unknown> = {};
+  if (input.ambito) extras.ambito = input.ambito;
+  // Una lista vacía es lo mismo que no contestar, y mandar las dos formas haría
+  // que la base guardara `{}` en unas filas y null en otras para el mismo
+  // "no sé" — dos maneras de decir lo mismo se cruzan mal.
+  if (input.colores && input.colores.length > 0) extras.colores = input.colores;
+  if (input.tamano) extras.tamano = input.tamano;
+  if (input.sexo) extras.sexo = input.sexo;
+  if (input.esterilizado) extras.esterilizado = input.esterilizado;
+  return extras;
 }
 
 // NOTA: acá vivía `activePetsCache`, una caché de 30s de "todos los reportes
@@ -68,32 +125,37 @@ export async function createPet(
   // pantalla pueda saltarse el paso por olvido. La coordenada exacta no se
   // guarda en ninguna parte: lo que no se guarda no se puede filtrar.
   const { lat, lng } = difuminarUbicacion({ lat: input.lat, lng: input.lng });
-  // `ambito` sale del resto a propósito: es lo único que puede no existir en la
-  // base (migración 0046). Todo lo demás va siempre.
-  const { ambito, ...resto } = input;
+  // Los campos que pueden no existir en la base salen del resto a propósito:
+  // `ambito` (0046) y las cuatro señas estructuradas (0054). Todo lo demás va
+  // siempre. Ver GRUPOS_OPCIONALES.
+  const { ambito, colores, tamano, sexo, esterilizado, ...resto } = input;
   const fila = { ...resto, lat, lng, fotos, user_id: userId, origen_my_pet: origenMyPet ?? null };
   const insertar = (datos: Record<string, unknown>) =>
     supabase.from('pets').insert(datos).select().single();
 
-  // Sin ámbito no hay nada que degradar: se publica como siempre.
-  if (!ambito) {
-    const { data, error } = await insertar(fila);
-    if (error) throw error;
-    return data as Pet;
-  }
+  const extras = opcionalesDe(input);
 
-  const conAmbito = await insertar({ ...fila, ambito });
-  if (!conAmbito.error) return conAmbito.data as Pet;
-  // REGLA DURA: la web tiene que andar SIN la 0046 aplicada. PostgREST rebota
-  // el insert entero si no conoce la columna, así que un reporte de mascota
-  // perdida —la función central de la app— quedaría sin publicarse por una
-  // mejora del radio. Se reintenta sin el dato: se pierde la calibración fina,
-  // no el reporte. Cualquier OTRO error (RLS, límite anti-spam, red) sube tal
-  // cual y no se reintenta: repetir el insert ahí sería publicar dos veces.
-  if (!esColumnaFaltante(conAmbito.error, 'ambito')) throw conAmbito.error;
-  const sinAmbito = await insertar(fila);
-  if (sinAmbito.error) throw sinAmbito.error;
-  return sinAmbito.data as Pet;
+  // REGLA DURA: la web tiene que andar SIN estas migraciones aplicadas.
+  // PostgREST rebota el insert ENTERO si no conoce una columna, así que un
+  // reporte de mascota perdida —la función central de la app— quedaría sin
+  // publicarse por una mejora del motor de coincidencias. Se reintenta sin el
+  // grupo que falta: se pierde el dato, no el reporte.
+  //
+  // Cualquier OTRO error (RLS, límite anti-spam, red) sube tal cual y no se
+  // reintenta: repetir el insert ahí sería publicar dos veces.
+  //
+  // El bucle termina siempre: cada vuelta borra al menos un grupo de `extras`, y
+  // `grupoFaltante` solo devuelve grupos que todavía se están mandando.
+  for (;;) {
+    const enviadas = Object.keys(extras);
+    const { data, error } = await insertar(
+      enviadas.length > 0 ? { ...fila, ...extras } : fila,
+    );
+    if (!error) return data as Pet;
+    const grupo = grupoFaltante(error, enviadas);
+    if (!grupo) throw error;
+    for (const columna of grupo) delete extras[columna];
+  }
 }
 
 export async function listMyReports(userId: string, activo: boolean): Promise<Pet[]> {
@@ -165,12 +227,39 @@ export async function archivarReporte(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// Editar el reporte. Degrada igual que `createPet`: las señas estructuradas
+// (0054) pueden no existir en la base, y guardar una corrección de la
+// descripción no puede fallar por un extra.
+//
+// Acá el reintento es todavía más barato que al publicar: un UPDATE es
+// idempotente, así que repetirlo no puede duplicar nada.
 export async function updatePet(
   id: string,
-  fields: Partial<Pick<Pet, 'estado' | 'especie' | 'raza' | 'nombre' | 'descripcion' | 'recompensa'>>,
+  fields: Partial<
+    Pick<
+      Pet,
+      | 'estado'
+      | 'especie'
+      | 'raza'
+      | 'nombre'
+      | 'descripcion'
+      | 'recompensa'
+      | 'colores'
+      | 'tamano'
+      | 'sexo'
+      | 'esterilizado'
+    >
+  >,
 ): Promise<void> {
-  const { error } = await supabase.from('pets').update(fields).eq('id', id);
-  if (error) throw error;
+  const campos: Record<string, unknown> = { ...fields };
+  for (;;) {
+    const enviadas = Object.keys(campos);
+    const { error } = await supabase.from('pets').update(campos).eq('id', id);
+    if (!error) return;
+    const grupo = grupoFaltante(error, enviadas);
+    if (!grupo) throw error;
+    for (const columna of grupo) delete campos[columna];
+  }
 }
 
 // Borra el reporte y, con él, sus fotos del bucket público.
