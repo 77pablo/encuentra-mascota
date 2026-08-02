@@ -72,3 +72,16 @@ it('el QR usa la url del contenido y el fuente no conoce ningún dominio ajeno',
   );
   expect(fuente).not.toContain('encuentratumascota.app');
 });
+
+// El mismo dominio ajeno sobrevivía como respaldo del QR en la tarjeta
+// compartible y en la placa de collar (mismo bug que el de arriba, otro
+// componente). Los dos pasan a respaldar en RESPALDO_WEB (A3, dominio propio).
+it('el dominio ajeno tampoco sobrevive como respaldo en TarjetaCompartir ni en CollarTag', () => {
+  const leer = (archivo: string) =>
+    require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'src', 'components', archivo),
+      'utf8',
+    );
+  expect(leer('TarjetaCompartir.tsx')).not.toContain('encuentratumascota.app');
+  expect(leer('CollarTag.tsx')).not.toContain('encuentratumascota.app');
+});

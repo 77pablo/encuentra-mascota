@@ -4,6 +4,7 @@ import QrCode from './QrCode';
 import { AppText } from '../ui';
 import { lightColors, font, radius, spacing } from '../theme';
 import { armarEtiquetaCollar, armarNombreArchivoCollar } from '../lib/collarTag';
+import { RESPALDO_WEB } from '../lib/afiche';
 
 // Esta placa se rasteriza a PNG para imprimir: SIEMPRE debe quedar en paleta
 // clara, sin seguir el tema del sistema/usuario (si no, una placa impresa
@@ -66,7 +67,10 @@ export default function CollarTag({ pet, onDone, onError }: CollarTagProps) {
           </View>
           <View style={styles.right}>
             <View style={styles.qrWrap}>
-              <QrCode value={etiqueta.url ?? 'https://encuentratumascota.app'} size={QR_SIZE} />
+              <QrCode
+                value={etiqueta.url ?? `${RESPALDO_WEB}/collar/${pet.collar_token}`}
+                size={QR_SIZE}
+              />
             </View>
             <AppText style={styles.qrText}>Escaneá el código</AppText>
           </View>

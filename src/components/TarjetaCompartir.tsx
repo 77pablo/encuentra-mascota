@@ -11,6 +11,7 @@ import { lightColors, font, spacing } from '../theme';
 import QrCode from './QrCode';
 import { DatosTarjeta } from '../lib/tarjeta';
 import { fotoParaCaptura } from '../lib/aficheImage';
+import { RESPALDO_WEB } from '../lib/afiche';
 
 // Tarjeta compartible: se rasteriza a PNG para WhatsApp/redes, así que
 // SIEMPRE debe quedar en paleta clara (misma regla que AfichePoster/
@@ -99,7 +100,13 @@ export default function TarjetaCompartir({ datos, onListo }: TarjetaCompartirPro
           {subtitulo ? <AppText style={styles.subtitulo}>{subtitulo}</AppText> : null}
         </View>
         <View style={styles.qrWrap}>
-          <QrCode value={qrUrl ?? 'https://encuentratumascota.app'} size={130} />
+          {/* Componente genérico (F1/F3/F4): a esta altura no queda el id del
+              reporte/adopción para armar `/mascota/<id>` o `/adopcion/<id>`
+              como hace `armarAfiche` — `qrUrl` ya viene resuelto por
+              `datosDeReporte`/`datosDeAdopcion`/`datosDeFinalFeliz`
+              (lib/tarjeta.ts), y solo falta si no hay base configurada. El
+              respaldo va a nuestro dominio (RESPALDO_WEB), no a uno ajeno. */}
+          <QrCode value={qrUrl ?? RESPALDO_WEB} size={130} />
         </View>
       </View>
 
