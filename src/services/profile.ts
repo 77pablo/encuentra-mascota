@@ -7,6 +7,7 @@ export interface Profile {
   foto_perfil: string | null;
   telefono: string | null;
   red_social: string | null;
+  mostrar_red_social?: boolean;
   creado_en: string;
   es_admin?: boolean;
   // Cuenta institucional verificada (migracion 0057), o null. Es lo que
@@ -61,6 +62,9 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
       ...res.data,
       telefono: null,
       red_social: null,
+      // No se pudo leer, asi que se sigue el mismo criterio que el resto de
+      // este escalon (y que el default de la columna en la 0059): true.
+      mostrar_red_social: true,
       es_admin: false,
       // Este escalon lee `profiles` con el grant publico por columna, que NO
       // incluye lo institucional del dueño mas alla de lo publico; y de todos
@@ -77,7 +81,11 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
   // `institucionDe` devuelve null si la 0057 no esta aplicada (la RPC vieja no
   // trae esas claves) o si la cuenta no esta verificada. Las dos cosas
   // significan lo mismo para la app.
-  return { ...fila, institucion: institucionDe(fila) } as Profile;
+  //
+  // `?? true` cubre la misma ventana de despliegue: la web nueva puede hablar
+  // con una `mi_perfil()` vieja (0058 o anterior) que todavia no trae esta
+  // columna, y el default de la 0059 en la base es `true`.
+  return { ...fila, institucion: institucionDe(fila), mostrar_red_social: fila.mostrar_red_social ?? true } as Profile;
 }
 
 // Quién publicó algo: su nombre público y, si es una cuenta institucional
@@ -171,7 +179,13 @@ export async function getNombrePublico(userId: string): Promise<string | null> {
 
 export async function updateMyProfile(
   userId: string,
-  fields: { nombre?: string; foto_perfil?: string; telefono?: string; red_social?: string },
+  fields: {
+    nombre?: string;
+    foto_perfil?: string;
+    telefono?: string;
+    red_social?: string;
+    mostrar_red_social?: boolean;
+  },
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(fields).eq('id', userId);
   if (error) throw error;
@@ -197,7 +211,8 @@ export function camposDeContactoParaGuardar(
   profile: Profile | null,
   telefono: string,
   redSocial: string,
-): { telefono?: string; red_social?: string } {
+  mostrarRedSocial: boolean,
+): { telefono?: string; red_social?: string; mostrar_red_social?: boolean } {
   if (!profile || profile.contactoNoDisponible) return {};
-  return { telefono, red_social: redSocial };
+  return { telefono, red_social: redSocial, mostrar_red_social: mostrarRedSocial };
 }

@@ -97,6 +97,15 @@ describe('updateMyProfile', () => {
 
     await expect(updateMyProfile('user-1', { nombre: 'x' })).rejects.toEqual({ message: 'boom' });
   });
+
+  it('updateMyProfile puede guardar el interruptor de la red social', async () => {
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await updateMyProfile('user-1', { mostrar_red_social: false });
+
+    expect(builder.update).toHaveBeenCalledWith({ mostrar_red_social: false });
+  });
 });
 
 // Bug critico que motiva esta suite: cuando mi_perfil() no esta disponible
@@ -108,12 +117,24 @@ describe('updateMyProfile', () => {
 // camposDeContactoParaGuardar es la funcion pura que decide que mandar, para
 // poder probar la decision sin tener que renderizar la pantalla.
 describe('camposDeContactoParaGuardar', () => {
+  const base = { id: 'u1', nombre: 'Pablo', foto_perfil: null, telefono: '+569', red_social: '@pablo', creado_en: '' };
+
   it('perfil normal: manda telefono y red_social tal como los escribio el usuario', () => {
     const perfil = { id: 'u1', nombre: 'Pablo', foto_perfil: null, telefono: '+569', red_social: '@pablo', creado_en: '' };
-    expect(camposDeContactoParaGuardar(perfil, '+56911112222', '@nuevo')).toEqual({
+    expect(camposDeContactoParaGuardar(perfil, '+56911112222', '@nuevo', true)).toEqual({
       telefono: '+56911112222',
       red_social: '@nuevo',
+      mostrar_red_social: true,
     });
+  });
+
+  it('camposDeContactoParaGuardar lleva el interruptor, salvo perfil degradado', () => {
+    expect(camposDeContactoParaGuardar({ ...base }, '+569', 'url', false)).toEqual({
+      telefono: '+569',
+      red_social: 'url',
+      mostrar_red_social: false,
+    });
+    expect(camposDeContactoParaGuardar({ ...base, contactoNoDisponible: true }, '+569', 'url', false)).toEqual({});
   });
 
   it('perfil degradado (contactoNoDisponible): no manda ni telefono ni red_social, aunque haya texto en los drafts', () => {
@@ -129,7 +150,7 @@ describe('camposDeContactoParaGuardar', () => {
 
     // Si el bug estuviera presente, esto devolveria { telefono: '', red_social: '' }
     // y guardarPerfil() escribiria un borrado silencioso encima del dato real.
-    const campos = camposDeContactoParaGuardar(perfilDegradado, '', '');
+    const campos = camposDeContactoParaGuardar(perfilDegradado, '', '', true);
 
     expect(campos).not.toHaveProperty('telefono');
     expect(campos).not.toHaveProperty('red_social');
@@ -144,7 +165,7 @@ describe('camposDeContactoParaGuardar', () => {
     // siembran desde este mismo perfil null), asi que mandarlos igual
     // pisaria el dato real en silencio: el mismo borrado que motiva esta
     // suite, por otra puerta.
-    const campos = camposDeContactoParaGuardar(null, '+569', '@x');
+    const campos = camposDeContactoParaGuardar(null, '+569', '@x', true);
 
     expect(campos).not.toHaveProperty('telefono');
     expect(campos).not.toHaveProperty('red_social');

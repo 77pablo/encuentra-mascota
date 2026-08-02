@@ -319,7 +319,7 @@ export default function ProfileScreen({ navigation }: any) {
         nombre,
         // Si el perfil vino degradado (mi_perfil() no disponible), esto no
         // manda telefono ni red_social: ver camposDeContactoParaGuardar.
-        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialUrl),
+        ...camposDeContactoParaGuardar(profile, telefonoDraft.trim(), redSocialUrl, profile?.mostrar_red_social ?? true),
       });
       notify('Guardado', 'Tu perfil se actualizó.');
       setEditingPerfil(false);

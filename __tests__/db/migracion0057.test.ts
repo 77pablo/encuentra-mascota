@@ -376,7 +376,31 @@ describe('el grant de update sobre profiles es exactamente lo que la app escribe
   );
   const escribe = [...firma.matchAll(/(\w+)\?:/g)].map((m) => m[1]).sort();
 
-  const grant = codigo57.slice(codigo57.indexOf('grant update ('), codigo57.indexOf('on public.profiles to authenticated'));
+  // El grant vigente es el ÚLTIMO `grant update (` del directorio de
+  // migraciones: cada migración que toca la lista hace revoke + grant entero
+  // (0057 -> 0059 -> ...). Leer solo la 0057 fijaría el pasado.
+  const dirMigraciones = path.join(__dirname, '..', '..', 'supabase', 'migrations');
+  // Se exige TAMBIEN `on public.profiles to authenticated`: la 0032 tiene su
+  // propio `grant update (respuesta, respondido_en)` sobre
+  // `adoption_questions`, una tabla distinta, y `grant update (` sola la
+  // barre para adentro de una lista que se supone que es solo sobre
+  // `profiles`.
+  const archivosConGrant = fs
+    .readdirSync(dirMigraciones)
+    .filter((f: string) => f.endsWith('.sql'))
+    .sort()
+    .filter((f: string) => {
+      const c = fs.readFileSync(path.join(dirMigraciones, f), 'utf8');
+      return c.includes('grant update (') && c.includes('on public.profiles to authenticated');
+    });
+  const codigoVigente: string = fs.readFileSync(
+    path.join(dirMigraciones, archivosConGrant[archivosConGrant.length - 1]),
+    'utf8',
+  );
+  const grant = codigoVigente.slice(
+    codigoVigente.indexOf('grant update ('),
+    codigoVigente.indexOf('on public.profiles to authenticated'),
+  );
   const concedidas = [...grant.matchAll(/\b([a-z_]+)\b/g)]
     .map((m) => m[1])
     .filter((c) => c !== 'grant' && c !== 'update')
@@ -389,6 +413,17 @@ describe('el grant de update sobre profiles es exactamente lo que la app escribe
 
   it('ni una columna de mas, ni una de menos', () => {
     expect(concedidas).toEqual(escribe);
+  });
+
+  it('el grant vigente NO es el de la 0057 (la 0059 lo rehizo)', () => {
+    expect(archivosConGrant[archivosConGrant.length - 1]).toBe('0059_privacidad_red_social.sql');
+  });
+
+  it('toda migración que concede update revoca primero (fail-closed)', () => {
+    for (const f of archivosConGrant) {
+      const codigo = fs.readFileSync(path.join(dirMigraciones, f), 'utf8');
+      expect(codigo).toMatch(/revoke update on public\.profiles from public, anon, authenticated/);
+    }
   });
 
   it('no queda ningun grant de update SIN lista de columnas', () => {
