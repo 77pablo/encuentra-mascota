@@ -1,8 +1,35 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (2-ago-2026, noche)
+## 👉 DÓNDE RETOMAR (2-ago-2026, cierre del día)
 
-**Migración `0058` APLICADA y verificada. Lo único que falta es subir el `dist`.**
+**Dos cosas pendientes tuyas, y una tanda diseñada sin empezar.**
+
+### Lo tuyo, en orden
+1. **Subir el `dist`** (ya exportado: `index-eb9ae5d7ef8da61b08fdb54323edde27.js`). La `0058` ya está
+   aplicada, así que se puede subir cuando quieras.
+2. **Revocar el token de Supabase** (<https://supabase.com/dashboard/account/tokens>). Lo borré del
+   disco, pero estaba en OneDrive y se sincronizó a la nube.
+
+### La tanda siguiente: diseñada, NO aprobada, NO empezada
+Spec en **`docs/superpowers/specs/2026-08-02-privacidad-y-4-funciones-design.md`**. Son cinco cosas:
+ocultar el contacto (el pedido original de Pablo: número en el afiche, red social, correo
+enmascarado), el afiche en dos toques, la bandeja de moderación que avisa, cerrarle el círculo a
+quien avisó, y foto en el aviso anónimo.
+
+**Lo primero al retomar es que Pablo lea esa spec y la apruebe.** Después va `writing-plans`, y recién
+ahí los implementadores. No saltearse eso: la tanda 11 tenía 4 errores en el plan que encontraron los
+4 agentes, y la tanda 12 se fusionó sin revisión con 3 Criticals adentro.
+
+**Las dos decisiones difíciles ya están tomadas** (están en la spec con su fundamento): el correo de
+seguimiento es **opcional y de finalidad única**, y la foto del aviso anónimo **solo la ve el dueño,
+nunca es pública**.
+
+**Y lo que se descubrió antes de diseñar, para no construirlo dos veces:** el teléfono ya es privado
+desde la tanda A, el correo no se expone nunca, y lo único realmente público es la red social.
+
+---
+
+## Migración `0058` APLICADA y verificada (2-ago)
 
 Bundle exportado y listo: `index-eb9ae5d7ef8da61b08fdb54323edde27.js`. Drag-and-drop de `dist` a
 Cloudflare Pages. Va **después** de la migración (ya aplicada), así que se puede subir cuando quieras.
