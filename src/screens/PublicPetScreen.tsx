@@ -229,8 +229,18 @@ export default function PublicPetScreen({ route, navigation }: any) {
             <Card style={styles.avisoOkCard}>
               <View style={styles.avisoOkRow}>
                 <Ionicons name="checkmark-circle" size={24} color={colors.found} />
+                {/* Dice lo que de verdad pasó y ni un centímetro más.
+                    `avistar_sin_cuenta` es `returns void` a propósito (con
+                    cualquier valor de retorno la RPC sería un oráculo para
+                    enumerar reportes probando uuids), así que desde acá no hay
+                    forma de saber si el aviso se encoló, si se descartó por
+                    repetido, o si el correo y el push llegaron a algún lado.
+                    Lo único cierto es que lo mandamos. Antes decía "su familia
+                    ya sabe": afirmaba conocimiento ajeno, y quien paró en la
+                    calle se iba a su casa creyendo que del otro lado ya
+                    sabían. */}
                 <AppText weight="semi" size={16} style={styles.avisoOkText}>
-                  Listo, su familia ya sabe.
+                  Listo, le mandamos tu aviso a su familia.
                 </AppText>
               </View>
               <AppText muted size={13}>

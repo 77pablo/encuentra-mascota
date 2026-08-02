@@ -159,10 +159,15 @@ function ProfileStack() {
         component={MisAdopcionesScreen}
         options={{ title: 'Mis publicaciones' }}
       />
+      {/* El encabezado repite la fila del Perfil ("Preferencias de avisos") en
+          vez de decir "Avisos" a secas: "Avisos" es justo el nombre genérico
+          del que esa fila se quiso distinguir, porque al lado está "Tus
+          avisos", la bandeja. Tocar una y ver arriba el nombre de la otra es
+          el bug. */}
       <ProfileStackNav.Screen
         name="NotificationPrefs"
         component={NotificationPrefsScreen}
-        options={{ title: 'Avisos' }}
+        options={{ title: 'Preferencias de avisos' }}
       />
       {/* La BANDEJA de avisos (migración 0051), distinta de `NotificationPrefs`
           —que es dónde se elige qué llega y por qué canal—. Vive acá y no en el
