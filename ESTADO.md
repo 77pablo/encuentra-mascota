@@ -47,6 +47,67 @@ la 0011 pero `send-push` no la leía nunca. La decisión vive en `_shared/prefsP
 desde jest (las Edge Functions están fuera del typecheck y de la suite). Humo en producción:
 `OPTIONS` → 204 con el origen real permitido, `POST` sin credenciales → 401.
 
+## 🔴🔴 ESCALADA DE PRIVILEGIOS EN `profiles` — ENCONTRADA Y CERRADA (2-ago)
+
+**Cualquier cuenta podía darse el panel de moderación completo con un `update` de una línea.**
+
+```sql
+update public.profiles set es_admin = true where id = auth.uid();
+```
+
+**Verificado ejecutándolo** contra la base real antes de arreglar: devolvió `quedo_admin: true`. Eso
+daba bandeja de denuncias, retirar contenido ajeno y suspender cuentas. Y con `suspendido_en`, un
+suspendido se levantaba la suspensión solo.
+
+**La causa, que se ve inocente por partes:** la policy de la `0001` es
+`for update using (auth.uid() = id)` **sin `with check`**, y el grant por defecto de Supabase da
+`UPDATE` sobre **todas** las columnas. La `0018` cerró la LECTURA por columna y dejó escrito "el
+update no se toca". Todo el diseño del panel (RPCs `security definer` que chequean `es_admin()`)
+descansaba sobre una puerta que nunca se cerró.
+
+**Cerrado el 2-ago** con `revoke update … from public, anon, authenticated` + regrant de las cuatro
+columnas que el cliente escribe de verdad (`nombre`, `foto_perfil`, `telefono`, `red_social`, más
+`fecha_nacimiento`). Verificado en los cuatro sentidos: hacerse admin → rechazado; auto-levantarse
+una suspensión → rechazado; editar nombre → funciona; editar teléfono y red social → funciona.
+
+⚠️ **Se aplicó DIRECTO a la base**, no como migración, para no chocar con la numeración de la tanda
+12. La `0057` (sin aplicar) lo deja registrado en el repo y es idempotente.
+
+**Nadie lo buscaba:** lo encontró el agente de cuentas institucionales porque necesitaba agregar
+`institucion_verificada_en` y se dio cuenta de que sin cerrar eso cualquiera se pondría
+"Municipalidad de Ñuñoa". Al mirar por qué, apareció `es_admin`.
+
+## 🗓️ TANDA 12 — señas estructuradas · deuda técnica · microchip · instituciones (2-ago)
+
+**FUSIONADA Y VERDE, pero SIN revisión adversarial y con las migraciones SIN APLICAR** (decisión de
+Pablo: parar acá por cuota y retomar con el contador nuevo).
+**2177 → 2517 tests, 162 → 186 suites**, `tsc` 0.
+
+- **Señas estructuradas** (`0054`): color, tamaño, sexo y esterilizado en `pets`; el **chip en tabla
+  aparte** (`pet_chips`), cerrado al dueño y que **nunca se devuelve** — solo sale el booleano
+  `chip_coincide`. El motor de coincidencias pasa a puntuar: chip igual = 1000 puntos, color o tamaño
+  que se contradicen descarta, **y lo que falta no descarta nada** (si no, los reportes viejos
+  dejarían de encontrar coincidencias).
+- **Deuda técnica** (`0055`): el backfill del auto-archivado que la `0028` dejó sin efecto; el
+  rate-limit del aviso anónimo pasa a comparar **contenido** en vez de bloquear por reporte; el
+  bloqueo se respeta cuando hay sesión; y dos textos.
+- **Microchip** (sin migración): pantalla con dónde escanear gratis, a qué registros consultar y qué
+  es un chip. **De los seis registros chilenos, cuatro están muertos** — y `registroanimalchile.cl`,
+  el ÚNICO que tenía consulta por URL, hoy sirve una página de casinos montada sobre contenido
+  archivado. Quedan dos vivos y ninguno acepta el número por URL.
+- **Cuentas institucionales** (`0057`): rol verificado para veterinarias/refugios/municipios, insignia
+  sobria, carga en lote, y el `revoke update` de arriba. **El widget embebible quedó afuera** (el
+  worker pone `X-Frame-Options: DENY` en todo, y hacerlo mal rompe la seguridad del sitio entero).
+
+### 👉 QUÉ FALTA DE LA TANDA 12 (lo primero al retomar)
+1. **Revisión adversarial de rama.** No se corrió. En las dos tandas anteriores encontró 6 y 4
+   Criticals, varios en el SQL. **No aplicar las migraciones antes de esto.**
+2. **Aplicar `0054`, `0055` y `0057`** (la `0056` quedó libre: microchip no necesitó migración). Las
+   tres están **validadas contra Postgres con `begin/rollback`**, pero sin revisar.
+3. **Subir el `dist`** con las tandas 10, 11 y 12 juntas.
+4. Riesgo declarado a revisar en la fusión: la `0054` **recrea `buscar_reportes`**, que la `0046`
+   había decidido no tocar a propósito.
+
 ## 🗓️ TANDA 11 — cierre de casos · avisar sin cuenta · bandeja · adopción (1-ago)
 
 4 implementadores en paralelo + revisión adversarial + fix wave. **1890 → 2166 tests, 143 → 161

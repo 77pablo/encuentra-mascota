@@ -69,6 +69,12 @@ jest.mock('../../src/services/storage', () => ({ uploadPetPhoto: jest.fn() }));
 jest.mock('../../src/services/profile', () => ({
   getMyProfile: jest.fn(() => Promise.resolve(null)),
   getNombrePublico: jest.fn(() => Promise.resolve('Ana')),
+  // [0057] La ficha pasó a leer al autor con `getAutorPublico`, que trae el
+  // nombre Y la institución verificada en una sola consulta. Este archivo se
+  // escribió en paralelo con ese cambio, en otra rama de la misma tanda, así
+  // que sin esta clave el mock devuelve undefined y la pantalla revienta al
+  // montarse.
+  getAutorPublico: jest.fn(() => Promise.resolve({ nombre: 'Ana', institucion: null })),
 }));
 jest.mock('../../src/services/moderation', () => ({
   ...jest.requireActual('../../src/services/moderation'),
