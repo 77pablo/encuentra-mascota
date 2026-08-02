@@ -191,9 +191,11 @@ export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Desti
   );
 
   // 'escaneo_collar', 'busqueda_guardada' y 'denuncia_nueva': destinatario
-  // único y directo = evento.targetUserId, NO el dueño de un reporte.
-  // Ninguno pasa por el interruptor de tipo: es opt-in explícito. Solo se
-  // respeta el filtro de canales (y el bloqueo).
+  // único y directo = evento.targetUserId (el dueño de la ficha, de la
+  // búsqueda guardada, o el admin que encoló la 0060), NO el dueño de un
+  // reporte. Ninguno pasa por el interruptor de tipo: guardar la búsqueda (o
+  // colgar la placa, o ser el admin al que le llegó la denuncia) YA es el
+  // opt-in explícito. Solo se respeta el filtro de canales (y el bloqueo).
   if (
     evento.tipo === 'escaneo_collar' ||
     evento.tipo === 'busqueda_guardada' ||
