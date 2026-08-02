@@ -24,7 +24,9 @@ const perfilSrc = readFileSync(join(SRC, 'screens', 'ProfileScreen.tsx'), 'utf8'
 const norm = (s: string) =>
   s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    // Escapado y no el caracter crudo: son marcas combinantes invisibles y una
+    // sola pasada de un editor con otra codificacion las convierte en basura.
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 
