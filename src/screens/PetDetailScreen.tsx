@@ -50,9 +50,9 @@ import { uploadPetPhoto } from '../services/storage';
 import PetCard from '../components/PetCard';
 import { GraciasVecinos } from '../components/GraciasVecinos';
 import AficheGenerator from '../components/AficheGenerator';
+import AficheOpciones from '../components/AficheOpciones';
 import TarjetaGenerador from '../components/TarjetaGenerador';
 import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
-import { faltaWhatsapp } from '../lib/afiche';
 import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
 // `getAutorPublico` reemplaza a `getNombrePublico` (0057): trae el nombre Y la
 // institución verificada en una sola consulta. `Chip` sigue haciendo falta para
@@ -141,6 +141,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // Quien publico: nombre publico + institucion verificada (migracion 0057).
   const [dueno, setDueno] = useState<AutorPublico | null>(null);
   const [generandoAfiche, setGenerandoAfiche] = useState(false);
+  // Hoja de opciones del afiche (A3): se abre siempre al crear, con o sin
+  // WhatsApp cargado. `incluirNumero` es la decisión que ahí se toma.
+  const [opcionesAfiche, setOpcionesAfiche] = useState(false);
+  const [incluirNumero, setIncluirNumero] = useState(true);
   // "Compartir tarjeta" (F1): monta TarjetaGenerador off-screen, que se
   // encarga de capturar y compartir (mismo patrón que el afiche, ver abajo).
   const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
@@ -541,12 +545,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
       // src/services/profile.ts): el servidor decide de quien es la fila.
       const p = await getMyProfile(user.id);
       setPerfil(p);
-      if (faltaWhatsapp(p)) {
-        notify('Agregá tu WhatsApp', 'Cargá tu WhatsApp en tu perfil para que puedan contactarte desde el afiche.');
-        navigation.navigate('Perfil');
-        return;
-      }
-      setGenerandoAfiche(true);
+      setOpcionesAfiche(true);
     } catch (e: any) {
       notify('Error', mensajeDeErrorDb(e));
     }
@@ -946,6 +945,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
           />
         )}
 
+        {opcionesAfiche && esMio ? (
+          <AficheOpciones
+            pet={pet}
+            profile={perfil}
+            onGenerar={(conNumero) => {
+              setIncluirNumero(conNumero);
+              setOpcionesAfiche(false);
+              setGenerandoAfiche(true);
+            }}
+            onCerrar={() => setOpcionesAfiche(false)}
+          />
+        ) : null}
+
         <View style={styles.sightingsSection}>
           <View style={styles.matchesHeader}>
             <Ionicons name="paw" size={18} color={colors.brand} />
@@ -1286,7 +1298,13 @@ export default function PetDetailScreen({ route, navigation }: any) {
         )}
 
         {generandoAfiche && perfil && (
-          <AficheGenerator pet={pet} profile={perfil} onDone={onAficheDone} onError={onAficheError} />
+          <AficheGenerator
+            pet={pet}
+            profile={perfil}
+            incluirNumero={incluirNumero}
+            onDone={onAficheDone}
+            onError={onAficheError}
+          />
         )}
 
         {compartiendoTarjeta && (

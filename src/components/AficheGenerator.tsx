@@ -10,14 +10,25 @@ import { Profile } from '../services/profile';
 export interface AficheGeneratorProps {
   pet: Pet;
   profile: Profile;
+  /** Decisión de la hoja de opciones (AficheOpciones); prendido por defecto. */
+  incluirNumero?: boolean;
   onDone: () => void;
   onError: (mensaje: string) => void;
 }
 
-export default function AficheGenerator({ pet, profile, onDone, onError }: AficheGeneratorProps) {
+export default function AficheGenerator({
+  pet,
+  profile,
+  incluirNumero = true,
+  onDone,
+  onError,
+}: AficheGeneratorProps) {
   const posterRef = useRef<View>(null);
   const disparado = useRef(false);
-  const content = useMemo(() => armarAfiche(pet, profile), [pet, profile]);
+  const content = useMemo(
+    () => armarAfiche(pet, profile, { incluirNumero }),
+    [pet, profile, incluirNumero],
+  );
   const [foto, setFoto] = useState<string | null | undefined>(undefined); // undefined = resolviendo
   const [fotoLista, setFotoLista] = useState(false); // la imagen cargó o falló → lista para capturar
 
