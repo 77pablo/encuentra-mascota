@@ -19,6 +19,7 @@ import AyudaScreen from '../screens/AyudaScreen';
 import VolvieronACasaScreen from '../screens/VolvieronACasaScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import GuiaEncontradaScreen from '../screens/GuiaEncontradaScreen';
+import MicrochipScreen from '../screens/MicrochipScreen';
 import LegalScreen from '../screens/LegalScreen';
 import { getOnboardingVisto } from '../lib/onboarding';
 import { navigationRef, consumirDestinoPendiente } from '../lib/navigationRef';
@@ -167,6 +168,17 @@ export default function RootNavigator() {
             empujadas al raíz con header nativo (botón de volver). Alcanzables por
             burbujeo desde la guía/Perfil e Inicio. */}
         <Stack.Screen name="Ayuda" component={AyudaScreen} options={{ headerShown: true, title: 'Ayuda' }} />
+        {/* Consultor de microchip: se llega desde la guía "encontré una mascota",
+            desde Ayuda, desde la ficha pública de un reporte y desde "Mis
+            mascotas". Va en el stack RAÍZ y no dentro de una pestaña porque
+            MascotaPublica —que vive acá— la navega por nombre pelado, y un
+            nombre pelado burbujea hacia los ancestros, nunca hacia el stack de
+            una pestaña hermana (el bug de siempre). */}
+        <Stack.Screen
+          name="Microchip"
+          component={MicrochipScreen}
+          options={{ headerShown: true, title: 'Mascota con chip' }}
+        />
         <Stack.Screen
           name="VolvieronACasa"
           component={VolvieronACasaScreen}

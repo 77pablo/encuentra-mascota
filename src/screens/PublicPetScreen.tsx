@@ -286,6 +286,19 @@ export default function PublicPetScreen({ route, navigation }: any) {
           />
         )}
 
+        {/* A esta ficha se llega por el QR de un afiche o por un link de
+            WhatsApp: hay una probabilidad alta de que quien la está mirando
+            tenga al animal delante. El chip es lo que más rápido lo devuelve a
+            su casa y leerlo es gratis. 'Microchip' vive en el stack RAÍZ, igual
+            que esta pantalla, así que el nombre pelado la alcanza. */}
+        <Button
+          title="¿La tenés al lado? Fijate si tiene chip"
+          variant="secondary"
+          icon="hardware-chip"
+          onPress={() => navigation.navigate('Microchip')}
+          style={styles.shareButton}
+        />
+
         <Button
           title="Compartir"
           variant="secondary"

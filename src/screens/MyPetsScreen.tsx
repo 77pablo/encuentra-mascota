@@ -549,6 +549,32 @@ export default function MyPetsScreen({ navigation }: any) {
           onPress={abrirNueva}
           style={styles.addButton}
         />
+
+        {/* EL EMPUJÓN A INSCRIBIR EL CHIP. Va acá y no en el flujo de publicar
+            porque este es el lugar tranquilo: quien perdió a su mascota hoy no
+            está para trámites, pero quien está armando su ficha sí.
+            No mira ninguna columna de chip en la base a propósito (esa la está
+            agregando otra rama): el texto sirve igual tenga o no tenga chip. */}
+        <Card style={styles.chipCard}>
+          <View style={styles.chipHeader}>
+            <Ionicons name="hardware-chip" size={18} color={colors.brand} />
+            <AppText weight="bold" size={14} style={styles.chipTitulo}>
+              ¿Tiene el chip inscrito?
+            </AppText>
+          </View>
+          <AppText muted size={13} style={styles.chipTexto}>
+            Con chip inscrito vuelven a casa más del doble de los perros perdidos, y
+            casi veinte veces más los gatos. En Chile inscribirlo es gratis y
+            obligatorio por la Ley 21.020, y se hace en tu municipalidad o en una
+            veterinaria registradora.
+          </AppText>
+          <Button
+            title="Cómo funciona el chip"
+            variant="secondary"
+            onPress={() => navigation.navigate('Microchip')}
+            style={styles.chipBoton}
+          />
+        </Card>
       </ScrollView>
 
       {collarPet ? (
@@ -586,6 +612,11 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   iconBtn: { padding: spacing.xs },
   fichaButton: { alignSelf: 'stretch', marginTop: spacing.xs },
   addButton: { alignSelf: 'stretch', marginTop: spacing.md },
+  chipCard: { marginTop: spacing.xl, gap: spacing.sm },
+  chipHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  chipTitulo: { flex: 1 },
+  chipTexto: { lineHeight: 19 },
+  chipBoton: { alignSelf: 'flex-start', paddingHorizontal: spacing.lg },
   saveButton: { alignSelf: 'stretch', marginTop: spacing.sm },
   fotoWrap: { alignSelf: 'center', position: 'relative', marginBottom: spacing.sm },
   foto: { width: 140, height: 140, borderRadius: radius.md, backgroundColor: colors.sky },

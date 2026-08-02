@@ -3,9 +3,10 @@
 // sabe bien qué hacer. Mismo criterio de diseño que la guía de perdida: vive
 // como DATOS (testeable, reordenable sin tocar la UI), y los pasos que
 // mencionan algo que la app no hace hoy quedan como texto sin `accion`.
+import { URL_CONSULTA_NACIONAL } from './registrosChip';
 
 // Pantallas ya existentes a las que un paso puede navegar (dentro de la app).
-export const RUTAS_GUIA_ENCONTRADA = ['Publicar', 'Ayuda', 'Explorar'] as const;
+export const RUTAS_GUIA_ENCONTRADA = ['Publicar', 'Ayuda', 'Explorar', 'Microchip'] as const;
 export type RutaGuiaEncontrada = (typeof RUTAS_GUIA_ENCONTRADA)[number];
 
 export interface GuiaEncontradaAccion {
@@ -47,10 +48,13 @@ export const GUIA_ENCONTRADA: readonly GuiaEncontradaPaso[] = [
     detalle:
       'Muchas mascotas llevan un microchip que en segundos dice quién es su dueño. ' +
       'Cualquier veterinaria puede leerlo, y hacerlo es gratis: no hace falta que ' +
-      'seas cliente para pedirlo.',
+      'seas cliente para pedirlo. No es un GPS: es solo un número.',
     accion: {
-      label: 'Ver ayuda rápida',
-      ruta: 'Ayuda',
+      // Antes iba a 'Ayuda', que es el listado general de recursos. Ahora hay
+      // una pantalla dedicada: dónde se lo leen gratis, a qué registros
+      // consultar el número y cuáles de esos registros ya no existen.
+      label: 'Cómo leer y consultar el chip',
+      ruta: 'Microchip',
     },
   },
   {
@@ -98,8 +102,10 @@ export const GUIA_ENCONTRADA: readonly GuiaEncontradaPaso[] = [
       'Si tiene chip pero nadie responde, el Registro Nacional (Ley 21.020) puede ' +
       'ayudar a identificar a su dueño con ese número.',
     accion: {
-      label: 'Ir al Registro Nacional de Mascotas',
-      url: 'https://registratumascota.cl/',
+      label: 'Consultar el número en el Registro Nacional',
+      // La página de consultas directamente, no la raíz: `registratumascota.cl/`
+      // responde con un 302 hacia `http://` y degradaba el enlace a texto plano.
+      url: URL_CONSULTA_NACIONAL,
     },
   },
 ];
