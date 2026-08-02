@@ -318,11 +318,17 @@ export default function EditPetScreen({ route, navigation }: any) {
               estaba: guardar este formulario no lo va a cambiar. Probá más tarde.
             </AppText>
           ) : (
+            // SIN `keyboardType="numeric"`: el validador acepta letras a
+            // propósito (los viejos AVID de 9-10 caracteres), y un teclado
+            // numérico no las rechaza —directamente no las tiene—, así que quien
+            // tenga uno de esos no puede escribir su chip y no ve ningún error.
+            // Ver lib/senasMascota.ts. `autoCapitalize` acompaña a la
+            // normalización, que pasa todo a mayúsculas.
             <Input
               placeholder="Ej: 985112003456789"
               value={chip}
               onChangeText={setChip}
-              keyboardType="numeric"
+              autoCapitalize="characters"
             />
           )}
         </Card>

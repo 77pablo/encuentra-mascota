@@ -9,6 +9,7 @@ import {
   SEXO_ETIQUETA,
   TAMANOS_INCOMPATIBLES,
   TAMANO_ETIQUETA,
+  chipPrecargable,
   coloresSeContradicen,
   normalizarChip,
   normalizarColores,
@@ -154,6 +155,43 @@ describe('validarChip', () => {
     // Con guiones y espacios son 19 caracteres; el chip son 15. Si validáramos
     // el texto crudo, un número perfectamente válido quedaría rechazado.
     expect(validarChip('985-112-003-456-789').ok).toBe(true);
+  });
+});
+
+describe('chipPrecargable — lo que se copia de la ficha "Mi mascota"', () => {
+  it('devuelve el número NORMALIZADO, no lo que estaba escrito en la ficha', () => {
+    // La ficha guarda lo que la persona tipeó (con guiones, con espacios). El
+    // formulario del reporte tiene que quedar con la forma que se guarda y se
+    // cruza, o el dueño ve un número distinto del que la app va a comparar.
+    expect(chipPrecargable('985-112 003.456.789')).toBe('985112003456789');
+    expect(chipPrecargable('1a2b3c4d5e')).toBe('1A2B3C4D5E');
+  });
+
+  it('descarta lo que NO es un chip, aunque la ficha lo tenga guardado', () => {
+    // `my_pets.chip` nunca pasó por `validarChip`: su único control es el CHECK
+    // de 40 caracteres de la 0027. Si esto copiara el texto crudo, al apretar
+    // Publicar `validarChip` lo rebotaría y el reporte de una mascota perdida
+    // quedaría trabado por algo que la persona ni escribió en ese formulario.
+    expect(chipPrecargable('no sé')).toBeNull();
+    expect(chipPrecargable('lo tiene el veterinario')).toBeNull();
+    expect(chipPrecargable('98511')).toBeNull(); // el número a medias
+  });
+
+  it('vacío y nulo no pre-cargan nada', () => {
+    expect(chipPrecargable('')).toBeNull();
+    expect(chipPrecargable('   ')).toBeNull();
+    expect(chipPrecargable(null)).toBeNull();
+    expect(chipPrecargable(undefined)).toBeNull();
+  });
+
+  it('lo que acepta es exactamente lo que acepta validarChip', () => {
+    // Anti-divergencia: si mañana el rango de largos cambia en un lado y no en
+    // el otro, la pre-carga volvería a copiar chips que después traban Publicar.
+    for (const caso of ['985112003456789', '123456789', '1A2B3C4D5E', '12', '1'.repeat(16), 'no sé']) {
+      expect(chipPrecargable(caso) !== null).toBe(
+        validarChip(caso).ok && normalizarChip(caso) !== null,
+      );
+    }
   });
 });
 

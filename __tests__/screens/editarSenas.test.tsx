@@ -198,3 +198,33 @@ describe('el número de chip al editar', () => {
     expect(mockGuardarChip).not.toHaveBeenCalled();
   });
 });
+
+describe('el teclado del campo de chip acompaña al validador', () => {
+  // Las dos mitades se contradecían: `normalizarChip` limpia con `[^A-Za-z0-9]`
+  // y `validarChip` acepta de 9 a 15 caracteres —los viejos AVID alfanuméricos
+  // valen A PROPÓSITO, "rechazar un chip real sería peor"— mientras el campo
+  // pedía `keyboardType="numeric"`. Un teclado numérico no RECHAZA esos chips:
+  // no tiene las teclas. Quien tenga uno no puede escribir su número y no ve
+  // ningún error, porque no hay ningún error que ver.
+  const NUMERICOS = ['numeric', 'number-pad', 'decimal-pad', 'phone-pad'];
+
+  it('no pide un teclado numérico', async () => {
+    mockLectura = { chip: '985112003456789' };
+    const arbol = await montar();
+    expect(NUMERICOS).not.toContain(inputCon(arbol, PLACEHOLDER_CHIP).props.keyboardType);
+  });
+
+  it('y un chip alfanumérico se guarda entero', async () => {
+    // La otra mitad: que el validador de verdad los acepte. Si algún día se
+    // decidiera que el chip es solo numérico, este test se cae junto con el de
+    // arriba y las dos mitades se cambian juntas o no se cambia ninguna.
+    mockLectura = { chip: null };
+    const arbol = await montar();
+    await act(async () => {
+      inputCon(arbol, PLACEHOLDER_CHIP).props.onChangeText('1A2B3C4D5E');
+    });
+    await guardar(arbol);
+    expect(mockNotify).not.toHaveBeenCalledWith('Revisá el número de chip', expect.anything());
+    expect(mockGuardarChip).toHaveBeenCalledWith('p-1', 'yo', '1A2B3C4D5E');
+  });
+});

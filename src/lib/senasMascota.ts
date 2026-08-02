@@ -149,6 +149,12 @@ export const CHIP_BASURA_SQL = '[^A-Za-z0-9]';
 // compañía tienen 9 o 10 caracteres y todavía andan dando vueltas, así que el
 // rango es ancho a propósito: rechazar un chip real sería peor que aceptar uno
 // mal tipeado (que simplemente no va a cruzar con nada).
+//
+// Y ese "ancho a propósito" manda también sobre EL TECLADO de las pantallas: si
+// acá se aceptan letras, el campo NO puede pedir un teclado numérico. Un teclado
+// así no rechaza el chip alfanumérico: directamente no tiene las teclas, así que
+// la persona no ve ningún error, no entiende por qué no puede escribir su número
+// y publica sin él. Ver el campo de chip en PublishScreen y EditPetScreen.
 export const CHIP_LARGO_MIN = 9;
 export const CHIP_LARGO_MAX = 15;
 
@@ -178,4 +184,26 @@ export function validarChip(valor: string | null | undefined): ResultadoChip {
     };
   }
   return { ok: true };
+}
+
+/**
+ * El chip guardado en una ficha "Mi mascota", listo para pre-cargarlo en un
+ * reporte — o `null` si ese texto no sirve como número de chip.
+ *
+ * Hace falta porque `my_pets.chip` NUNCA pasó por `validarChip`: su único
+ * control es el CHECK de 40 caracteres de la 0027 y el formulario de la ficha lo
+ * guarda tal cual. Ahí adentro puede haber "no sé", "lo tiene el veterinario" o
+ * el número a medias.
+ *
+ * Y lo que NO puede fallar es publicar. Si ese texto se copiara crudo al
+ * formulario, `validarChip` lo rebotaría al apretar Publicar y el reporte de una
+ * mascota perdida quedaría trabado por un dato que la persona ni siquiera
+ * escribió ahí — justo al revés de para qué existe la pre-carga.
+ *
+ * Devuelve el número ya normalizado, que es como se guarda y como se cruza.
+ */
+export function chipPrecargable(valor: string | null | undefined): string | null {
+  const limpio = normalizarChip(valor);
+  if (limpio === null) return null;
+  return validarChip(limpio).ok ? limpio : null;
 }

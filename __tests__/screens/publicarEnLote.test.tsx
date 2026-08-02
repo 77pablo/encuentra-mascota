@@ -122,10 +122,15 @@ function textoDe(nodo: any): string {
 const inputDe = (arbol: any, placeholder: string) =>
   arbol.root.findAllByType(Input).find((i: any) => i.props.placeholder === placeholder);
 
+// Por la ETIQUETA y no por `accessibilityRole="checkbox"`: los chips de señas
+// también son casillas para el lector de pantalla, así que buscar por rol
+// agarra el primer color de la lista y la confirmación queda sin marcar.
 const casillaDe = (arbol: any) =>
   arbol.root
     .findAllByType(TouchableOpacity)
-    .find((n: any) => n.props.accessibilityRole === 'checkbox');
+    .find((n: any) =>
+      String(n.props.accessibilityLabel ?? '').startsWith('Confirmo que la foto es de la mascota'),
+    );
 
 /** Llena lo mínimo y toca Publicar. */
 async function publicar(arbol: any, descripcion: string) {

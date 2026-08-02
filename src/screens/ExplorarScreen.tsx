@@ -230,80 +230,137 @@ export default function ExplorarScreen({ navigation, route }: any) {
       />
 
       {/* Control: botón de filtros colapsables (cerrado por defecto, para que la
-          lista/mapa se vea enseguida) + toggle Lista/Mapa siempre visible. */}
+          lista/mapa se vea enseguida) + toggle Lista/Mapa siempre visible.
+
+          Lo que escucha quien no ve la pantalla (ver src/ui/Chip.tsx): el ⚙ y
+          las flechitas ▴▾ el lector de pantalla los deletrea, así que cada chip
+          con emoji lleva su `accessibilityLabel` en castellano. Y que el panel
+          esté abierto o cerrado se dice con `expandido`, no con un triángulo. */}
       <View style={styles.controlRow}>
         <Chip
+          rol="boton"
           label={`⚙ Filtros${filtrosActivos > 0 ? ` (${filtrosActivos})` : ''} ${filtrosAbiertos ? '▴' : '▾'}`}
+          accessibilityLabel={`Filtros${filtrosActivos > 0 ? `, ${filtrosActivos} activos` : ''}`}
           active={filtrosAbiertos || filtrosActivos > 0}
+          expandido={filtrosAbiertos}
           onPress={() => setFiltrosAbiertos((v) => !v)}
         />
-        <View style={styles.toggleGroup}>
-          <Chip label="☰ Lista" active={vista === 'lista'} onPress={() => setVista('lista')} />
-          <Chip label="🗺 Mapa" active={vista === 'mapa'} onPress={() => setVista('mapa')} />
+        <View style={styles.toggleGroup} role="radiogroup" accessibilityLabel="Cómo ver los reportes">
+          <Chip
+            rol="opcion"
+            label="☰ Lista"
+            accessibilityLabel="Ver en lista"
+            active={vista === 'lista'}
+            onPress={() => setVista('lista')}
+          />
+          <Chip
+            rol="opcion"
+            label="🗺 Mapa"
+            accessibilityLabel="Ver en el mapa"
+            active={vista === 'mapa'}
+            onPress={() => setVista('mapa')}
+          />
         </View>
       </View>
 
       {filtrosAbiertos ? (
         <View>
-          <View style={styles.chipsRow}>
+          {/* Cada fila de chips es una PREGUNTA distinta, y el rol lo tiene que
+              decir: acá todos los grupos son "elegí uno" (radiogroup + radio),
+              y solo los dos filtros sueltos de más abajo se prenden y apagan
+              por su cuenta (casilla). Sin el nombre en el contenedor, quien
+              tabula escucha cinco filas de opciones seguidas sin saber de qué
+              es cada una. */}
+          <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Estado del reporte">
             {filtros.map((f) => (
-              <Chip key={f.key} label={f.label} active={estado === f.key} onPress={() => setEstado(f.key)} />
+              <Chip key={f.key} rol="opcion" label={f.label} active={estado === f.key} onPress={() => setEstado(f.key)} />
             ))}
           </View>
-          <View style={styles.chipsRow}>
+          <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Especie">
             {especieFiltros.map((f) => (
-              <Chip key={f.key} label={f.label} active={especie === f.key} onPress={() => setEspecie(f.key)} />
+              <Chip key={f.key} rol="opcion" label={f.label} active={especie === f.key} onPress={() => setEspecie(f.key)} />
             ))}
           </View>
           {/* SEÑAS (0054). Van DENTRO del panel plegable y no sueltas arriba:
               diez chips más siempre visibles taparían la lista, que es lo que
-              la persona vino a mirar. Volver a tocar el mismo chip lo suelta. */}
-          <View style={styles.chipsRow}>
+              la persona vino a mirar. Volver a tocar el mismo chip lo suelta.
+
+              OJO: acá el color es UNO solo —"mostrame los negros"—, mientras
+              que en el formulario de publicar (`SelectorSenas`) se marcan hasta
+              tres. Es el mismo chip con la misma pinta y promete cosas
+              distintas, así que el rol tiene que ser distinto: radio acá,
+              casilla allá. */}
+          <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Color del pelaje">
             {COLORES.map((c) => (
               <Chip
                 key={c}
+                rol="opcion"
                 label={COLOR_ETIQUETA[c]}
                 active={colorFiltro === c}
                 onPress={() => setColorFiltro((v) => (v === c ? null : c))}
               />
             ))}
           </View>
-          <View style={styles.chipsRow}>
+          <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Tamaño">
             {TAMANOS.map((t) => (
               <Chip
                 key={t}
+                rol="opcion"
                 label={TAMANO_ETIQUETA[t]}
                 active={tamanoFiltro === t}
                 onPress={() => setTamanoFiltro((v) => (v === t ? null : t))}
               />
             ))}
           </View>
-          <View style={styles.chipsRow}>
+          <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Cuándo se publicó">
             {rangos.map((r) => (
-              <Chip key={r.key} label={r.label} active={rango === r.key} onPress={() => setRango(r.key)} />
+              <Chip key={r.key} rol="opcion" label={r.label} active={rango === r.key} onPress={() => setRango(r.key)} />
             ))}
           </View>
           <View style={styles.chipsRow}>
-            <Chip label="Con recompensa" active={conRecompensa} onPress={() => setConRecompensa((v) => !v)} />
+            {/* Estos dos no compiten con nadie: se prenden y se apagan solos. */}
             <Chip
+              rol="casilla"
+              label="Con recompensa"
+              active={conRecompensa}
+              onPress={() => setConRecompensa((v) => !v)}
+            />
+            <Chip
+              rol="casilla"
               label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
+              accessibilityLabel={
+                location.status === 'loading' ? 'Buscando tu ubicación' : 'Cerca de mí'
+              }
               active={cercaDeMi}
               onPress={toggleCercaDeMi}
             />
           </View>
           <View style={styles.chipsRow}>
+            {/* Abre un selector: es un botón, no un estado que se marca. */}
             <Chip
+              rol="boton"
               label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
+              accessibilityLabel={
+                comunaFiltro ? `Comuna: ${comunaFiltro}. Cambiar` : 'Filtrar por comuna'
+              }
               active={!!comunaFiltro}
               onPress={() => setComunaPickerOpen(true)}
             />
-            {comunaFiltro ? <Chip label="✕ Quitar" onPress={() => setComunaFiltro(null)} /> : null}
+            {comunaFiltro ? (
+              <Chip
+                rol="boton"
+                label="✕ Quitar"
+                accessibilityLabel="Quitar el filtro de comuna"
+                onPress={() => setComunaFiltro(null)}
+              />
+            ) : null}
           </View>
           {cercaDeMi ? (
-            <View style={styles.chipsRow}>
+            <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Radio de búsqueda">
               {radios.map((r) => (
                 <Chip
                   key={r.label}
+                  rol="opcion"
                   label={r.label}
                   active={radioKm === r.key}
                   onPress={() => setRadioElegido(r.key)}

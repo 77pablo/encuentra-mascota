@@ -215,7 +215,7 @@ es la prueba de que actuamos con diligencia cuando nos notificaron.
 
 **Qué puede pasar con el contenido o con la cuenta**, según la gravedad y la reincidencia:
 
-1. **Retiro del contenido** y aviso al correo de la cuenta, explicando qué regla se rompió.
+1. **Retiro del contenido.** Deja de verse en la app.
 2. **Advertencia.**
 3. **Suspensión temporal** (no puedes publicar ni escribir, pero tu cuenta y tus datos siguen
    ahí).
@@ -226,9 +226,23 @@ Vamos por los pasos 1 y 2 cuando parece un malentendido o un descuido, y directo
 casos graves (el punto 16 de la lista, estafas confirmadas, reincidencia después de una
 suspensión, o venta de animales después de una advertencia).
 
-**Puedes apelar.** Si crees que nos equivocamos, lo revisa una persona: las decisiones no las
-toma un algoritmo. Cuando el canal de contacto exista, el compromiso es responder una
-apelación en un plazo máximo de **10 días hábiles**.
+**Quién decide.** Cada una de estas medidas la revisa y la toma **una persona**: no hay un
+algoritmo que retire contenido ni suspenda cuentas por su cuenta. Y como cada medida queda
+registrada con fecha y motivo, siempre se puede volver sobre ella.
+
+**Una suspensión no es definitiva.** Se puede levantar, y al levantarla la cuenta vuelve a
+publicar y a escribir con su contenido y su historial intactos: mientras está suspendida no
+se borra nada tuyo.
+
+**Cómo te enteras: dentro de la app, no por correo.** Hoy no te mandamos un correo cuando
+retiramos algo o cuando suspendemos una cuenta. Lo vas a notar porque la publicación deja de
+aparecer, o porque al intentar publicar la app te dice que tu cuenta está suspendida.
+Preferimos decirlo así, aunque quede feo, antes que prometerte un aviso que hoy no sale de
+ninguna parte.
+
+**Si crees que nos equivocamos**, nada de esto te quita derechos: puedes reclamar por las
+vías que la ley te da, y del daño que causemos por nuestra propia culpa respondemos (§8).
+Para reclamárnoslo directamente a nosotros:
 
 [[CANAL: apelar una decisión de moderación]]
 
@@ -278,8 +292,12 @@ Preferimos conversarlo a que te quedes con un mal rato.
 - **Nosotros podemos cambiar o discontinuar funciones**, y podríamos tener que cerrar la app.
   Si eso pasara, avisaríamos **con al menos 30 días de anticipación** dentro de la app y por
   correo, para que tengas tiempo de guardar lo que necesites y de pedirnos tus datos.
-- Si suspendemos o eliminamos tu cuenta por incumplir estos términos, te avisamos al correo
-  registrado explicando el motivo, y puedes apelar (§7).
+- **Si suspendemos tu cuenta** por incumplir estos términos, dejas de poder publicar y
+  escribir, y el contenido que rompía las reglas queda retirado; tu cuenta y tus datos siguen
+  ahí, y la suspensión se puede levantar. **Si la eliminamos**, se aplica el procedimiento de
+  borrado del §5 de la Política de privacidad. En ninguno de los dos casos te llega hoy un
+  correo avisándote: el §7 cuenta cómo te enteras y qué te podemos y qué no te podemos
+  prometer al respecto.
 
 ---
 

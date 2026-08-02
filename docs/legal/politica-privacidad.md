@@ -384,7 +384,9 @@ Sí hay procesos automáticos, pero son mecánicos y no deciden nada sobre las p
   escribió), según las preferencias que tú configuraste.
 
 Las decisiones que sí afectan a una cuenta —suspenderla o eliminarla por incumplimiento— las
-revisa y las toma **una persona**, y se pueden apelar.
+revisa y las toma **una persona**, no un proceso automático. Una suspensión, además, se puede
+levantar. Cómo te enteras de una de estas medidas, y qué canal hay y cuál no hay todavía para
+reclamarla, está en el §7 de los Términos de uso.
 
 ---
 

@@ -91,6 +91,10 @@ export function SelectorSenas({
   // Volver a tocar el mismo chip lo suelta. Sin esto, contestar por error deja
   // a la persona encerrada en una respuesta que después usa el motor para
   // DESCARTAR coincidencias: es peor que no haber contestado.
+  //
+  // Por eso el grupo puede quedar con NINGUNO marcado, que para un radiogroup
+  // es raro pero válido, y es justo lo que hay que anunciar: el formulario es
+  // opcional y "no contesté" no es lo mismo que "contesté que no sé".
   const uno = <T extends string>(campo: keyof Senas, actual: T | null, elegido: T) =>
     onChange({ ...valor, [campo]: actual === elegido ? null : elegido });
 
@@ -104,13 +108,24 @@ export function SelectorSenas({
         sepas y saltate el resto.
       </AppText>
 
+      {/* COLOR ES EL ÚNICO GRUPO DE VARIOS, y por eso sus chips son CASILLAS y
+          no opciones: acá se marcan hasta MAX_COLORES a la vez. Los otros tres
+          grupos son "elegí uno" y van como radio dentro de un radiogroup.
+          El rótulo que sigue lo ve quien mira la pantalla, pero quien llega
+          tabulando cae directo sobre el primer chip y nunca lo escucha: por eso
+          el nombre del grupo se repite en el contenedor. */}
       <AppText muted size={12} style={styles.etiqueta}>
         Color{valor.colores.length > 0 ? ` (${valor.colores.length}/${MAX_COLORES})` : ''}
       </AppText>
-      <View style={styles.chipsRow}>
+      <View
+        style={styles.chipsRow}
+        role="group"
+        accessibilityLabel={`Color del pelaje, podés marcar hasta ${MAX_COLORES}`}
+      >
         {COLORES.map((c) => (
           <Chip
             key={c}
+            rol="casilla"
             label={COLOR_ETIQUETA[c]}
             active={valor.colores.includes(c)}
             onPress={() => toggleColor(c)}
@@ -121,10 +136,11 @@ export function SelectorSenas({
       <AppText muted size={12} style={styles.etiqueta}>
         Tamaño
       </AppText>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Tamaño">
         {TAMANOS.map((t) => (
           <Chip
             key={t}
+            rol="opcion"
             label={TAMANO_ETIQUETA[t]}
             active={valor.tamano === t}
             onPress={() => uno('tamano', valor.tamano, t)}
@@ -135,10 +151,11 @@ export function SelectorSenas({
       <AppText muted size={12} style={styles.etiqueta}>
         Sexo
       </AppText>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} role="radiogroup" accessibilityLabel="Sexo">
         {SEXOS.map((s) => (
           <Chip
             key={s}
+            rol="opcion"
             label={SEXO_ETIQUETA[s]}
             active={valor.sexo === s}
             onPress={() => uno('sexo', valor.sexo, s)}
@@ -149,10 +166,15 @@ export function SelectorSenas({
       <AppText muted size={12} style={styles.etiqueta}>
         ¿Está esterilizado/a?
       </AppText>
-      <View style={styles.chipsRow}>
+      <View
+        style={styles.chipsRow}
+        role="radiogroup"
+        accessibilityLabel="¿Está esterilizado o esterilizada?"
+      >
         {ESTERILIZADOS.map((e) => (
           <Chip
             key={e}
+            rol="opcion"
             label={ESTERILIZADO_ETIQUETA[e]}
             active={valor.esterilizado === e}
             onPress={() => uno('esterilizado', valor.esterilizado, e)}

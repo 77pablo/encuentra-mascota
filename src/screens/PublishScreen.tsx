@@ -35,8 +35,12 @@ import { guardarSenasPrivadas } from '../services/senasPrivadas';
 // Señas estructuradas (migración 0054): lo que hace que una coincidencia deje
 // de ser "misma especie + 15 km".
 import { SelectorSenas, SENAS_VACIAS, type Senas } from '../components/SelectorSenas';
-import { normalizarChip, validarChip } from '../lib/senasMascota';
+import { chipPrecargable, normalizarChip, validarChip } from '../lib/senasMascota';
 import { guardarChip } from '../services/petChip';
+// El chip que la app YA tiene: la ficha "Mi mascota" (0027) lo guarda desde
+// antes que la 0054 existiera. Se lee acá (no viaja por params) — ver el porqué
+// en services/myPets.ts.
+import { leerChipDeFicha } from '../services/myPets';
 // Carga en lote para cuentas institucionales (migracion 0057). Un refugio con
 // 15 animales no los sube de a uno con este formulario.
 import { getMyProfile, Profile } from '../services/profile';
@@ -101,6 +105,18 @@ export default function PublishScreen({ navigation, route }: any) {
   // vive en `pet_chips`, cerrado al dueño, y se guarda en otra llamada después
   // de crear el reporte. Ver src/services/petChip.ts.
   const [chip, setChip] = useState('');
+  // ¿La persona ya escribió en la casilla del chip? Lo que tipeó MANDA sobre lo
+  // que traiga la ficha: la pre-carga es asíncrona y sin esto una lectura lenta
+  // le pisaría el número que acababa de escribir a mano. Va en un ref y no en
+  // estado porque no dibuja nada y no tiene que provocar un re-render.
+  const chipTocado = useRef(false);
+  // Cómo salió la pre-carga del chip desde la ficha "Mi mascota". `null` = no
+  // hubo pre-carga (lo normal: se publica sin venir de una ficha). Los otros
+  // tres se le CUENTAN a la persona: una casilla vacía sin explicación es lo que
+  // la hace publicar creyendo que su chip viajó. Ver el bloque de más abajo.
+  const [precargaChip, setPrecargaChip] = useState<
+    'precargado' | 'no_se_pudo' | 'no_sirve' | null
+  >(null);
   const [fotoUris, setFotoUris] = useState<string[]>(
     typeof params.fotoUri === 'string' ? [params.fotoUri] : [],
   );
@@ -192,11 +208,78 @@ export default function PublishScreen({ navigation, route }: any) {
     if (!hayPrecarga) return;
     if (p.estado === 'perdida' || p.estado === 'encontrada') setEstado(p.estado);
     if (p.especie === 'perro' || p.especie === 'gato' || p.especie === 'otro') setEspecie(p.especie);
-    if (typeof p.raza === 'string') setRaza(p.raza);
-    if (typeof p.nombre === 'string') setNombre(p.nombre);
-    if (typeof p.descripcion === 'string') setDescripcion(p.descripcion);
-    if (typeof p.fotoUri === 'string') setFotoUris([p.fotoUri]);
-    setOrigenMyPet(typeof p.origenMyPet === 'string' ? p.origenMyPet : null);
+    // ACÁ EMPIEZA EL REPORTE DE OTRO ANIMAL, así que lo que la pre-carga no
+    // trae se VACÍA en vez de quedarse con lo del anterior. Con un `if (typeof
+    // p.raza === 'string')`, una ficha sin raza dejaba puesta la del animal que
+    // se estaba cargando antes: la pestaña Publicar es persistente y estos
+    // campos sobreviven a la navegación.
+    setRaza(typeof p.raza === 'string' ? p.raza : '');
+    setNombre(typeof p.nombre === 'string' ? p.nombre : '');
+    setDescripcion(typeof p.descripcion === 'string' ? p.descripcion : '');
+    setFotoUris(typeof p.fotoUri === 'string' ? [p.fotoUri] : []);
+    const ficha = typeof p.origenMyPet === 'string' ? p.origenMyPet : null;
+    setOrigenMyPet(ficha);
+
+    // Y lo que es de ESE animal y la pre-carga nunca trae. Es exactamente la
+    // lista que `siguienteDelLote` limpia para la carga en lote, y por los
+    // mismos motivos —hay un test que cruza las dos listas para que no se
+    // separen—: las señas heredadas hacen que el motor DESCARTE la coincidencia
+    // buena (`senas_contradicen`), la seña secreta heredada le sirve a un
+    // impostor que describe la cicatriz del perro anterior, y la casilla dice
+    // "confirmo que la foto es de la mascota" sobre una foto que cambió.
+    setSenas(SENAS_VACIAS);
+    setSena1('');
+    setSena2('');
+    setAmbito(null);
+    setOfreceRecompensa(false);
+    setConfirmado(false);
+
+    // --- EL CHIP QUE LA APP YA TIENE ---
+    //
+    // Se limpia SIEMPRE que llega una pre-carga, aunque no venga de una ficha:
+    // acá empieza el reporte de OTRO animal, y un chip heredado no es un campo
+    // sucio, es la certeza más alta que da el motor ("casi seguro es tu
+    // mascota") apuntando al animal equivocado. Es el mismo bug mudo que
+    // `siguienteDelLote` ya evita para la carga en lote.
+    setChip('');
+    chipTocado.current = false;
+    setPrecargaChip(null);
+    if (!ficha) return;
+
+    // Y acá se repone con el de ESTA ficha. La lectura es aparte y asíncrona a
+    // propósito (el número no viaja por params, ver services/myPets.ts), así que
+    // puede llegar tarde o no llegar: nada de esto bloquea el formulario.
+    let vivo = true;
+    leerChipDeFicha(ficha)
+      .then((lectura) => {
+        // Si mientras tanto escribió el número a mano, no hay nada que pisarle
+        // ni que contarle: el suyo es el bueno (lo está leyendo del carnet).
+        if (!vivo || chipTocado.current) return;
+        // `null` = no se pudo leer. NO es "no tiene chip", y la diferencia se
+        // muestra: si no, la casilla vacía la hace publicar creyendo que su
+        // número —el que más cuesta conseguir— viajó con el reporte.
+        if (!lectura) {
+          setPrecargaChip('no_se_pudo');
+          return;
+        }
+        // Se leyó y la ficha no tiene ninguno: no hay nada que contar.
+        if (lectura.chip === null) return;
+        const listo = chipPrecargable(lectura.chip);
+        if (listo === null) {
+          // La ficha guarda algo que no es un chip ("no sé", el número a medias:
+          // `my_pets.chip` nunca se validó). Copiarlo trabaría Publicar.
+          setPrecargaChip('no_sirve');
+          return;
+        }
+        setChip(listo);
+        setPrecargaChip('precargado');
+      })
+      .catch(() => {
+        if (vivo && !chipTocado.current) setPrecargaChip('no_se_pudo');
+      });
+    return () => {
+      vivo = false;
+    };
   }, [route?.params]);
 
   // Auto-sugerir la comuna desde el punto del mapa. Se recalcula cuando el
@@ -309,6 +392,10 @@ export default function PublishScreen({ navigation, route }: any) {
     setOrigenMyPet(sig.origenMyPet);
     setSenas(sig.senas);
     setChip(sig.chip);
+    // Lo que acompaña al chip vaciado: el animal #2 no hereda ni el "lo tocó a
+    // mano" ni el cartel de dónde salió el número del #1.
+    chipTocado.current = false;
+    setPrecargaChip(null);
   };
 
   const onSubmit = async () => {
@@ -391,7 +478,11 @@ export default function PublishScreen({ navigation, route }: any) {
       // aplicada o falla, degrada a `false` y decide la base.
       if (await estoySuspendido()) {
         throw new ErrorAmigable(
-          'Tu cuenta está suspendida: no podés publicar reportes por ahora. Escribinos si creés que es un error.',
+          // Sin "escribinos": no hay dónde. `CORREO_CONTACTO` es null hasta que
+          // haya dominio propio, y los Términos ahora dicen expresamente que no
+          // mandamos aviso ni tenemos canal de apelación todavía. Prometer acá
+          // un canal que el documento niega es peor que no ofrecer ninguno.
+          'Tu cuenta está suspendida: no podés publicar reportes por ahora. Es una medida reversible: la revisa una persona y se puede levantar.',
         );
       }
       const urls = await uploadPetPhotos(fotoUris, user!.id);
@@ -641,12 +732,44 @@ export default function PublishScreen({ navigation, route }: any) {
               otros reportes: si alguien publica una mascota encontrada con el mismo
               chip, te avisamos enseguida. Es el dato que más sirve de todos.
             </AppText>
+            {/* SIN `keyboardType="numeric"`. El validador acepta letras a
+                propósito (los viejos AVID de 9-10 caracteres siguen dando
+                vueltas, ver lib/senasMascota.ts) y un teclado numérico no
+                rechaza esos chips: no tiene las teclas. La persona no ve ningún
+                error —no hay error que ver— y publica sin el único dato que
+                prueba de quién es el animal. `autoCapitalize` acompaña a la
+                normalización, que pasa todo a mayúsculas. */}
             <Input
               placeholder="Ej: 985112003456789"
               value={chip}
-              onChangeText={setChip}
-              keyboardType="numeric"
+              onChangeText={(t) => {
+                chipTocado.current = true;
+                // Los carteles de abajo hablan de la pre-carga; desde que la
+                // persona escribe, el número es suyo y ya no dicen la verdad.
+                setPrecargaChip(null);
+                setChip(t);
+              }}
+              autoCapitalize="characters"
             />
+            {precargaChip === 'precargado' ? (
+              <AppText muted size={12} style={styles.ayuda}>
+                Lo trajimos de la ficha de tu mascota. Revisá que esté bien.
+              </AppText>
+            ) : null}
+            {precargaChip === 'no_se_pudo' ? (
+              // Mismo criterio que EditPetScreen con la lectura fallida: una
+              // casilla vacía sin explicación se lee como "la app ya lo tiene".
+              <AppText muted size={12} style={styles.ayuda}>
+                No pudimos traer el número de chip de tu ficha ahora mismo. Si lo
+                tenés a mano, escribilo: es el dato que más sirve.
+              </AppText>
+            ) : null}
+            {precargaChip === 'no_sirve' ? (
+              <AppText muted size={12} style={styles.ayuda}>
+                Lo que tenés guardado en tu ficha no parece un número de chip, así
+                que no lo copiamos acá. Si lo tenés a mano, escribilo.
+              </AppText>
+            ) : null}
           </View>
 
           {fotoUris.length < MAX_FOTOS ? (

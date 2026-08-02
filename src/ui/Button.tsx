@@ -55,6 +55,17 @@ export function Button({
       activeOpacity={0.8}
       onPress={onPress}
       disabled={isDisabled}
+      // El botón principal de toda la app salía al DOM como un `<div
+      // tabindex="0">` con texto adentro: `TouchableOpacity` de
+      // react-native-web pone `focusable` pero NO inyecta ningún rol. Un lector
+      // de pantalla no tenía forma de saber que era un botón.
+      //
+      // `disabled` también hay que decirlo: sin esto, "Publicando…" se anuncia
+      // igual que "Publicar" y la persona lo vuelve a apretar.
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      aria-disabled={isDisabled}
+      aria-busy={loading}
       style={[
         styles.base,
         { backgroundColor: v.bg },

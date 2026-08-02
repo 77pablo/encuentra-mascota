@@ -12,7 +12,10 @@ export async function borrarMiCuenta(): Promise<void> {
     // Edge Function), la cuenta queda viva y los reportes con imágenes rotas.
     // Por eso el mensaje empuja a reintentar en vez de sonar a "ya fue".
     throw new ErrorAmigable(
-      'No terminamos de borrar tu cuenta: sigue activa. Volvé a intentarlo en unos minutos; si sigue fallando, escribinos.',
+      // Sin "escribinos": no hay dónde todavía (`CORREO_CONTACTO` es null hasta
+      // que haya dominio propio). Se ofrece la vía que SÍ existe sin cuenta: la
+      // página pública de borrado, que Google exige y que ya está publicada.
+      'No terminamos de borrar tu cuenta: sigue activa. Volvé a intentarlo en unos minutos; si sigue fallando, podés pedirlo desde la página de borrado del sitio.',
     );
   }
   // La función responde 200 con { ok: true }. Cualquier otra cosa es un fallo

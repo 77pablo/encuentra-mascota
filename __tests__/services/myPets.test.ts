@@ -2,6 +2,7 @@ import {
   avisarEscaneoCollar,
   createMyPet,
   deleteMyPet,
+  leerChipDeFicha,
   listMyPets,
   mascotaPorCollar,
   updateMyPet,
@@ -422,5 +423,69 @@ describe('avisarEscaneoCollar', () => {
   it('propaga el error de la RPC', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
     await expect(avisarEscaneoCollar('tok', null, null, null)).rejects.toEqual({ message: 'boom' });
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// EL CHIP DE LA FICHA (0054) — los tres estados, y por qué "la fila no volvió"
+// es "no se pudo leer" y no "no tiene chip".
+// ───────────────────────────────────────────────────────────────────────────
+describe('leerChipDeFicha', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('lee la ficha por id y trae el chip', async () => {
+    const builder = makeQueryBuilder({ data: { chip: '985112003456789' }, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    expect(await leerChipDeFicha('ficha-1')).toEqual({ chip: '985112003456789' });
+    expect(mockFrom).toHaveBeenCalledWith('my_pets');
+    expect(builder.eq).toHaveBeenCalledWith('id', 'ficha-1');
+  });
+
+  it('pide SOLO la columna del chip, nunca la ficha entera', async () => {
+    // `select('*')` acá traería de vuelta al cliente todo lo de la ficha para
+    // usar un solo campo. Es la puerta por la que ya se coló más de un dato.
+    const builder = makeQueryBuilder({ data: { chip: '985112003456789' }, error: null });
+    mockFrom.mockReturnValue(builder);
+    await leerChipDeFicha('ficha-1');
+    expect(builder.select).toHaveBeenCalledWith('chip');
+  });
+
+  it('la ficha sin chip devuelve { chip: null }, que NO es lo mismo que null', async () => {
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: { chip: null }, error: null }));
+    expect(await leerChipDeFicha('ficha-1')).toEqual({ chip: null });
+  });
+
+  it('un error de lectura devuelve null: "no se pudo saber"', async () => {
+    // ES EL TERCER ESTADO. Si esto devolviera { chip: null }, la pantalla de
+    // publicar mostraría la casilla vacía sin decir nada y el dueño publicaría
+    // convencido de que su chip viajó con el reporte.
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: null, error: { message: 'sin red' } }));
+    expect(await leerChipDeFicha('ficha-1')).toBeNull();
+  });
+
+  it('la fila que no vuelve también es null, no "no tiene chip"', async () => {
+    // La ficha existe: venimos de tocar su botón. Que la RLS no la devuelva
+    // significa que no pudimos verla —sesión caída, id de otra cuenta—, no que
+    // la mascota no tenga chip.
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: null, error: null }));
+    expect(await leerChipDeFicha('ficha-1')).toBeNull();
+  });
+
+  it('no tira nunca: publicar no puede fallar por un extra', async () => {
+    mockFrom.mockReturnValue(makeQueryBuilder({ data: null, error: { message: 'boom' } }));
+    await expect(leerChipDeFicha('ficha-1')).resolves.toBeNull();
+  });
+
+  it('el número NO entra al log ni siquiera cuando falla', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFrom.mockReturnValue(
+      makeQueryBuilder({ data: null, error: { message: 'permission denied' } }),
+    );
+    await leerChipDeFicha('ficha-1');
+    expect(warn).toHaveBeenCalled();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('985112003456789');
   });
 });

@@ -181,10 +181,15 @@ describe('el ámbito viaja al reporte, y omitirlo también es válido', () => {
         .props.onPress();
     });
     await act(async () => {});
-    // La casilla de confirmación (accessibilityRole="checkbox").
+    // La casilla de confirmación, por su ETIQUETA y no por
+    // `accessibilityRole="checkbox"`: los chips de señas también son casillas
+    // para el lector de pantalla, así que buscar por rol agarra el primer color
+    // de la lista y la confirmación queda sin marcar.
     const casilla = arbol.root
       .findAllByType(TouchableOpacity)
-      .find((n: any) => n.props.accessibilityRole === 'checkbox');
+      .find((n: any) =>
+        String(n.props.accessibilityLabel ?? '').startsWith('Confirmo que la foto es de la mascota'),
+      );
     await act(async () => {
       casilla.props.onPress();
     });

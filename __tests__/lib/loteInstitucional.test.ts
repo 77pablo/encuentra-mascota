@@ -255,3 +255,55 @@ describe('la pantalla aplica TODO lo que la función devuelve', () => {
     expect(faltan).toEqual([]);
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// EL OTRO CAMINO QUE EMPIEZA EL REPORTE DE OTRO ANIMAL.
+//
+// `siguienteDelLote` no es el único: reportar desde una ficha de "Mi mascota"
+// pre-carga el formulario con `route.params`, y la pestaña Publicar es
+// PERSISTENTE, así que lo que no se limpia sobrevive del animal anterior.
+//
+// Ese efecto limpiaba nombre, raza, descripción y foto —y el chip, arreglado en
+// esta misma tanda— pero NO las señas estructuradas, ni la seña secreta, ni el
+// ámbito, ni la recompensa, ni la casilla de confirmación. Las consecuencias son
+// las mismas que están escritas en `siguienteDelLote`: las señas heredadas hacen
+// que el motor DESCARTE la coincidencia buena, y la seña secreta heredada le
+// sirve a un impostor que describe la cicatriz del perro anterior.
+//
+// Este test no compara contra una lista escrita acá: exige que el efecto de
+// pre-carga toque TODO lo que la función pura considera "de ese animal".
+// ───────────────────────────────────────────────────────────────────────────
+describe('la pre-carga desde una ficha limpia lo mismo que el lote', () => {
+  const fuente: string = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'screens', 'PublishScreen.tsx'),
+    'utf8',
+  );
+  // El efecto de pre-carga: desde `const hayPrecarga` hasta su lista de deps.
+  const desde = fuente.indexOf('const hayPrecarga');
+  const efecto = fuente.slice(desde, fuente.indexOf('[route?.params]', desde));
+
+  // Lo que es DE ESE ANIMAL, según la función pura: todo lo que `siguienteDelLote`
+  // devuelve distinto de lo que recibió.
+  const previo = { ...BASE };
+  const limpio = siguienteDelLote(BASE);
+  const deEseAnimal = Object.keys(limpio).filter(
+    (k) => JSON.stringify((limpio as any)[k]) !== JSON.stringify((previo as any)[k]),
+  );
+
+  // El nombre del setter de cada campo, con las dos excepciones de nombre.
+  const setterDe = (campo: string) =>
+    ({ fotoUris: 'setFotoUris', origenMyPet: 'setOrigenMyPet' } as Record<string, string>)[campo] ??
+    'set' + campo[0].toUpperCase() + campo.slice(1);
+
+  it('el parser leyó el efecto de verdad (si no, pasa por vacío)', () => {
+    expect(desde).toBeGreaterThan(-1);
+    expect(efecto).toContain('setOrigenMyPet');
+    expect((efecto.match(/set[A-Z]/g) ?? []).length).toBeGreaterThanOrEqual(10);
+    expect(deEseAnimal.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('no queda ni un campo del animal anterior sin tocar', () => {
+    const faltan = deEseAnimal.filter((campo) => !efecto.includes(setterDe(campo) + '('));
+    expect(faltan).toEqual([]);
+  });
+});

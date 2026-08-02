@@ -98,7 +98,7 @@ describe('los compromisos del documento llegan enteros a la app', () => {
     { que: 'moderación: estafa y acoso', patron: /24 horas/i, doc: 'terminos' },
     { que: 'moderación: venta de animales y spam', patron: /72 horas/i, doc: 'terminos' },
     { que: 'moderación: todo lo demás', patron: /7 días/i, doc: 'terminos' },
-    { que: 'plazo para responder una apelación', patron: /10 días hábiles/i, doc: 'terminos' },
+    { que: 'una suspensión se puede levantar', patron: /Una suspensión no es definitiva/, doc: 'terminos' },
     { que: 'aviso previo si se cierra el servicio', patron: /30 días de anticipación/i, doc: 'terminos' },
   ];
 
@@ -169,5 +169,83 @@ describe('no se promete un canal de contacto que no existe', () => {
     if (HAY_CORREO_DE_CONTACTO) return;
     expect(appTodo).toMatch(/no atenderíamos/);
     expect(appTodo).toMatch(/App Store y Google Play/);
+  });
+});
+
+describe('suspender una cuenta no promete un aviso ni una apelación', () => {
+  // Hasta el 30-jul los documentos prometían, con tres redacciones distintas,
+  // algo que la app no hace:
+  //
+  //   terminos §7  «Puedes apelar. […] responder una apelación en un plazo
+  //                 máximo de 10 días hábiles»
+  //   terminos §7  «Retiro del contenido y aviso al correo de la cuenta»
+  //   terminos §9  «te avisamos al correo registrado explicando el motivo, y
+  //                 puedes apelar (§7)»
+  //   privacidad §10  «las toma una persona, y se pueden apelar»
+  //
+  // Ninguna de las dos cosas ocurre. `moderar_suspender` (migración 0040) solo
+  // escribe `suspendido_en`; la cola de `send-notifications` no tiene ningún
+  // tipo de evento de moderación, así que no sale ni un correo; y el canal de
+  // apelación depende de un correo de contacto que todavía no existe. Se
+  // decidió BAJAR la promesa en vez de implementarla, porque una promesa
+  // incumplida por escrito juega en contra y en Chile no hay safe harbor para
+  // intermediarios: lo que defiende es la diligencia demostrable.
+  //
+  // Este bloque está para que la promesa no vuelva sola.
+  //
+  // Los patrones se aplican sobre el texto con los espacios normalizados. NO es
+  // cosmético: el markdown fuente viene cortado a 95 columnas y con sangría de
+  // continuación, así que "te avisamos al correo\n  registrado" no lo encuentra
+  // ningún patrón escrito con un espacio simple. La primera versión de este
+  // test pasó en verde con la promesa vieja puesta de vuelta justo por eso.
+  const plano = (s: string) => s.replace(/\s+/g, ' ');
+  const doc = {
+    privacidad: [plano(md.privacidad), plano(app.privacidad)],
+    terminos: [plano(md.terminos), plano(app.terminos)],
+  };
+  const todos = [...doc.privacidad, ...doc.terminos];
+
+  it('ningún documento promete un correo al retirar contenido ni al suspender', () => {
+    for (const texto of todos) {
+      expect(texto).not.toMatch(/te avisamos al correo registrado/i);
+      expect(texto).not.toMatch(/aviso al correo de la cuenta/i);
+    }
+  });
+
+  it('ningún documento promete apelar ni un plazo para responder una apelación', () => {
+    // El guard es a propósito y no una excusa: el día que haya un correo
+    // publicado, prometer una apelación vuelve a ser legítimo y el test se
+    // aparta solo en vez de obligar a borrarlo. Ver `textoCanal()`.
+    if (HAY_CORREO_DE_CONTACTO) return;
+    for (const texto of todos) {
+      expect(texto).not.toMatch(/puedes apelar/i);
+      expect(texto).not.toMatch(/se pueden apelar/i);
+      expect(texto).not.toMatch(/10 días hábiles/i);
+    }
+  });
+
+  it('en su lugar dice lo que sí es verdad, y llega igual a la app', () => {
+    // Lo verificable contra el código: la decide una persona desde el panel de
+    // moderación (no hay proceso automático) y `moderar_reactivar` (migración
+    // 0045) la levanta dejando la cuenta como estaba.
+    for (const texto of doc.terminos) {
+      expect(texto).toMatch(/Una suspensión no es definitiva/);
+      expect(texto).toMatch(/no te mandamos un correo/i);
+      expect(texto).toMatch(/la suspensión se puede levantar/i);
+    }
+    for (const texto of doc.privacidad) {
+      expect(texto).toMatch(/no un proceso automático/);
+    }
+  });
+
+  it('bajar la promesa no se convirtió en una cláusula de exoneración', () => {
+    // Art. 16 e) de la ley 19.496: eximirse anticipadamente de toda
+    // responsabilidad es nulo, y además le cae pésimo a un revisor de tienda.
+    // Decir «hoy no te avisamos» está bien; decir «y no respondemos de nada»
+    // sería cambiar una promesa incumplible por una cláusula inválida.
+    for (const texto of doc.terminos) {
+      expect(texto).toMatch(/nada de esto te quita derechos/i);
+      expect(texto).toMatch(/del daño que causemos por nuestra propia culpa respondemos/i);
+    }
   });
 });

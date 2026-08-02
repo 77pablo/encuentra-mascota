@@ -46,6 +46,59 @@ export async function listMyPets(userId: string): Promise<MyPet[]> {
   return (data ?? []) as MyPet[];
 }
 
+// ------------------------------------------------------------
+// EL CHIP DE LA FICHA, PARA PRE-CARGAR UN REPORTE (0054)
+//
+// Los únicos usuarios de los que tenemos el chip con certeza son los que
+// registraron una ficha "Mi mascota" —la 0027 ya lo guarda y las guías les dicen
+// que lo tengan a mano—, y hasta acá publicaban SIN él: el motor de la 0054
+// arrancaba con su señal más fuerte apagada justo donde el dato ya existía.
+//
+// POR QUÉ UNA LECTURA Y NO UN PARÁMETRO DE NAVEGACIÓN. `MyPetsScreen` tiene la
+// ficha entera en memoria, chip incluido, así que mandarlo en el `navigate` era
+// una línea. Pero los params de navegación se serializan en la URL en la versión
+// web y quedan en el historial del navegador: el dato más sensible del proyecto
+// —el que prueba de quién es el animal y con el que se puede intentar
+// re-registrarlo a nombre de otro— terminaría escrito en la barra de direcciones.
+// Por eso viaja el id de la ficha y el chip se lee de nuevo acá, por el mismo
+// camino que ya usa la pantalla: la tabla, cerrada por RLS al dueño.
+// ------------------------------------------------------------
+
+/** Lo que tiene la ficha, o `null` si NO SE PUDO SABER. */
+export type LecturaChipFicha = { chip: string | null };
+
+/**
+ * Lee el chip de una ficha "Mi mascota".
+ *
+ * Tres estados a propósito, los mismos que `leerChip` (services/petChip.ts):
+ * `{ chip: '985…' }` hay uno, `{ chip: null }` se leyó y no hay ninguno, y
+ * `null` no se pudo leer (sin red, sin permiso, sesión caída).
+ *
+ * La fila que no vuelve cuenta como "no se pudo": la ficha existe —venimos de
+ * tocar su botón—, así que si la RLS no la devuelve es que no pudimos verla, no
+ * que la mascota no tenga chip. Confundirlas es la trampa de siempre en este
+ * repo, solo que acá al revés: la pantalla mostraría el campo vacío sin decir
+ * nada y la persona publicaría creyendo que su chip viajó.
+ *
+ * NO TIRA NUNCA: publicar una mascota perdida no puede fallar por un extra.
+ */
+export async function leerChipDeFicha(fichaId: string): Promise<LecturaChipFicha | null> {
+  // Solo la columna que hace falta. Nada de `select('*')`: el resto de la ficha
+  // ya viajó por params y no queremos traer de vuelta lo que no vamos a usar.
+  const { data, error } = await supabase
+    .from('my_pets')
+    .select('chip')
+    .eq('id', fichaId)
+    .maybeSingle();
+  if (error) {
+    // El número JAMÁS entra al log: se registra que falló y cuál ficha, no el dato.
+    console.warn(`leerChipDeFicha: no se pudo leer la ficha ${fichaId}:`, error.message);
+    return null;
+  }
+  if (!data) return null;
+  return { chip: ((data as { chip?: string | null }).chip ?? null) as string | null };
+}
+
 // Fechas del carnet (Función 6): camelCase en el lado JS, mapeadas a las
 // columnas snake_case de la migración 0034. Todas opcionales; `null`/`undefined`
 // se guardan como `null` (nada cargado).

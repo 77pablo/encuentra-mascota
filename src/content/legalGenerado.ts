@@ -1249,7 +1249,9 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
             "texto": "Las decisiones que sí afectan a una cuenta —suspenderla o eliminarla por incumplimiento— las revisa y las toma "
           },
           {"texto":"una persona","fuerte":true},
-          {"texto":", y se pueden apelar."}
+          {
+            "texto": ", no un proceso automático. Una suspensión, además, se puede levantar. Cómo te enteras de una de estas medidas, y qué canal hay y cuál no hay todavía para reclamarla, está en el §7 de los Términos de uso."
+          }
         ]
       },
       {"tipo":"separador"},
@@ -1889,10 +1891,7 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
         "ordenada": true,
         "inicio": 1,
         "items": [
-          [
-            {"texto":"Retiro del contenido","fuerte":true},
-            {"texto":" y aviso al correo de la cuenta, explicando qué regla se rompió."}
-          ],
+          [{"texto":"Retiro del contenido.","fuerte":true},{"texto":" Deja de verse en la app."}],
           [{"texto":"Advertencia.","fuerte":true}],
           [
             {"texto":"Suspensión temporal","fuerte":true},
@@ -1917,12 +1916,39 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
       {
         "tipo": "parrafo",
         "texto": [
-          {"texto":"Puedes apelar.","fuerte":true},
+          {"texto":"Quién decide.","fuerte":true},
+          {"texto":" Cada una de estas medidas la revisa y la toma "},
+          {"texto":"una persona","fuerte":true},
           {
-            "texto": " Si crees que nos equivocamos, lo revisa una persona: las decisiones no las toma un algoritmo. Cuando el canal de contacto exista, el compromiso es responder una apelación en un plazo máximo de "
-          },
-          {"texto":"10 días hábiles","fuerte":true},
-          {"texto":"."}
+            "texto": ": no hay un algoritmo que retire contenido ni suspenda cuentas por su cuenta. Y como cada medida queda registrada con fecha y motivo, siempre se puede volver sobre ella."
+          }
+        ]
+      },
+      {
+        "tipo": "parrafo",
+        "texto": [
+          {"texto":"Una suspensión no es definitiva.","fuerte":true},
+          {
+            "texto": " Se puede levantar, y al levantarla la cuenta vuelve a publicar y a escribir con su contenido y su historial intactos: mientras está suspendida no se borra nada tuyo."
+          }
+        ]
+      },
+      {
+        "tipo": "parrafo",
+        "texto": [
+          {"texto":"Cómo te enteras: dentro de la app, no por correo.","fuerte":true},
+          {
+            "texto": " Hoy no te mandamos un correo cuando retiramos algo o cuando suspendemos una cuenta. Lo vas a notar porque la publicación deja de aparecer, o porque al intentar publicar la app te dice que tu cuenta está suspendida. Preferimos decirlo así, aunque quede feo, antes que prometerte un aviso que hoy no sale de ninguna parte."
+          }
+        ]
+      },
+      {
+        "tipo": "parrafo",
+        "texto": [
+          {"texto":"Si crees que nos equivocamos","fuerte":true},
+          {
+            "texto": ", nada de esto te quita derechos: puedes reclamar por las vías que la ley te da, y del daño que causemos por nuestra propia culpa respondemos (§8). Para reclamárnoslo directamente a nosotros:"
+          }
         ]
       },
       {
@@ -2054,8 +2080,13 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
             }
           ],
           [
+            {"texto":"Si suspendemos tu cuenta","fuerte":true},
             {
-              "texto": "Si suspendemos o eliminamos tu cuenta por incumplir estos términos, te avisamos al correo registrado explicando el motivo, y puedes apelar (§7)."
+              "texto": " por incumplir estos términos, dejas de poder publicar y escribir, y el contenido que rompía las reglas queda retirado; tu cuenta y tus datos siguen ahí, y la suspensión se puede levantar. "
+            },
+            {"texto":"Si la eliminamos","fuerte":true},
+            {
+              "texto": ", se aplica el procedimiento de borrado del §5 de la Política de privacidad. En ninguno de los dos casos te llega hoy un correo avisándote: el §7 cuenta cómo te enteras y qué te podemos y qué no te podemos prometer al respecto."
             }
           ]
         ]

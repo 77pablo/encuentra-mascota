@@ -40,10 +40,22 @@
 -- Reemplazar los dos uuid y los cuatro datos. Va TODO junto: el `set local`
 -- solo vive dentro de la transacción, así que separar los pasos no sirve.
 --
--- ⚠️ Pasar SIEMPRE los cinco argumentos. `p_comuna` y `p_contacto` tienen
--- `default null` y el update los pisa igual, así que llamarla con tres
--- argumentos para "corregir el nombre" borra la comuna y el contacto sin decir
--- nada. Si no querés tocarlos, volvé a escribir los valores que ya tenía.
+-- ⚠️ QUÉ SIGNIFICA CADA VALOR EN `p_comuna` Y `p_contacto` (migración 0058).
+-- Los dos tienen `default null`, y desde la 0058 la ausencia y el vacío dejaron
+-- de significar lo mismo:
+--
+--     null   → "no te lo mandé"      → NO se toca lo que ya estaba
+--     ''     → "te lo mandé vacío"   → se BORRA lo que ya estaba
+--     'Ñuñoa'→ se escribe
+--
+-- O sea que para corregir SOLO el nombre alcanza con llamarla con tres
+-- argumentos, y el teléfono que la insignia venía mostrando se queda donde
+-- estaba. Antes de la 0058 esa misma llamada lo borraba en silencio y devolvía
+-- éxito. Para vaciar un dato mal cargado, pasale `''` (no null).
+--
+-- El tipo y el nombre no tienen esta distinción: son obligatorios y siempre se
+-- escriben (llamarla sin nombre aborta con "la institucion necesita un nombre
+-- publico").
 -- ------------------------------------------------------------
 begin;
 
@@ -58,8 +70,8 @@ begin;
     'UUID-DE-LA-CUENTA'::uuid,
     'veterinaria',              -- 'veterinaria' | 'refugio' | 'municipio'
     'Veterinaria Ñuñoa',        -- nombre público, el que ve la gente
-    'Ñuñoa',                    -- comuna (o null)
-    '+56 9 1234 5678'           -- contacto público (o null)
+    'Ñuñoa',                    -- comuna:   null = dejar como está,  '' = borrar
+    '+56 9 1234 5678'           -- contacto: null = dejar como está,  '' = borrar
   );
 
 commit;
@@ -85,10 +97,18 @@ select id,
 -- ------------------------------------------------------------
 -- 3) QUITARLA (mismo sombrero)
 --
--- Limpia las seis columnas de una. Se usa cuando la institución deja de serlo, y
--- cuando resultó no ser lo que decía: hoy suspender una cuenta NO le saca la
--- insignia, así que si moderación suspende a un "refugio" que era una estafa,
--- hay que correr esto además de suspenderlo.
+-- Limpia las seis columnas de una. Es DEFINITIVO: se usa cuando la institución
+-- deja de serlo, o cuando resultó no ser lo que decía.
+--
+-- Desde la 0058 ya NO hace falta correrlo detrás de cada suspensión: una cuenta
+-- suspendida deja de mostrar la insignia sola (el filtro está en `perfil_publico`
+-- y en `autor_publico`, los dos caminos por los que la app la dibuja). Los datos
+-- se conservan a propósito, porque suspender se puede deshacer (`moderar_reactivar`,
+-- 0045) y reactivar tiene que devolver la cuenta a como estaba.
+--
+-- O sea: para un "refugio" que era una estafa, suspender ya alcanza para que la
+-- app deje de ponerle su sello. Esto se corre cuando la decisión es que no
+-- vuelve.
 -- ------------------------------------------------------------
 begin;
 

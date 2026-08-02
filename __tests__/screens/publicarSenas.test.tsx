@@ -139,9 +139,14 @@ async function publicar(arbol: any, { esperarRebote = false } = {}) {
       .props.onPress();
   });
   await act(async () => {});
+  // Por la ETIQUETA y no por `accessibilityRole="checkbox"`: los chips de señas
+  // también son casillas para el lector de pantalla, así que buscar por rol
+  // agarra el primer color de la lista y la confirmación queda sin marcar.
   const casilla = arbol.root
     .findAllByType(TouchableOpacity)
-    .find((n: any) => n.props.accessibilityRole === 'checkbox');
+    .find((n: any) =>
+      String(n.props.accessibilityLabel ?? '').startsWith('Confirmo que la foto es de la mascota'),
+    );
   await act(async () => {
     casilla.props.onPress();
   });

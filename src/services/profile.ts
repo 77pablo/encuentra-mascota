@@ -116,7 +116,26 @@ function autorDe(data: any): AutorPublico | null {
 
 // Lee el autor en UNA consulta. Silencioso ante cualquier otro error: la ficha
 // se lee entera sin la firma, igual que antes de la 0057.
+//
+// PASA POR LA RPC `autor_publico` (migración 0058) Y NO POR UN SELECT, y no es
+// un capricho: una cuenta SUSPENDIDA no tiene que seguir firmando sus fichas
+// con el sello de la app. Eso es un filtro por el VALOR de `suspendido_en`, que
+// un select del cliente no puede hacer — esa columna no se le concede a nadie
+// (0036) y los grants por columna de la 0018 conceden o no conceden, no saben
+// de condiciones. El select directo de abajo queda SOLO como escalón de
+// respaldo para la ventana de despliegue (la app sube antes que el SQL).
 export async function getAutorPublico(userId: string): Promise<AutorPublico | null> {
+  const rpc = await supabase.rpc('autor_publico', { p_user_id: userId });
+  if (!rpc.error) {
+    // Cero filas = la cuenta no existe o es una lápida: sin autor, sin enlace.
+    const fila = ((rpc.data ?? []) as any[])[0];
+    return fila ? autorDe(fila) : null;
+  }
+  // PGRST202 = la RPC todavía no existe (0058 sin aplicar). Cualquier otro
+  // error es un error de verdad y no se arregla repitiendo la consulta de otra
+  // forma: la ficha se muestra sin la firma, como antes de la 0057.
+  if (rpc.error.code !== 'PGRST202') return null;
+
   const conInstitucion = await supabase
     .from('profiles')
     .select(CAMPOS_AUTOR_CON_INSTITUCION)
