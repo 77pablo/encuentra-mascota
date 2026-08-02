@@ -433,6 +433,22 @@ describe('el grant de update sobre profiles es exactamente lo que la app escribe
     expect(codigo57).not.toMatch(/grant\s+update\s+on\s+public\.profiles/i);
   });
 
+  it('ningún archivo del directorio reabre update sobre profiles SIN lista de columnas', () => {
+    // El test de arriba solo mira la 0057. Una migracion FUTURA con
+    // `grant update on public.profiles to authenticated;` (sin columnas) no la
+    // caza (mira otro archivo) y tampoco entra a `archivosConGrant` (ese filtro
+    // exige el `grant update (` CON parentesis), asi que el chequeo de
+    // "vigente" seguiria comparando calladamente contra la 0059. Por eso este
+    // test barre TODOS los .sql del directorio, no solo el vigente.
+    const archivos = fs.readdirSync(dirMigraciones).filter((f: string) => f.endsWith('.sql'));
+    for (const f of archivos) {
+      const codigo = fs.readFileSync(path.join(dirMigraciones, f), 'utf8');
+      // `grant update (` (con columnas) no matchea: acá se caza el grant pelado,
+      // que es la forma exacta de la escalada que la 0057 cerró.
+      expect(codigo).not.toMatch(/grant\s+update\s+on\s+public\.profiles/i);
+    }
+  });
+
   it('y el INSERT tambien queda cerrado', () => {
     // La 0017 solto la FK profiles -> auth.users a proposito. Si se borra a mano
     // una fila de profiles y sobrevive la de auth.users, esa sesion podia
