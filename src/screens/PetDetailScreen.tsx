@@ -9,6 +9,7 @@ import { NudgeVigencia } from '../components/NudgeVigencia';
 import { PreguntaSiAparecio, seVaAPreguntar } from '../components/PreguntaSiAparecio';
 import { RespuestaCierre } from '../lib/cierreCasos';
 import { PlanBusqueda } from '../components/PlanBusqueda';
+import { TableroDifusion } from '../components/TableroDifusion';
 import { ConsejoRadio } from '../components/ConsejoRadio';
 import { markReunited } from '../services/reunions';
 import {
@@ -152,6 +153,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // pantalla y parece que no pasó nada. Ref al ScrollView + el `onLayout` de
   // la propia hoja: apenas mide su posición, se scrollea hasta ella.
   const scrollRef = useRef<ScrollView>(null);
+  // Misma idea, para "Abrir el tablero" desde el Plan de búsqueda
+  // (`onTablero`): el tablero vive arriba del plan en la ficha, así que el
+  // botón scrollea hasta ahí en vez de no hacer nada.
+  const tableroYRef = useRef(0);
   // "Compartir tarjeta" (F1): monta TarjetaGenerador off-screen, que se
   // encarga de capturar y compartir (mismo patrón que el afiche, ver abajo).
   const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
@@ -731,6 +736,22 @@ export default function PetDetailScreen({ route, navigation }: any) {
           />
         ) : null}
 
+        {/* Tablero de difusión (A4, migración 0063): "¿a quién le avisé?".
+            Va ARRIBA del plan de búsqueda a propósito — la deuda anotada de
+            la tanda 10 dice que la cuadrilla, que es lo que más reencuentros
+            consigue, quedó debajo del mapa, las coincidencias y el botón de
+            reencuentro, después de scrollear el plan entero. No se repite el
+            error acá. Mismo gate que el plan: solo el dueño, mientras busca. */}
+        {esMio && !reunida && pet.estado === 'perdida' ? (
+          <View
+            onLayout={(e: LayoutChangeEvent) => {
+              tableroYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <TableroDifusion pet={pet} onAfiche={crearAfiche} />
+          </View>
+        ) : null}
+
         {/* Los dos van juntos y en este orden a propósito: primero HASTA DÓNDE
             buscar, después QUÉ hacer. El consejo de radio le da la escala al
             plan; al revés, el plan mandaría a recorrer sin decir cuánto. */}
@@ -749,7 +770,12 @@ export default function PetDetailScreen({ route, navigation }: any) {
             corresponde (no es quien busca), y en uno de mascota encontrada
             tampoco. El progreso vive local, sin migración. */}
         {esMio && !reunida && pet.estado === 'perdida' ? (
-          <PlanBusqueda pet={pet} navigation={navigation} onAfiche={crearAfiche} />
+          <PlanBusqueda
+            pet={pet}
+            navigation={navigation}
+            onAfiche={crearAfiche}
+            onTablero={() => scrollRef.current?.scrollTo({ y: tableroYRef.current, animated: true })}
+          />
         ) : null}
 
         {/* Se anuncia que HAY recompensa, nunca cuánto. Los reportes viejos

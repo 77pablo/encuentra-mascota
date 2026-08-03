@@ -30,6 +30,7 @@ import {
   tareasSugeridas,
 } from '../lib/cuadrilla';
 import { getPet, Pet } from '../services/pets';
+import AficheGenerator from '../components/AficheGenerator';
 import { shareCuadrillaInvite } from '../lib/share';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import { notify } from '../lib/notify';
@@ -89,6 +90,10 @@ export default function CuadrillaScreen({ route, navigation }: any) {
   const [creando, setCreando] = useState(false);
   const [nuevaTarea, setNuevaTarea] = useState('');
   const [agregando, setAgregando] = useState(false);
+  // El afiche (A4): quien tomó "pegar carteles" no siempre es el dueño, y
+  // hasta ahora `AficheGenerator` sólo estaba alcanzable en `PetDetailScreen`
+  // detrás de `esMio`. Acá se monta SIN ese gate, a propósito.
+  const [generandoAfiche, setGenerandoAfiche] = useState(false);
 
   // El reporte se lee aparte y su fallo NO tumba el tablero: sirve para el
   // título y para el texto de la invitación, no para funcionar.
@@ -463,6 +468,36 @@ export default function CuadrillaScreen({ route, navigation }: any) {
             style={styles.cta}
           />
         </Card>
+
+        {/* Afiche para imprimir (A4): cualquiera que esté en la cuadrilla lo
+            puede bajar, no sólo el dueño — es lo que hace falta para "pegar
+            10 carteles". Sin `profile`: acá no hay forma (ni debería haberla)
+            de leer el WhatsApp privado del dueño, así que el afiche sale con
+            el QR nomás (`armarAfiche` ya acepta `profile: null`). */}
+        <Card style={styles.card}>
+          <AppText size={14}>Bajá el afiche para pegar en el barrio.</AppText>
+          <Button
+            title="Crear el afiche"
+            variant="secondary"
+            icon="print"
+            loading={generandoAfiche}
+            disabled={!pet}
+            onPress={() => setGenerandoAfiche(true)}
+            style={styles.cta}
+          />
+        </Card>
+
+        {generandoAfiche && pet ? (
+          <AficheGenerator
+            pet={pet}
+            profile={null}
+            onDone={() => setGenerandoAfiche(false)}
+            onError={(mensaje) => {
+              setGenerandoAfiche(false);
+              notify('No se pudo generar el afiche', mensaje);
+            }}
+          />
+        ) : null}
 
         {miembros.length > 1 ? (
           <View style={styles.miembros}>

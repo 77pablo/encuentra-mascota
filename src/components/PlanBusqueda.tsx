@@ -42,9 +42,21 @@ export interface PlanBusquedaProps {
   navigation?: { navigate: (name: string, params?: Record<string, unknown>) => void };
   /** El generador de afiches vive en la ficha; el plan sólo lo llama. */
   onAfiche?: () => void;
+  /** El tablero de difusión (A4, migración 0063) vive en la ficha, arriba del
+   *  plan; este callback lo abre (o scrollea hasta él) en vez de que estos dos
+   *  pasos repitan por su cuenta el texto de "avisar" y "llamar" que el
+   *  tablero ya resuelve con una lista real y casillas de "ya avisé". */
+  onTablero?: () => void;
 }
 
-export function PlanBusqueda({ pet, ahora, navigation, onAfiche }: PlanBusquedaProps) {
+// Estos dos pasos hablan justo de lo que el tablero de difusión existe para
+// registrar (a quién avisarle, a qué veterinaria/refugio llamar). En vez de
+// que el plan repita ese contenido por su cuenta, ofrecen un segundo botón que
+// lleva derecho al tablero — sin tocar `PASOS_PLAN` ni sus ids guardados en
+// `planLocal`.
+const IDS_CON_TABLERO = new Set(['avisa-a-tu-barrio', 'llama-veterinarias-y-refugios']);
+
+export function PlanBusqueda({ pet, ahora, navigation, onAfiche, onTablero }: PlanBusquedaProps) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
 
@@ -287,6 +299,15 @@ export function PlanBusqueda({ pet, ahora, navigation, onAfiche }: PlanBusquedaP
                           title={paso.accionLocal === 'afiche' ? 'Crear el afiche' : paso.accion!.label}
                           variant="secondary"
                           onPress={() => irA(paso)}
+                          style={styles.pasoBoton}
+                        />
+                      ) : null}
+
+                      {abierto && IDS_CON_TABLERO.has(paso.id) && onTablero ? (
+                        <Button
+                          title="Abrir el tablero"
+                          variant="ghost"
+                          onPress={onTablero}
                           style={styles.pasoBoton}
                         />
                       ) : null}
