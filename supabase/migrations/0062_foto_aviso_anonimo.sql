@@ -46,7 +46,7 @@ create function public.avistar_sin_cuenta(
   p_correo text default null,
   p_foto_path text default null
 )
-returns void
+returns boolean
 language plpgsql
 security definer
 set search_path = public, pg_temp
@@ -74,15 +74,10 @@ begin
   -- Reporte inexistente, cerrado u oculto: no encolamos nada y NO delatamos
   -- cual de los tres casos es.
   if not found then
-    -- Con foto (o sea, llamada de la Edge Function con service_role): avisarle
-    -- que el aviso NO entró, sin decir por qué. El anónimo de a pie nunca pasa
-    -- por acá con foto (el gate de arriba lo corta), así que esto no es un
-    -- oráculo hacia afuera: es una señal interna para que la foto corra la
-    -- misma suerte que el aviso.
-    if p_foto_path is not null then
-      raise exception 'aviso_descartado';
-    end if;
-    return;
+    -- La foto corre la misma suerte que el aviso. Al anónimo de a pie (sin
+    -- foto) se le devuelve true igual que en el camino feliz: el descarte
+    -- sigue siendo invisible desde afuera, la señal es solo para la EF.
+    return p_foto_path is null;
   end if;
 
   -- Bloqueo (ver 3, arriba). Solo aplica si hay sesion; sin sesion no hay a
@@ -93,11 +88,8 @@ begin
     where (b.bloqueador = v_pet.user_id and b.bloqueado = auth.uid())
        or (b.bloqueador = auth.uid() and b.bloqueado = v_pet.user_id)
   ) then
-    -- ver el primer descarte: la foto corre la misma suerte
-    if p_foto_path is not null then
-      raise exception 'aviso_descartado';
-    end if;
-    return;
+    -- ver el primer descarte: misma suerte, sin oráculo
+    return p_foto_path is null;
   end if;
 
   -- ── NUEVO: registrar el correo de seguimiento ──────────────────────────
@@ -118,8 +110,11 @@ begin
         on conflict (pet_id, correo) do nothing;
       end if;
     end if;
-    -- Correo inválido: se ignora en silencio. La RPC es void a propósito
-    -- (0050: no ser un oráculo); la validación con mensaje vive en el cliente.
+    -- Correo inválido: se ignora en silencio. La RPC no devuelve el detalle
+    -- del descarte a propósito (0050: no ser un oráculo); la validación con
+    -- mensaje vive en el cliente. El boolean de retorno es solo la señal
+    -- interna "hubo foto y se descartó" para la Edge Function, no un canal
+    -- de motivos.
   end if;
   -- ───────────────────────────────────────────────────────────────────────
 
@@ -169,11 +164,8 @@ begin
       and round((ne.datos->>'lat')::numeric, 5) is not distinct from v_lat
       and round((ne.datos->>'lng')::numeric, 5) is not distinct from v_lng
   ) then
-    -- ver el primer descarte: la foto corre la misma suerte
-    if p_foto_path is not null then
-      raise exception 'aviso_descartado';
-    end if;
-    return;
+    -- ver el primer descarte: misma suerte, sin oráculo
+    return p_foto_path is null;
   end if;
 
   -- (b) TECHO DE VOLUMEN — y por que vuelve a existir.
@@ -206,11 +198,8 @@ begin
       and ne.pet_id = p_pet_id
       and ne.creado_en > now() - interval '1 hour'
   ) >= 10 then
-    -- ver el primer descarte: la foto corre la misma suerte
-    if p_foto_path is not null then
-      raise exception 'aviso_descartado';
-    end if;
-    return;
+    -- ver el primer descarte: misma suerte, sin oráculo
+    return p_foto_path is null;
   end if;
 
   if (
@@ -219,11 +208,8 @@ begin
       and ne.pet_id = p_pet_id
       and ne.creado_en > now() - interval '1 day'
   ) >= 30 then
-    -- ver el primer descarte: la foto corre la misma suerte
-    if p_foto_path is not null then
-      raise exception 'aviso_descartado';
-    end if;
-    return;
+    -- ver el primer descarte: misma suerte, sin oráculo
+    return p_foto_path is null;
   end if;
 
   insert into public.notification_events (tipo, pet_id, target_user_id, actor_id, datos)
@@ -241,6 +227,7 @@ begin
       'foto', p_foto_path
     )
   );
+  return true;
 end;
 $$;
 

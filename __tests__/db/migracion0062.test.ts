@@ -30,16 +30,26 @@ describe('0062: la foto del aviso anónimo solo la ve el dueño', () => {
     expect(sql).toMatch(/to anon/);
   });
 
-  it('cada descarte silencioso levanta aviso_descartado si venía con foto', () => {
-    const ocurrencias = sql.match(/raise exception 'aviso_descartado'/g) ?? [];
-    // Los 5 caminos de `return;` sin insertar: pet inexistente/oculto, bloqueo,
-    // dedupe por contenido, tope por hora y tope por día. Ninguno debe subir
-    // (ni dejar apuntando) una foto de un aviso que nunca se registró.
+  it('la función devuelve boolean, no void: la señal de descarte viaja en el retorno', () => {
+    expect(sql).toMatch(/returns boolean/);
+    expect(sql).not.toMatch(/returns void/);
+  });
+
+  it('no hay excepción de descarte: un raise exception haría rollback del correo de seguimiento ya insertado', () => {
+    expect(sql).not.toMatch(/aviso_descartado/);
+    expect(sql).not.toMatch(/raise exception/);
+  });
+
+  it('cada uno de los 5 descartes silenciosos devuelve `p_foto_path is null` (true para el anónimo sin foto, false para la EF con foto)', () => {
+    const ocurrencias = sql.match(/return p_foto_path is null;/g) ?? [];
+    // Los 5 caminos silenciosos: pet inexistente/oculto, bloqueo, dedupe por
+    // contenido, tope por hora y tope por día. Ninguno debe subir (ni dejar
+    // apuntando) una foto de un aviso que nunca se registró, pero tampoco
+    // deben delatar el motivo del descarte hacia afuera.
     expect(ocurrencias.length).toBe(5);
   });
 
-  it('el gate de aviso_descartado va siempre antes de un return silencioso', () => {
-    const returns = sql.match(/if p_foto_path is not null then\s*\n\s*raise exception 'aviso_descartado';\s*\n\s*end if;\s*\n\s*return;/g) ?? [];
-    expect(returns.length).toBe(5);
+  it('el camino feliz termina en `return true;`', () => {
+    expect(sql).toMatch(/return true;\s*\n\s*end;\s*\n\s*\$\$;/);
   });
 });

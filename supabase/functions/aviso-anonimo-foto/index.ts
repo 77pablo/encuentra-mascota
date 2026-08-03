@@ -4,9 +4,13 @@ import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
 // La única puerta por la que un anónimo puede subir una foto (spec F4). Valida
 // acá lo que Storage no puede: tamaño, tipo y a qué reporte va. El aviso y su
 // tope (10/hora, 30/día, 0055) los aplica la RPC; si la RPC descarta el aviso
-// en silencio (pet inexistente/oculto, bloqueo, dedupe o tope), levanta
-// 'aviso_descartado' cuando viene con foto y acá NO subimos nada — la foto
-// corre la misma suerte que el aviso, sin exponer por qué se descartó.
+// en silencio (pet inexistente/oculto, bloqueo, dedupe o tope), devuelve
+// `false` cuando la llamada vino con foto y acá NO subimos nada — la foto
+// corre la misma suerte que el aviso, sin exponer por qué se descartó. La
+// señal viaja en el valor de retorno, no como excepción: un `raise exception`
+// haría rollback del insert en `seguimientos_anonimos` (el "avisame si
+// aparece" del correo), que corre ANTES de los descartes por dedupe/tope
+// justamente para sobrevivirlos.
 const WINDOW_MS = 60_000;
 const MAX = 5;
 const hits = new Map<string, number[]>();
@@ -77,7 +81,7 @@ Deno.serve(async (req: Request) => {
 
     // Primero el aviso (con sus topes de la 0055 adentro), después la foto: si
     // la RPC corta, preferimos un aviso sin foto antes que una foto sin aviso.
-    const { error: errRpc } = await supabase.rpc('avistar_sin_cuenta', {
+    const { data, error: errRpc } = await supabase.rpc('avistar_sin_cuenta', {
       p_pet_id: petId,
       p_nota: (body.nota ?? '').trim().slice(0, 500) || null,
       p_lat: null,
@@ -86,15 +90,15 @@ Deno.serve(async (req: Request) => {
       p_foto_path: path,
     });
     if (errRpc) {
-      // 'aviso_descartado': la RPC descartó el aviso en silencio (pet
-      // inexistente/oculto, bloqueo, dedupe o tope de 10/hora-30/día) y nos
-      // avisa por adentro para que la foto NO se suba — pero hacia afuera
-      // contestamos EXACTAMENTE lo mismo que el camino feliz, para no
-      // convertirnos en un oráculo de bloqueos ni de topes.
-      if (errRpc.message?.includes('aviso_descartado')) {
-        return new Response(JSON.stringify({ ok: true, foto: false }), { status: 200, headers: HEADERS });
-      }
       return new Response(JSON.stringify({ error: 'No se pudo registrar el aviso' }), { status: 502, headers: HEADERS });
+    }
+    if (data === false) {
+      // La RPC descartó el aviso en silencio (pet inexistente/oculto,
+      // bloqueo, dedupe o tope de 10/hora-30/día) y nos lo señala con
+      // `false` para que la foto NO se suba — pero hacia afuera contestamos
+      // EXACTAMENTE lo mismo que el camino feliz, para no convertirnos en un
+      // oráculo de bloqueos ni de topes.
+      return new Response(JSON.stringify({ ok: true, foto: false }), { status: 200, headers: HEADERS });
     }
 
     const { error: errSubida } = await supabase.storage
