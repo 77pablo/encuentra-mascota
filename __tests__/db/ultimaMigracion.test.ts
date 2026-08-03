@@ -16,13 +16,14 @@ const DIR = join(RAIZ, 'supabase', 'migrations');
 // final: 0063 (A1) -> 0064 (B2) -> 0065 (B4) -> 0066 (C3). Ponerlo en 66 desde
 // el principio lo dejaria rojo toda la tanda, y un rojo conocido y tolerado es
 // como se cuelan los rojos nuevos.
+// Venia de 0062 (tanda 13).
 // ───────────────────────────────────────────────────────────────────────────
-describe('0062 es la ultima migracion del repo', () => {
+describe('0063 es la ultima migracion del repo', () => {
   it('no hay ninguna migracion con numero mayor', () => {
     const numeros = readdirSync(DIR)
       .filter((f) => f.endsWith('.sql'))
       .map((f) => parseInt(f.slice(0, 4), 10))
       .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(62);
+    expect(Math.max(...numeros)).toBe(63);
   });
 });
