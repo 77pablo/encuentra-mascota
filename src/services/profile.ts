@@ -82,9 +82,13 @@ export async function getMyProfile(userIdRespaldo?: string): Promise<Profile | n
   // trae esas claves) o si la cuenta no esta verificada. Las dos cosas
   // significan lo mismo para la app.
   //
-  // `?? true` cubre la misma ventana de despliegue: la web nueva puede hablar
-  // con una `mi_perfil()` vieja (0058 o anterior) que todavia no trae esta
-  // columna, y el default de la 0059 en la base es `true`.
+  // `?? true` cubre la ventana de despliegue, pero SOLO del lado de la
+  // LECTURA: la web nueva puede hablar con una `mi_perfil()` vieja (0058 o
+  // anterior) que todavia no trae esta columna, y el default de la 0059 en la
+  // base es `true`. La ESCRITURA no tiene ningun escalon parecido — `updateMyProfile`
+  // manda `mostrar_red_social` en el UPDATE, y sin la 0059 aplicada PostgREST
+  // rechaza el UPDATE ENTERO (columna inexistente), no solo ese campo. Por
+  // eso la 0059 se tiene que aplicar ANTES del deploy web (ver su cabecera, F8).
   return { ...fila, institucion: institucionDe(fila), mostrar_red_social: fila.mostrar_red_social ?? true } as Profile;
 }
 

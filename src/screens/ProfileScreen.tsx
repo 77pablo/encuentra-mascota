@@ -350,7 +350,11 @@ export default function ProfileScreen({ navigation }: any) {
   const insignias = stats ? insigniasDe(stats) : [];
 
   const tieneNombre = !!profile?.nombre?.trim();
-  const nombreMostrado = tieneNombre ? (profile!.nombre as string) : user?.email ?? '';
+  // F19 (revisión adversarial final): este fallback corre tanto "sin nombre
+  // cargado" como en el camino de ERROR de carga del perfil (profile null) —
+  // en los dos casos antes se mostraba `user?.email` COMPLETO, sin enmascarar,
+  // en la cabecera. Enmascarado acá, igual que el correo propio de más abajo.
+  const nombreMostrado = tieneNombre ? (profile!.nombre as string) : enmascararCorreo(user?.email);
   // La inicial del avatar sale del nombre (antes usaba el correo, que no es lo
   // que la persona reconoce como suyo).
   const inicial = nombreMostrado ? nombreMostrado.charAt(0).toUpperCase() : '🐾';

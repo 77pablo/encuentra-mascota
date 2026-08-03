@@ -335,6 +335,17 @@ describe('B5.2 — las insignias también en el perfil propio', () => {
   });
 });
 
+describe('F19 (revisión adversarial final) — el correo nunca sale sin enmascarar en la cabecera', () => {
+  it('si falla la carga del perfil (profile queda null), la cabecera muestra el correo ENMASCARADO, no completo', async () => {
+    mockGetMyProfile.mockReset().mockRejectedValue({ message: 'se cayó la red' });
+    const arbol = await montar();
+
+    const t = textos(arbol);
+    expect(t).toContain('y***@ejemplo.cl');
+    expect(t).not.toContain('yo@ejemplo.cl');
+  });
+});
+
 describe('A10 — se puede llegar a "Mis comunas" desde el Perfil', () => {
   it('la fila existe y navega a la pantalla', async () => {
     const arbol = await montar();

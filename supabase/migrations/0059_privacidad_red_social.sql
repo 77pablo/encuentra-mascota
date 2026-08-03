@@ -1,5 +1,11 @@
 -- 0059: interruptor "mostrar mi red social en mi perfil público" (tanda 13).
 --
+-- APLICAR ANTES DEL DEPLOY WEB (F8, revisión adversarial final): `updateMyProfile`
+-- manda `mostrar_red_social` en el `update` de perfil. Con la web nueva arriba
+-- y esta migración sin aplicar, PostgREST rechaza el UPDATE ENTERO (columna
+-- inexistente), no solo el campo nuevo: guardar el perfil se rompe para todos,
+-- no solo para quien toque el interruptor.
+--
 -- La red social era LO ÚNICO realmente público del contacto (spec 2026-08-02):
 -- el teléfono está revocado por columna desde la tanda A y el correo no existe
 -- en profiles. El filtro va acá adentro y no en el cliente porque la columna
