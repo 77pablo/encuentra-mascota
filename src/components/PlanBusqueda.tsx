@@ -50,9 +50,10 @@ export interface PlanBusquedaProps {
 }
 
 // Estos dos pasos hablan justo de lo que el tablero de difusión existe para
-// registrar (a quién avisarle, a qué veterinaria/refugio llamar). En vez de
-// que el plan repita ese contenido por su cuenta, ofrecen un segundo botón que
-// lleva derecho al tablero — sin tocar `PASOS_PLAN` ni sus ids guardados en
+// registrar (a quién avisarle, a qué veterinaria/refugio llamar). Cuando el
+// tablero está disponible, "Abrir el tablero" es la acción principal de estos
+// pasos: ahí es donde vive el trabajo concreto. Sin el tablero, el enlace viejo
+// es la única acción disponible. Sin tocar `PASOS_PLAN` ni sus ids guardados en
 // `planLocal`.
 const IDS_CON_TABLERO = new Set(['avisa-a-tu-barrio', 'llama-veterinarias-y-refugios']);
 
@@ -312,7 +313,7 @@ export function PlanBusqueda({ pet, ahora, navigation, onAfiche, onTablero }: Pl
                       {abierto && tieneAccion(paso) ? (
                         <Button
                           title={paso.accionLocal === 'afiche' ? 'Crear el afiche' : paso.accion!.label}
-                          variant={IDS_CON_TABLERO.has(paso.id) ? 'ghost' : 'secondary'}
+                          variant={IDS_CON_TABLERO.has(paso.id) && onTablero ? 'ghost' : 'secondary'}
                           onPress={() => irA(paso)}
                           style={styles.pasoBoton}
                         />

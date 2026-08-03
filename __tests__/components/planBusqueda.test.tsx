@@ -283,7 +283,11 @@ describe('el tablero de difusión reemplaza el texto duplicado (A4), no lo repit
     const navigation = { navigate: jest.fn() };
     const arbol = await montar({ pet: { ...PERRO, creado_en: hs(5) }, navigation });
     expect(boton(arbol, 'Abrir el tablero')).toBeUndefined();
-    expect(boton(arbol, 'Ver veterinarias y refugios')).toBeDefined();
+    const b = boton(arbol, 'Ver veterinarias y refugios');
+    expect(b).toBeDefined();
+    // Sin onTablero, el botón viejo tiene que ser 'secondary', no 'ghost':
+    // es la única acción disponible y debe tener el mismo peso que en otros pasos.
+    expect(b!.props.variant).toBe('secondary');
   });
 });
 
