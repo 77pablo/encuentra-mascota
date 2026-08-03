@@ -67,6 +67,27 @@ describe('resumenDifusion — el tono importa', () => {
     const cero = resumenDifusion([destino()]);
     expect(cero).not.toMatch(/1 avisos?/);
   });
+
+  it('con dos o más avisados, pluraliza la palabra correctamente', () => {
+    // El caso de cero (avisados.length === 0) retorna temprano sin pasar por pluralizar,
+    // así que no puede cubrirse aquí. La regla del español (n === 1 → singular) se verifica
+    // implícitamente por contraste: aquí forzamos n > 1.
+    const dos = resumenDifusion([
+      destino({ id: 'a', estado: 'avisado', avisadoEn: 'x' }),
+      destino({ id: 'b', estado: 'avisado', avisadoEn: 'x' }),
+    ]);
+    expect(dos).toMatch(/2 avisos/);
+    // Si los argumentos de pluralizar estuvieran invertidos o el singular fuera hardcodeado,
+    // esto fallaría porque vería "2 aviso" sin s.
+    expect(dos).not.toMatch(/2 aviso(?!s)/);
+
+    const tres = resumenDifusion([
+      destino({ id: 'a', estado: 'avisado', avisadoEn: 'x' }),
+      destino({ id: 'b', estado: 'avisado', avisadoEn: 'x' }),
+      destino({ id: 'c', estado: 'avisado', avisadoEn: 'x' }),
+    ]);
+    expect(tres).toMatch(/3 avisos/);
+  });
 });
 
 describe('sugerenciasDePersonas', () => {
