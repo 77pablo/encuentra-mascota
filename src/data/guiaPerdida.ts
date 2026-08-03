@@ -70,10 +70,15 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
   {
     id: 'avisa-a-tu-barrio',
     titulo: 'Avisá a tu barrio',
+    // Reducido a propósito (tanda 14, A4): el "a quién avisarle" —el grupo de
+    // WhatsApp, la junta de vecinos, el almacén— ya lo sugiere y lo REGISTRA
+    // el tablero de difusión de tu reporte, con casillas de "ya avisé". Acá
+    // sólo queda el porqué; repetir la lista sería duplicar lo que el tablero
+    // vino a resolver.
     detalle:
-      'Compartí el reporte en tus grupos de vecinos y seguí tu comuna para estar al ' +
-      'tanto de lo que se mueve cerca. Mientras más ojos, mejor: el barrio es tu ' +
-      'mejor aliado en las primeras horas.',
+      'Mientras más ojos, mejor: el barrio es tu mejor aliado en las primeras horas. ' +
+      'Anotá en el tablero a quién le fuiste avisando, así no repetís ni te olvidás ' +
+      'de nadie.',
     accion: {
       label: 'Ir a mi comunidad',
       ruta: 'Explorar',
@@ -82,10 +87,13 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
   {
     id: 'llama-veterinarias-y-refugios',
     titulo: 'Llamá a veterinarias y refugios cercanos',
+    // Reducido a propósito (tanda 14, A4): la lista de veterinarias y refugios
+    // CERCA TUYO, con dirección y botón a Maps, ya la arma el tablero de
+    // difusión (que además registra a cuáles ya llamaste). Acá sólo queda lo
+    // que el tablero no dice: qué contar por teléfono y el chip.
     detalle:
-      'Preguntá si llegó una mascota con sus señas y dejá tu contacto por si aparece. ' +
-      'Si tiene chip, tené el número a mano: en una veterinaria pueden leerlo y dar ' +
-      'con vos. Volvé a llamar los días siguientes; a veces llegan después.',
+      'Contá las señas y dejá tu contacto. Si tiene chip, tené el número a mano: en ' +
+      'una veterinaria pueden leerlo y dar con vos.',
     accion: {
       label: 'Ver veterinarias y refugios',
       ruta: 'Ayuda',

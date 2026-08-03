@@ -64,6 +64,19 @@ jest.mock('../../src/lib/share', () => ({
   shareCuadrillaInvite: (...a: any[]) => mockShareInvite(...a),
 }));
 
+// Marcador liviano: no hace falta el generador de afiches real (canvas,
+// captura de imagen) para probar QUIÉN puede llegar a montarlo. Se deja algo
+// reconocible en pantalla para poder comprobar que de verdad se montó.
+jest.mock('../../src/components/AficheGenerator', () => {
+  const ReactActual = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ pet }: any) =>
+      ReactActual.createElement(Text, null, `afiche-generado-para:${pet?.id ?? ''}`),
+  };
+});
+
 const mockNotify = jest.fn();
 jest.mock('../../src/lib/notify', () => ({
   notify: (...a: any[]) => mockNotify(...a),
@@ -308,6 +321,27 @@ describe('cuadrilla de DOS personas', () => {
     expect(botones(arbol).filter((b: any) => /ya est[áa]|hecha/i.test(b.props.title))).toHaveLength(
       0,
     );
+  });
+
+  it('Ana, que NO es la dueña, también puede generar el afiche', async () => {
+    // Regresión real (revisión de la tanda 14, A4): un gate de propiedad tipo
+    // `esMio && <AficheGenerator ...` volvería a dejar el afiche inalcanzable
+    // para quien tomó "pegar carteles" pero no es el dueño del reporte. Un
+    // test que sólo mirara el CÓDIGO FUENTE ("no debe decir esMio && <Afiche")
+    // se esquiva con cualquier reformateo (otro nombre de variable, otro
+    // orden de la condición) sin arreglar nada; éste verifica el
+    // COMPORTAMIENTO: que el componente de verdad se monte para alguien que
+    // no es el dueño.
+    mockUser = { id: 'ana' };
+    const arbol = await montar({ petId: 'p1' });
+
+    const b = boton(arbol, /crear el afiche/i);
+    expect(b).toBeTruthy();
+    await act(async () => {
+      b.props.onPress();
+    });
+
+    expect(todoElTexto(arbol)).toContain('afiche-generado-para:p1');
   });
 });
 

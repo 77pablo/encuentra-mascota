@@ -294,20 +294,26 @@ export function PlanBusqueda({ pet, ahora, navigation, onAfiche, onTablero }: Pl
                         </TouchableOpacity>
                       </View>
 
-                      {abierto && tieneAccion(paso) ? (
+                      {/* Para estos dos pasos, "Abrir el tablero" pasa a ser
+                          la acción PRINCIPAL: ahí es donde hoy vive el
+                          trabajo concreto (la lista real de a quién avisar o
+                          a qué veterinaria llamar, con casillas de "ya
+                          avisé"). El enlace viejo (comunidad / Ayuda) queda
+                          como secundario, no como duplicado. */}
+                      {abierto && IDS_CON_TABLERO.has(paso.id) && onTablero ? (
                         <Button
-                          title={paso.accionLocal === 'afiche' ? 'Crear el afiche' : paso.accion!.label}
-                          variant="secondary"
-                          onPress={() => irA(paso)}
+                          title="Abrir el tablero"
+                          variant="primary"
+                          onPress={onTablero}
                           style={styles.pasoBoton}
                         />
                       ) : null}
 
-                      {abierto && IDS_CON_TABLERO.has(paso.id) && onTablero ? (
+                      {abierto && tieneAccion(paso) ? (
                         <Button
-                          title="Abrir el tablero"
-                          variant="ghost"
-                          onPress={onTablero}
+                          title={paso.accionLocal === 'afiche' ? 'Crear el afiche' : paso.accion!.label}
+                          variant={IDS_CON_TABLERO.has(paso.id) ? 'ghost' : 'secondary'}
+                          onPress={() => irA(paso)}
                           style={styles.pasoBoton}
                         />
                       ) : null}

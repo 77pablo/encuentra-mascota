@@ -233,6 +233,60 @@ describe('los enganches con lo que ya existe en la app', () => {
   });
 });
 
+describe('el tablero de difusión reemplaza el texto duplicado (A4), no lo repite', () => {
+  // Antes de este arreglo el texto de estos dos pasos seguía completo Y el
+  // botón viejo era la acción principal, con "Abrir el tablero" como
+  // secundario: enlazaba ADEMÁS de duplicar. Estos tests fijan las dos cosas.
+  it('"Avisá a tu barrio" ya no repite la lista de a quién avisar (eso vive en el tablero)', async () => {
+    const onTablero = jest.fn();
+    const navigation = { navigate: jest.fn() };
+    const arbol = await montar({ pet: { ...PERRO, creado_en: hs(5) }, onTablero, navigation });
+    await abrirPaso(arbol, 'Avisá a tu barrio');
+
+    const t = textos(arbol);
+    expect(t).not.toMatch(/grupos de vecinos/i);
+
+    const principal = boton(arbol, 'Abrir el tablero');
+    expect(principal).toBeDefined();
+    expect(principal!.props.variant).toBe('primary');
+    await act(async () => {
+      principal!.props.onPress();
+    });
+    expect(onTablero).toHaveBeenCalled();
+
+    // El enlace viejo sigue, pero como secundario, no como la acción principal.
+    const secundario = boton(arbol, 'Ir a mi comunidad');
+    expect(secundario).toBeDefined();
+    expect(secundario!.props.variant).not.toBe('primary');
+  });
+
+  it('"Llamá a veterinarias y refugios" ya no repite la lista genérica de llamar (eso vive en el tablero)', async () => {
+    const onTablero = jest.fn();
+    const navigation = { navigate: jest.fn() };
+    const arbol = await montar({ pet: { ...PERRO, creado_en: hs(5) }, onTablero, navigation });
+    // a las 5 horas éste ya viene destacado (primero de "hoy"), sin necesidad de abrirlo.
+
+    const t = textos(arbol);
+    expect(t).not.toMatch(/preguntá si llegó una mascota/i);
+    expect(t).not.toMatch(/volvé a llamar los días siguientes/i);
+
+    const principal = boton(arbol, 'Abrir el tablero');
+    expect(principal).toBeDefined();
+    expect(principal!.props.variant).toBe('primary');
+
+    const secundario = boton(arbol, 'Ver veterinarias y refugios');
+    expect(secundario).toBeDefined();
+    expect(secundario!.props.variant).not.toBe('primary');
+  });
+
+  it('sin onTablero (compatibilidad), el enlace viejo sigue siendo la única acción', async () => {
+    const navigation = { navigate: jest.fn() };
+    const arbol = await montar({ pet: { ...PERRO, creado_en: hs(5) }, navigation });
+    expect(boton(arbol, 'Abrir el tablero')).toBeUndefined();
+    expect(boton(arbol, 'Ver veterinarias y refugios')).toBeDefined();
+  });
+});
+
 describe('el tono en pantalla', () => {
   it('no hay porcentajes de progreso ni celebraciones', async () => {
     const arbol = await montar({ pet: PERRO });

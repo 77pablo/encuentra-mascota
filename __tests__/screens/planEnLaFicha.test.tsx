@@ -87,6 +87,17 @@ jest.mock('../../src/services/tips', () => ({
   crearTip: jest.fn(),
   borrarTip: jest.fn(),
 }));
+// El tablero de difusión (A4, migración 0063) necesita responder "listo" (no
+// "no disponible") para que el guardián de orden de más abajo pueda comprobar
+// DÓNDE queda, en vez de comprobar que quedó ausente.
+jest.mock('../../src/services/difusion', () => ({
+  listarDestinos: jest.fn(() => Promise.resolve({ tipo: 'listo', destinos: [] })),
+  lugaresCerca: jest.fn(() => Promise.resolve([])),
+  agregarPersona: jest.fn(),
+  agregarLugar: jest.fn(),
+  marcarAvisado: jest.fn(),
+  borrarDestino: jest.fn(),
+}));
 
 import PetDetailScreen from '../../src/screens/PetDetailScreen';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';
@@ -175,5 +186,29 @@ describe('el plan de búsqueda en la ficha', () => {
     const t = textos(await montarFicha());
     expect(t).toContain('FINAL FELIZ');
     expect(t).not.toContain('Plan de búsqueda');
+  });
+});
+
+describe('el orden del tablero de difusión y el plan de búsqueda en la ficha', () => {
+  // Guardián de la deuda anotada en la tanda 10: la cuadrilla —lo que más
+  // reencuentros consigue— quedó enterrada debajo de todo el plan y nadie se
+  // enteró porque nada lo comprobaba. El brief de A4 pide el tablero de
+  // difusión ARRIBA del plan a propósito (mismo motivo). Sin este test, que
+  // el orden esté bien hoy es pura casualidad: nada se pone rojo si mañana
+  // alguien mueve un bloque de JSX en PetDetailScreen.tsx.
+  it('el tablero de difusión aparece ANTES que el plan de búsqueda', async () => {
+    const arbol = await montarFicha();
+    const textoPlano = arbol.root
+      .findAll((n: any) => typeof n.type === 'string')
+      .flatMap((n: any) => n.children.filter((c: any) => typeof c === 'string'));
+
+    const iTablero = textoPlano.indexOf('Tablero de difusión');
+    const iPlan = textoPlano.indexOf('Plan de búsqueda');
+
+    // Si cualquiera de los dos no aparece, el test no está comprobando nada:
+    // que fallen acá con un mensaje claro en vez de con un -1 vs -1 mudo.
+    expect(iTablero).toBeGreaterThanOrEqual(0);
+    expect(iPlan).toBeGreaterThanOrEqual(0);
+    expect(iTablero).toBeLessThan(iPlan);
   });
 });

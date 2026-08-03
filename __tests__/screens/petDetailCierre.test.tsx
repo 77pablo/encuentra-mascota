@@ -62,6 +62,17 @@ jest.mock('../../src/services/cierreCasos', () => ({
 jest.mock('../../src/services/cuadrilla', () => ({
   estadoDeCuadrilla: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
 }));
+// El tablero de difusión (A4, migración 0063) ahora vive en esta misma ficha.
+// Esta suite no prueba el tablero: se lo degrada a "no disponible", igual que
+// la cuadrilla de arriba, para que la ficha quede EXACTAMENTE como antes.
+jest.mock('../../src/services/difusion', () => ({
+  listarDestinos: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
+  lugaresCerca: jest.fn(() => Promise.resolve([])),
+  agregarPersona: jest.fn(),
+  agregarLugar: jest.fn(),
+  marcarAvisado: jest.fn(),
+  borrarDestino: jest.fn(),
+}));
 jest.mock('../../src/services/sightings', () => ({
   listSightings: jest.fn(() => Promise.resolve([])),
   deleteSighting: jest.fn(() => Promise.resolve()),

@@ -53,7 +53,9 @@ export function TableroDifusion({ pet, onAfiche }: TableroDifusionProps) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
 
-  const [estado, setEstado] = useState<'cargando' | 'no-disponible' | 'listo'>('cargando');
+  const [estado, setEstado] = useState<'cargando' | 'no-disponible' | 'error' | 'listo'>(
+    'cargando',
+  );
   const [destinos, setDestinos] = useState<Destino[]>([]);
   const [lugares, setLugares] = useState<LugarCerca[]>([]);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -74,7 +76,10 @@ export function TableroDifusion({ pet, onAfiche }: TableroDifusionProps) {
     return radioSugerido({ especie: pet.especie, ambito: pet.ambito ?? undefined, dias }).km;
   }, [pet.especie, pet.ambito, pet.creado_en]);
 
+  const [errorCarga, setErrorCarga] = useState<string | undefined>();
+
   const cargar = useCallback(async () => {
+    setEstado('cargando');
     try {
       const t = await listarDestinos(pet.id);
       if (t.tipo === 'no-disponible') {
@@ -86,13 +91,19 @@ export function TableroDifusion({ pet, onAfiche }: TableroDifusionProps) {
       // con los destinos que el dueño escribio a mano.
       setLugares(await lugaresCerca(pet.id, radioKm).catch(() => []));
       setEstado('listo');
-    } catch {
-      // Best-effort (restricción global de la tanda 14: "Nada bloquea
-      // publicar. Vector, semilla y tablero son best-effort"): un fallo
-      // inesperado de red o de RLS al leer los destinos se trata igual que
-      // "no disponible" — la ficha se ve exactamente como hoy, sin el
-      // tablero, en vez de trabarse.
-      setEstado('no-disponible');
+    } catch (e) {
+      // `listarDestinos` (services/difusion.ts) ya distingue las dos cosas:
+      // sólo devuelve `{ tipo: 'no-disponible' }` cuando la migración no está
+      // aplicada (PGRST205/PGRST202/42P01/42883); todo lo demás lo relanza.
+      // Un corte de red o un error inesperado NO se puede tratar igual que
+      // "no disponible": la restricción global de la tanda dice que eso "se
+      // propaga, para que haya algo que reintentar". Por eso acá queda un
+      // estado de error CON un botón de reintentar, en vez de desaparecer en
+      // silencio (que es justo lo que le pasaba al usuario antes de este
+      // arreglo: se le cortaba la red y el tablero se esfumaba sin dejar
+      // rastro).
+      setErrorCarga(mensajeDeErrorDb(e));
+      setEstado('error');
     }
   }, [pet.id, radioKm]);
 
@@ -110,6 +121,32 @@ export function TableroDifusion({ pet, onAfiche }: TableroDifusionProps) {
   // La ficha tiene que quedar EXACTAMENTE como hoy si la migracion no esta.
   if (estado === 'no-disponible') return null;
   if (estado === 'cargando') return null;
+
+  // Un corte de red (o cualquier error que no sea "falta la migración") deja
+  // acá un estado del que la persona puede salir con "Reintentar", en vez de
+  // que el tablero desaparezca sin dejar nada para reintentar.
+  if (estado === 'error') {
+    return (
+      <Card style={styles.card}>
+        <View style={styles.header}>
+          <Ionicons name="megaphone" size={18} color={colors.brand} />
+          <Title size={17} style={styles.headerTitle}>
+            Tablero de difusión
+          </Title>
+        </View>
+        <AppText size={13} style={[styles.resumen, { color: colors.lost }]}>
+          {errorCarga ?? 'No pudimos cargar el tablero.'}
+        </AppText>
+        <Button
+          title="Reintentar"
+          variant="secondary"
+          icon="refresh"
+          onPress={() => void cargar()}
+          style={styles.botonAgregar}
+        />
+      </Card>
+    );
+  }
 
   const { pendientes, avisados } = agruparDestinos(destinos);
   const lugaresEnTablero = new Set(

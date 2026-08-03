@@ -61,6 +61,17 @@ const mockEstadoDeCuadrilla = jest.fn();
 jest.mock('../../src/services/cuadrilla', () => ({
   estadoDeCuadrilla: (...a: any[]) => mockEstadoDeCuadrilla(...a),
 }));
+// El tablero de difusión (A4, migración 0063) ahora vive en esta misma ficha.
+// Esta suite prueba la cuadrilla, no el tablero: se lo degrada a "no
+// disponible" para que la ficha quede EXACTAMENTE como antes.
+jest.mock('../../src/services/difusion', () => ({
+  listarDestinos: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
+  lugaresCerca: jest.fn(() => Promise.resolve([])),
+  agregarPersona: jest.fn(),
+  agregarLugar: jest.fn(),
+  marcarAvisado: jest.fn(),
+  borrarDestino: jest.fn(),
+}));
 
 jest.mock('../../src/services/sightings', () => ({
   listSightings: jest.fn(() => Promise.resolve([])),

@@ -142,12 +142,49 @@ it('el componente NO tiene un radio escrito a mano', () => {
   expect(fuente).not.toMatch(/lugaresCerca\([^,]+,\s*\d/);
 });
 
-it('CuadrillaScreen puede generar el afiche sin ser el dueño', () => {
-  const fuente = require('fs').readFileSync(
-    require('path').join(__dirname, '..', '..', 'src', 'screens', 'CuadrillaScreen.tsx'),
-    'utf8',
+it('un corte de red NO hace desaparecer el tablero: queda algo para reintentar', async () => {
+  // Restricción global de la tanda 14: "La migración puede no estar aplicada:
+  // la sección queda simplemente ausente. Pero un corte de red NO es lo
+  // mismo: se propaga, para que haya algo que reintentar." `listarDestinos`
+  // sólo devuelve `{ tipo: 'no-disponible' }` para la migración ausente; un
+  // error de red lo relanza (ver services/difusion.ts). El componente NO
+  // puede tratar ambos casos igual.
+  (listarDestinos as jest.Mock).mockRejectedValue(new Error('Failed to fetch'));
+  const arbol = await montar({ pet });
+
+  // No es null: queda algo en pantalla.
+  expect(arbol.toJSON()).not.toBeNull();
+  // Y hay de dónde reintentar.
+  const t = textoDe(arbol);
+  expect(t).toMatch(/no pudimos|conexión|no salió bien/i);
+
+  // Reintentar vuelve a llamar al servicio.
+  (listarDestinos as jest.Mock).mockClear();
+  (listarDestinos as jest.Mock).mockResolvedValue({ tipo: 'listo', destinos: [] });
+  // Se busca por el título del botón en vez de asumir de qué tipo de
+  // elemento de UI está hecho: alcanza con que EXISTA una acción de
+  // "Reintentar" que vuelva a llamar al servicio.
+  const instanciasBoton = arbol.root.findAll(
+    (n: any) => typeof n.props.onPress === 'function' && n.props.title === 'Reintentar',
   );
-  expect(fuente).toMatch(/AficheGenerator/);
-  // el gate de propiedad no debe envolver al generador
-  expect(fuente).not.toMatch(/esMio\s*&&\s*<AficheGenerator/);
+  expect(instanciasBoton.length).toBeGreaterThan(0);
+  await act(async () => {
+    instanciasBoton[0].props.onPress();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(listarDestinos).toHaveBeenCalled();
 });
+
+// El guardián de "CuadrillaScreen puede generar el afiche sin ser el dueño"
+// vivía acá como un match de texto sobre el código fuente
+// (`not.toMatch(/esMio\s*&&\s*<AficheGenerator/)`), y una revisión demostró que
+// es demasiado literal: reintroducir la regresión como
+// `esMio && generandoAfiche && pet ? (<AficheGenerator ...` la dejaba pasar en
+// verde igual, porque el substring exacto ya no aparecía. Se movió a
+// `__tests__/screens/cuadrillaDosAyudantes.test.tsx` ("Ana, que NO es la
+// dueña, también puede generar el afiche"), que en vez de mirar el TEXTO monta
+// la pantalla de verdad como alguien que no es el dueño y comprueba que el
+// generador se MONTE — así una regresión se nota pase lo que pase con el
+// nombre de la variable o el orden de la condición.
