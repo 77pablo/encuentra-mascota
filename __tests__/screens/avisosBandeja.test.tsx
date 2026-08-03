@@ -49,6 +49,18 @@ jest.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u-yo' }, session: {}, loading: false }),
 }));
 
+// D5: la foto del aviso anónimo tiene su propio componente, que ya prueba por
+// su cuenta cómo degrada (`createSignedUrl` fallando, imagen que no carga).
+// Acá solo importa que la bandeja lo MONTE cuando el aviso trae `fotoPath`, y
+// que no lo monte cuando no.
+jest.mock('../../src/components/FotoAvisoAnonimo', () => ({
+  __esModule: true,
+  default: ({ path }: { path: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`foto-anonima:${path}`}</Text>;
+  },
+}));
+
 const AVISO_COINCIDENCIA = {
   id: 'e1',
   tipo: 'coincidencia',
@@ -63,6 +75,14 @@ const AVISO_COLLAR = {
   pet_id: null,
   datos: { nombre_mascota: 'Pelusa', nota: 'está en la plaza' },
   creado_en: '2026-08-01T09:00:00Z',
+};
+
+const AVISO_ANONIMO_CON_FOTO = {
+  id: 'e3',
+  tipo: 'avistamiento_anonimo',
+  pet_id: 'pet-1',
+  datos: { nota: 'la vi en la plaza', foto: 'pet-1/abc.jpg' },
+  creado_en: '2026-08-01T13:00:00Z',
 };
 
 function textos(arbol: any): string {
@@ -244,6 +264,18 @@ describe('cuando la lectura funciona', () => {
     // corte y taparía avisos anteriores que sí estaban sin ver.
     await montar();
     expect(mockMarcarLeidos).not.toHaveBeenCalled();
+  });
+
+  it('un aviso anónimo CON foto monta FotoAvisoAnonimo con su path (D5)', async () => {
+    mockMisAvisos.mockResolvedValue([AVISO_ANONIMO_CON_FOTO]);
+    const arbol = await montar();
+    expect(textos(arbol)).toContain('foto-anonima:pet-1/abc.jpg');
+  });
+
+  it('un aviso anónimo SIN foto no intenta montar FotoAvisoAnonimo', async () => {
+    mockMisAvisos.mockResolvedValue([AVISO_COLLAR]);
+    const arbol = await montar();
+    expect(textos(arbol)).not.toContain('foto-anonima:');
   });
 });
 

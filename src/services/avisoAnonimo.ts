@@ -80,3 +80,39 @@ export async function avisarSinCuenta(petId: string, datos: DatosAviso = {}): Pr
   if (esMigracionSinAplicar(error)) throw new ErrorAmigable(AVISO_NO_DISPONIBLE);
   throw error;
 }
+
+// AVISAR CON FOTO (D5, sobre la Edge Function `aviso-anonimo-foto` de la 0062).
+//
+// Un anónimo no tiene sesión: no puede subir directo a Storage (la policy de
+// INSERT del bucket privado `avisos-anonimos` es `to authenticated`). La foto
+// entera viaja acá, a la Edge Function, que valida tamaño/tipo, llama a la
+// misma `avistar_sin_cuenta` de arriba y recién ahí sube.
+export interface DatosAvisoConFoto extends DatosAviso {
+  fotoBase64: string;
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+}
+
+export async function avisarConFoto(petId: string, datos: DatosAvisoConFoto): Promise<void> {
+  const correo = (datos.correo ?? '').trim().toLowerCase();
+  if (correo && !correoValido(correo)) throw new ErrorAmigable(CORREO_INVALIDO);
+
+  const { error } = await supabase.functions.invoke('aviso-anonimo-foto', {
+    body: {
+      pet_id: petId,
+      nota: (datos.nota ?? '').trim().slice(0, TOPE_NOTA),
+      correo: correo || null,
+      foto_base64: datos.fotoBase64,
+      content_type: datos.contentType,
+    },
+  });
+
+  // La Edge Function contesta SIEMPRE `{ ok: true, foto: boolean }` con 200
+  // salvo un error real (rate-limit, datos inválidos, foto > 2 MB, 5xx): acá
+  // solo se mira `error`, nunca `data.foto`. Un `foto: false` puede significar
+  // tanto "el aviso entró pero la subida falló" como "se descartó en silencio"
+  // (bloqueo/tope/dedupe, mismo criterio que `avisar_sin_cuenta`) — a
+  // propósito indistinguibles, y leerlo acá convertiría este cliente en el
+  // oráculo que la Edge Function evitó ser. Hacia quien avisa, el resultado es
+  // el mismo "gracias" de siempre.
+  if (error) throw new ErrorAmigable(AVISO_NO_DISPONIBLE);
+}

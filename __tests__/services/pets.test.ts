@@ -29,12 +29,27 @@ const BASE = 'https://ywlrcfaybnikaurxsgtj.supabase.co/storage/v1/object/public/
 
 const mockFrom = jest.fn();
 const mockRemove = jest.fn();
+// El bucket privado de fotos anónimas (D4/D5, 0062) necesita su propio mock
+// de `list`/`remove`, distinto del de `pet-photos`: se resuelve por el nombre
+// del bucket para no mezclar sus asserts con los de arriba.
+const mockStorageFrom = jest.fn();
+const mockAnonimasList = jest.fn();
+const mockAnonimasRemove = jest.fn();
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
     from: (...args: any[]) => mockFrom(...args),
     storage: {
-      from: (...args: any[]) => ({ remove: (...rargs: any[]) => mockRemove(...rargs) }),
+      from: (...args: any[]) => {
+        mockStorageFrom(...args);
+        if (args[0] === 'avisos-anonimos') {
+          return {
+            list: (...largs: any[]) => mockAnonimasList(...largs),
+            remove: (...rargs: any[]) => mockAnonimasRemove(...rargs),
+          };
+        }
+        return { remove: (...rargs: any[]) => mockRemove(...rargs) };
+      },
     },
   },
 }));
@@ -43,6 +58,11 @@ beforeEach(() => {
   mockFrom.mockReset();
   mockRemove.mockReset();
   mockRemove.mockResolvedValue({ data: [], error: null });
+  mockStorageFrom.mockReset();
+  mockAnonimasList.mockReset();
+  mockAnonimasList.mockResolvedValue({ data: [], error: null });
+  mockAnonimasRemove.mockReset();
+  mockAnonimasRemove.mockResolvedValue({ data: [], error: null });
 });
 
 describe('createPet', () => {
@@ -252,6 +272,92 @@ describe('deletePet', () => {
     await deletePet('p1', UID);
 
     expect(mockRemove).toHaveBeenCalledWith([`${UID}/a.jpg`]);
+  });
+});
+
+// D5: borrar un reporte también vacía la carpeta de fotos anónimas del
+// bucket privado `avisos-anonimos` (D4, 0062), organizada por `<pet_id>/...`.
+//
+// OJO CON EL SILENCIO DE POSTGREST/STORAGE: `list()` y `remove()` no lanzan
+// sobre un error de la base, contestan `{ data: null, error }` como cualquier
+// otra llamada de Supabase — igual que el `remove` de `pet-photos` unas
+// líneas arriba. Un `try/catch` solo (como en el borrado de `pet-photos`,
+// que tampoco usa uno) no alcanzaría para agarrar ese caso, así que estos
+// tests verifican el campo `error`, no una excepción.
+describe('deletePet — carpeta de fotos anónimas (D4/D5, 0062)', () => {
+  it('borrar el reporte también vacía su carpeta de fotos anónimas', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('pet-1', 'user-1');
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('avisos-anonimos');
+  });
+
+  it('lista la carpeta por pet_id y borra cada archivo con su path completo', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+    mockAnonimasList.mockResolvedValueOnce({
+      data: [{ name: 'a.jpg' }, { name: 'b.jpg' }],
+      error: null,
+    });
+
+    await deletePet('pet-1', 'user-1');
+
+    expect(mockAnonimasList).toHaveBeenCalledWith('pet-1');
+    expect(mockAnonimasRemove).toHaveBeenCalledWith(['pet-1/a.jpg', 'pet-1/b.jpg']);
+  });
+
+  it('carpeta vacía: no llama a remove', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('pet-1', 'user-1');
+
+    expect(mockAnonimasRemove).not.toHaveBeenCalled();
+  });
+
+  it('si listar la carpeta falla (sin excepción, como responde Storage), avisa y borra la fila igual', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+    mockAnonimasList.mockResolvedValueOnce({ data: null, error: { message: 'boom anonimas' } });
+
+    await expect(deletePet('pet-1', 'user-1')).resolves.toBeUndefined();
+
+    expect(mockAnonimasRemove).not.toHaveBeenCalled();
+    expect(warn.mock.calls.flat().join(' ')).toEqual(expect.stringContaining('boom anonimas'));
+    warn.mockRestore();
+  });
+
+  it('si borrar la carpeta falla, avisa y borra la fila igual', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+    mockAnonimasList.mockResolvedValueOnce({ data: [{ name: 'a.jpg' }], error: null });
+    mockAnonimasRemove.mockResolvedValueOnce({ data: null, error: { message: 'no se pudo borrar' } });
+
+    await expect(deletePet('pet-1', 'user-1')).resolves.toBeUndefined();
+
+    expect(warn.mock.calls.flat().join(' ')).toEqual(expect.stringContaining('no se pudo borrar'));
+    warn.mockRestore();
+  });
+
+  it('pasa por la carpeta anónima incluso cuando el reporte no tiene fotos propias', async () => {
+    // No depende de `fotos`/`final_foto`: la carpeta anónima es independiente
+    // de si el dueño subió fotos al publicar.
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+
+    await deletePet('pet-1', 'user-1');
+
+    expect(mockAnonimasList).toHaveBeenCalledWith('pet-1');
   });
 });
 

@@ -32,6 +32,14 @@ export interface AvisoPresentado {
    * natural del "la tengo, transferime". Ver `AvisosScreen`.
    */
   deDesconocido?: boolean;
+  /**
+   * Ruta dentro del bucket privado `avisos-anonimos` (D4/D5, migración 0062)
+   * cuando el aviso anónimo vino con foto. Sin ruta no hay nada que bajar:
+   * `AvisosScreen` solo monta `FotoAvisoAnonimo` si esto existe. La foto NUNCA
+   * sale de acá hacia superficies públicas — este campo solo lo lee la
+   * bandeja del dueño.
+   */
+  fotoPath?: string;
 }
 
 // Tope del detalle. La cola guarda extractos ya recortados (120 o 500 según el
@@ -92,6 +100,12 @@ export function textoDeAviso(a: Aviso): AvisoPresentado {
         detalle: texto(d, 'nota') ?? 'No dejaron ningún detalle.',
         icono: 'eye-outline',
         deDesconocido: true,
+        // D5: si quien avisó adjuntó una foto (0062), `datos.foto` trae su
+        // ruta en el bucket privado. Puede apuntar a un path que nunca se
+        // llegó a subir (la Edge Function sube DESPUÉS de registrar el aviso,
+        // y esa subida puede fallar) — degradar eso es trabajo de
+        // `FotoAvisoAnonimo`, no de esta función pura.
+        fotoPath: texto(d, 'foto') ?? undefined,
       };
 
     case 'coincidencia': {

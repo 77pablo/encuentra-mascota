@@ -1,4 +1,4 @@
-import { avisarSinCuenta, CORREO_INVALIDO, TOPE_NOTA } from '../../src/services/avisoAnonimo';
+import { avisarConFoto, avisarSinCuenta, CORREO_INVALIDO, TOPE_NOTA } from '../../src/services/avisoAnonimo';
 import { ErrorAmigable } from '../../src/lib/dbErrors';
 
 // AVISAR SIN CUENTA (migración 0050).
@@ -12,10 +12,12 @@ import { ErrorAmigable } from '../../src/lib/dbErrors';
 //      pantalla lo muestre y se pueda reintentar.
 
 const mockRpc = jest.fn();
+const mockInvoke = jest.fn();
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
     rpc: (...args: any[]) => mockRpc(...args),
+    functions: { invoke: (...args: any[]) => mockInvoke(...args) },
   },
 }));
 
@@ -24,6 +26,8 @@ const PET = '33333333-3333-3333-3333-333333333333';
 beforeEach(() => {
   mockRpc.mockReset();
   mockRpc.mockResolvedValue({ data: null, error: null });
+  mockInvoke.mockReset();
+  mockInvoke.mockResolvedValue({ data: { ok: true, foto: true }, error: null });
 });
 
 /** Los argumentos con los que se llamó a la RPC. */
@@ -137,5 +141,79 @@ describe('avisarSinCuenta — cuando algo falla', () => {
 
   it('cuando sale bien, resuelve sin devolver nada', async () => {
     await expect(avisarSinCuenta(PET, { nota: 'ok' })).resolves.toBeUndefined();
+  });
+});
+
+// AVISAR CON FOTO (D5, sobre la Edge Function `aviso-anonimo-foto` de la D4).
+//
+// Un anónimo no tiene sesión, así que no puede subir directo a Storage (la
+// policy de INSERT del bucket `avisos-anonimos` es `to authenticated`): la
+// foto entera viaja a la Edge Function, que valida, llama a la RPC y sube.
+// Este archivo protege dos cosas puntuales de ese contrato:
+//   1. Este camino NO toca la RPC directamente (a diferencia de
+//      `avisarSinCuenta`): pasa siempre por `functions.invoke`.
+//   2. `foto: false` en la respuesta (200, `ok: true`) NO es un error: puede
+//      significar tanto "el aviso entró pero la subida falló" como "se
+//      descartó en silencio" (bloqueo/tope/dedupe) — a propósito
+//      indistinguibles, para no volver esto un oráculo. El mensaje hacia quien
+//      avisa tiene que ser el mismo "gracias" de siempre en los dos casos.
+describe('avisarConFoto — pasa por la Edge Function, no por la RPC (D4/D5)', () => {
+  it('avisarConFoto pasa por la Edge Function, no por la RPC', async () => {
+    await avisarConFoto('pet-1', { nota: 'hola', fotoBase64: 'QUJD', contentType: 'image/jpeg' });
+
+    expect(mockInvoke).toHaveBeenCalledWith('aviso-anonimo-foto', {
+      body: expect.objectContaining({ pet_id: 'pet-1', foto_base64: 'QUJD', content_type: 'image/jpeg' }),
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('manda el correo normalizado, igual que el camino sin foto', async () => {
+    await avisarConFoto(PET, {
+      nota: 'está en la plaza',
+      correo: ' Vecino@Mail.CL ',
+      fotoBase64: 'QUJD',
+      contentType: 'image/png',
+    });
+
+    const [, { body }] = mockInvoke.mock.calls[0];
+    expect(body.correo).toBe('vecino@mail.cl');
+    expect(body.content_type).toBe('image/png');
+  });
+
+  it('sin correo manda null, como siempre', async () => {
+    await avisarConFoto(PET, { fotoBase64: 'QUJD', contentType: 'image/jpeg' });
+
+    expect(mockInvoke.mock.calls[0][1].body.correo).toBeNull();
+  });
+
+  it('un correo inválido corta ANTES de invocar la Edge Function', async () => {
+    await expect(
+      avisarConFoto(PET, { correo: 'no-es-un-correo', fotoBase64: 'QUJD', contentType: 'image/jpeg' }),
+    ).rejects.toThrow(CORREO_INVALIDO);
+
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('foto:false NO es un error: la EF ya decidió qué pasó y acá no se relee', async () => {
+    // `{ ok: true, foto: false }` con 200 es la MISMA respuesta tanto si la
+    // subida falló (el aviso ya salió) como si la RPC descartó todo en
+    // silencio (bloqueo/tope/dedupe). Leer `foto` acá convertiría este cliente
+    // en el oráculo que la Edge Function evitó ser a propósito.
+    mockInvoke.mockResolvedValue({ data: { ok: true, foto: false }, error: null });
+
+    await expect(
+      avisarConFoto(PET, { fotoBase64: 'QUJD', contentType: 'image/jpeg' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('un error real (4xx/5xx) sí se traduce a un mensaje amigable', async () => {
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'La foto pesa más de 2 MB' } });
+
+    await expect(
+      avisarConFoto(PET, { fotoBase64: 'QUJD', contentType: 'image/jpeg' }),
+    ).rejects.toBeInstanceOf(ErrorAmigable);
+    await expect(
+      avisarConFoto(PET, { fotoBase64: 'QUJD', contentType: 'image/jpeg' }),
+    ).rejects.toThrow(/no pudimos avisar/i);
   });
 });

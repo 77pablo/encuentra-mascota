@@ -7,6 +7,7 @@ import { textoDeAviso, type Aviso } from '../lib/avisosBandeja';
 import { marcarAvisosLeidos } from '../lib/visitaAvisos';
 import { misAvisos } from '../services/avisos';
 import { timeAgo } from '../lib/time';
+import FotoAvisoAnonimo from '../components/FotoAvisoAnonimo';
 import { AppText, AvisoEstafa, Button, Card, EmptyState, Loading, Screen, Title } from '../ui';
 import { radius, spacing, type Colors } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
@@ -162,6 +163,11 @@ export default function AvisosScreen({ navigation }: any) {
                             <AvisoEstafa variante="chat" />
                           </>
                         ) : null}
+                        {/* La foto que adjuntó quien avisó (D5, sobre el
+                            bucket privado de la 0062). Solo se dibuja acá,
+                            en la bandeja del DUEÑO: nunca sale al mapa ni a
+                            la ficha pública. */}
+                        {t.fotoPath ? <FotoAvisoAnonimo path={t.fotoPath} /> : null}
                         <AppText muted size={12} style={styles.cuando}>
                           {timeAgo(a.creado_en)}
                         </AppText>

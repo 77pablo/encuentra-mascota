@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
-import { avisarSinCuenta } from '../services/avisoAnonimo';
+import { avisarConFoto, avisarSinCuenta } from '../services/avisoAnonimo';
+import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { useAuth } from '../hooks/useAuth';
 import { notify } from '../lib/notify';
 import { shareReport } from '../lib/share';
@@ -14,6 +16,22 @@ import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
 import { AppText, AvisoEstafa, Badge, Button, Card, ErrorState, Input, Loading, Screen, Title } from '../ui';
 import { Colors, radius, spacing } from '../theme';
 import { useColors } from '../theme/ThemeProvider';
+
+// Baja el uri (ya comprimido) a base64 puro, sin el prefijo `data:...;base64,`
+// — es lo que pide el body JSON de la Edge Function `aviso-anonimo-foto`
+// (D4). Mismo camino fetch→blob→FileReader que ya usa `lib/aficheImage.ts`
+// para bajar una imagen a texto en web.
+async function uriABase64(uri: string): Promise<string> {
+  const res = await fetch(uri);
+  const blob = await res.blob();
+  const dataUri = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  return dataUri.split(',')[1] ?? '';
+}
 
 const especieLabel: Record<Pet['especie'], string> = {
   perro: 'Perro',
@@ -39,6 +57,12 @@ export default function PublicPetScreen({ route, navigation }: any) {
   const [nota, setNota] = useState('');
   // Correo opcional para el aviso de reencuentro (D1-D3, migración 0055/0061).
   const [correo, setCorreo] = useState('');
+  // Foto opcional que puede sumar quien avisa (D5, sobre el bucket privado de
+  // la 0062). La ve SOLO la familia, nunca sale al mapa ni a esta misma ficha
+  // pública: acá abajo se pide, no se muestra. `fotoMenuOpen` es el mismo
+  // patrón de "Cámara/Galería" que usa `ProfileScreen` para la foto de perfil.
+  const [fotoMenuOpen, setFotoMenuOpen] = useState(false);
+  const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [avisado, setAvisado] = useState(false);
@@ -123,13 +147,49 @@ export default function PublicPetScreen({ route, navigation }: any) {
     setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
   };
 
+  const onTakePhoto = async () => {
+    const uri = await takePhoto();
+    if (uri) {
+      setFotoUri(uri);
+      setFotoMenuOpen(false);
+    }
+  };
+
+  const onPickFromLibrary = async () => {
+    const uris = await pickFromLibrary(1);
+    if (uris[0]) {
+      setFotoUri(uris[0]);
+      setFotoMenuOpen(false);
+    }
+  };
+
+  const quitarFoto = () => {
+    setFotoUri(null);
+    setFotoMenuOpen(false);
+  };
+
   const avisar = async () => {
     setEnviando(true);
     setErrorAviso(null);
     try {
-      // El servicio difumina el punto antes de mandarlo: la coordenada exacta
-      // de quien avisa (que está parado ahí) no se guarda en ninguna parte.
-      await avisarSinCuenta(pet.id, { nota, correo, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+      if (fotoUri) {
+        // Misma compresión que las fotos de reportes (storage.ts): 1080px de
+        // ancho, JPEG al 0.6. La foto anónima nunca sale por Storage directo
+        // (un desconocido no tiene sesión): va entera, en base64, a la Edge
+        // Function `aviso-anonimo-foto`, que sube por su cuenta.
+        const comprimida = await ImageManipulator.manipulateAsync(
+          fotoUri,
+          [{ resize: { width: 1080 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG },
+        );
+        const fotoBase64 = await uriABase64(comprimida.uri);
+        await avisarConFoto(pet.id, { nota, correo, fotoBase64, contentType: 'image/jpeg' });
+      } else {
+        // El servicio difumina el punto antes de mandarlo: la coordenada
+        // exacta de quien avisa (que está parado ahí) no se guarda en ninguna
+        // parte.
+        await avisarSinCuenta(pet.id, { nota, correo, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+      }
       setAvisado(true);
     } catch (e: any) {
       // Solo se agradece si de verdad salió. Decir "listo" con el aviso caído
@@ -294,6 +354,49 @@ export default function PublicPetScreen({ route, navigation }: any) {
                   nuevo.
                   Mientras no haya dónde verla, no se pide. La RPC sigue
                   aceptando lat/lng para el día que exista esa superficie. */}
+              {fotoUri ? (
+                <View style={styles.fotoThumbWrap}>
+                  <Image source={{ uri: fotoUri }} style={styles.fotoThumb} />
+                  <TouchableOpacity
+                    accessibilityLabel="Quitar foto"
+                    activeOpacity={0.8}
+                    onPress={quitarFoto}
+                    style={styles.fotoRemove}
+                  >
+                    <Ionicons name="close" size={14} color={colors.white} />
+                  </TouchableOpacity>
+                </View>
+              ) : fotoMenuOpen ? (
+                <View style={styles.fotoButtonsRow}>
+                  <Button
+                    title="Tomar foto"
+                    variant="secondary"
+                    icon="camera"
+                    onPress={onTakePhoto}
+                    style={styles.fotoButton}
+                  />
+                  <Button
+                    title="Galería"
+                    variant="secondary"
+                    icon="image"
+                    onPress={onPickFromLibrary}
+                    style={styles.fotoButton}
+                  />
+                </View>
+              ) : (
+                <Button
+                  title="Sumar una foto (opcional)"
+                  variant="secondary"
+                  icon="camera"
+                  onPress={() => setFotoMenuOpen(true)}
+                />
+              )}
+              {/* La única línea que importa acá: nadie que suba una foto sin
+                  cuenta espera que quede pública. Sin esto, "sumar una foto"
+                  se lee igual que publicar en el mapa. */}
+              <AppText muted size={12} style={styles.fotoHonesta}>
+                La foto la ve solo la familia. No se publica en ningún lado.
+              </AppText>
               {errorAviso ? (
                 <AppText size={13} color={colors.lost}>
                   {errorAviso}
@@ -427,6 +530,36 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   finalidadUnica: {
     lineHeight: 16,
     marginTop: -spacing.xs,
+  },
+  fotoButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  fotoButton: {
+    flex: 1,
+  },
+  fotoThumbWrap: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  fotoThumb: {
+    width: 120,
+    height: 120,
+    borderRadius: radius.md,
+  },
+  fotoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fotoHonesta: {
+    lineHeight: 16,
   },
   avisoOkCard: {
     backgroundColor: colors.sky,

@@ -47,9 +47,29 @@ jest.mock('../../src/services/pets', () => ({
 }));
 
 const mockAvisar = jest.fn();
+const mockAvisarConFoto = jest.fn();
 jest.mock('../../src/services/avisoAnonimo', () => ({
   avisarSinCuenta: (...args: any[]) => mockAvisar(...args),
+  avisarConFoto: (...args: any[]) => mockAvisarConFoto(...args),
   TOPE_NOTA: 500,
+}));
+
+// D5: la foto (opcional) sube por `pickImage` (el mismo picker del Perfil) y
+// se comprime con `expo-image-manipulator` calcado de `services/storage.ts`.
+// Ninguno de los dos hace falta probarlo DE VERDAD acá: ya tienen su propio
+// código (o son de la librería), y lo que importa para esta pantalla es que
+// con una foto elegida, avisar() llame a `avisarConFoto` en vez de
+// `avisarSinCuenta` — no cómo se comprime ni se lee el archivo.
+const mockTakePhoto = jest.fn();
+const mockPickFromLibrary = jest.fn();
+jest.mock('../../src/lib/pickImage', () => ({
+  takePhoto: (...args: any[]) => mockTakePhoto(...args),
+  pickFromLibrary: (...args: any[]) => mockPickFromLibrary(...args),
+}));
+
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(() => Promise.resolve({ uri: 'comprimida://foto.jpg' })),
+  SaveFormat: { JPEG: 'jpeg' },
 }));
 
 // Se lee dentro del hook falso, así que cambiarlo entre tests alcanza.
@@ -91,6 +111,10 @@ function botonLoVi(tree: any) {
   return tree.root.findAllByType(Button).find((b: any) => /lo vi acá/i.test(b.props.title));
 }
 
+function botonPorTitulo(tree: any, re: RegExp) {
+  return tree.root.findAllByType(Button).find((b: any) => re.test(b.props.title));
+}
+
 async function montar() {
   let tree: any;
   await act(async () => {
@@ -103,14 +127,40 @@ async function montar() {
   return tree;
 }
 
+// `uriABase64` (helper local de la pantalla) usa fetch→blob→FileReader. El
+// entorno de jest (jest-expo) ya trae `fetch` y `Blob`, pero NO `FileReader`
+// — se simula acá, igual que haría el navegador, para poder probar el camino
+// completo sin tocar red de verdad.
+const FETCH_ORIGINAL = global.fetch;
+class FileReaderFalso {
+  result: string | null = null;
+  onloadend: (() => void) | null = null;
+  onerror: ((e: any) => void) | null = null;
+  readAsDataURL(_blob: unknown) {
+    this.result = 'data:image/jpeg;base64,QUJD';
+    Promise.resolve().then(() => this.onloadend?.());
+  }
+}
+
 beforeEach(() => {
   mockGetPet.mockReset();
   mockGetPet.mockResolvedValue(PET);
   mockAvisar.mockReset();
   mockAvisar.mockResolvedValue(undefined);
+  mockAvisarConFoto.mockReset();
+  mockAvisarConFoto.mockResolvedValue(undefined);
+  mockTakePhoto.mockReset();
+  mockPickFromLibrary.mockReset();
+  mockPickFromLibrary.mockResolvedValue(['galeria://foto.jpg']);
   navigation.navigate.mockReset();
   navigation.replace.mockReset();
   mockUsuario = null;
+  (global as any).fetch = jest.fn(() => Promise.resolve({ blob: () => Promise.resolve('blob-fake') }));
+  (global as any).FileReader = FileReaderFalso;
+});
+
+afterAll(() => {
+  (global as any).fetch = FETCH_ORIGINAL;
 });
 
 describe('MascotaPublica — avisar sin cuenta', () => {
@@ -249,6 +299,121 @@ describe('MascotaPublica — avisar sin cuenta', () => {
       .findAllByType(Button)
       .find((b: any) => /contactar/i.test(b.props.title));
     expect(contactar).toBeTruthy();
+
+    await act(async () => tree.unmount());
+  }, 30000);
+});
+
+// SUMAR UNA FOTO AL AVISO (D5, sobre el bucket privado de la 0062).
+describe('MascotaPublica — sumar una foto al aviso (D5)', () => {
+  it('el botón para sumar una foto está arriba del de enviar, y dice para quién es', async () => {
+    const tree = await montar();
+
+    expect(botonPorTitulo(tree, /sumar una foto/i)).toBeTruthy();
+    expect(textoDe(tree.root)).toContain('La foto la ve solo la familia. No se publica en ningún lado.');
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
+  it('tocarlo despliega Tomar foto / Galería, sin haber tocado nada todavía', async () => {
+    const tree = await montar();
+
+    await act(async () => {
+      botonPorTitulo(tree, /sumar una foto/i).props.onPress();
+    });
+
+    expect(botonPorTitulo(tree, /^tomar foto$/i)).toBeTruthy();
+    expect(botonPorTitulo(tree, /^galería$/i)).toBeTruthy();
+    expect(mockTakePhoto).not.toHaveBeenCalled();
+    expect(mockPickFromLibrary).not.toHaveBeenCalled();
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
+  it('elegir de la galería muestra la miniatura y un botón para quitarla', async () => {
+    const tree = await montar();
+    await act(async () => {
+      botonPorTitulo(tree, /sumar una foto/i).props.onPress();
+    });
+    await act(async () => {
+      botonPorTitulo(tree, /^galería$/i).props.onPress();
+    });
+
+    const quitar = tree.root.findAll(
+      (n: any) => n.props?.accessibilityLabel === 'Quitar foto' && typeof n.props?.onPress === 'function',
+    );
+    expect(quitar.length).toBeGreaterThan(0);
+    // Ya hay una foto elegida: no se vuelven a ofrecer los botones de elegir.
+    expect(botonPorTitulo(tree, /^tomar foto$/i)).toBeUndefined();
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
+  it('quitar la foto vuelve al botón inicial', async () => {
+    const tree = await montar();
+    await act(async () => {
+      botonPorTitulo(tree, /sumar una foto/i).props.onPress();
+    });
+    await act(async () => {
+      botonPorTitulo(tree, /^galería$/i).props.onPress();
+    });
+
+    const quitar = tree.root.find(
+      (n: any) => n.props?.accessibilityLabel === 'Quitar foto' && typeof n.props?.onPress === 'function',
+    );
+    await act(async () => {
+      quitar.props.onPress();
+    });
+
+    expect(botonPorTitulo(tree, /sumar una foto/i)).toBeTruthy();
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
+  it('con una foto elegida, avisar() llama a avisarConFoto y NO a avisarSinCuenta', async () => {
+    const tree = await montar();
+    await act(async () => {
+      botonPorTitulo(tree, /sumar una foto/i).props.onPress();
+    });
+    await act(async () => {
+      botonPorTitulo(tree, /^galería$/i).props.onPress();
+    });
+
+    const input = tree.root.findAllByType(Input)[0];
+    await act(async () => {
+      input.props.onChangeText('está en la plaza, con collar rojo');
+    });
+
+    await act(async () => {
+      botonLoVi(tree).props.onPress();
+    });
+
+    expect(mockAvisarConFoto).toHaveBeenCalledTimes(1);
+    expect(mockAvisar).not.toHaveBeenCalled();
+    const [petId, datos] = mockAvisarConFoto.mock.calls[0];
+    expect(petId).toBe('pet-1');
+    expect(datos.nota).toBe('está en la plaza, con collar rojo');
+    expect(datos.contentType).toBe('image/jpeg');
+    expect(typeof datos.fotoBase64).toBe('string');
+    expect(datos.fotoBase64.length).toBeGreaterThan(0);
+
+    // Y agradece igual que sin foto: ni una palabra de más sobre si la foto
+    // llegó a subirse (D4/D5: `avisarConFoto` no distingue foto:true de
+    // foto:false hacia quien avisa).
+    expect(textoDe(tree.root)).toContain('mandamos tu aviso');
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
+  it('sin foto, el camino existente sigue intacto: avisarSinCuenta y no avisarConFoto', async () => {
+    const tree = await montar();
+
+    await act(async () => {
+      botonLoVi(tree).props.onPress();
+    });
+
+    expect(mockAvisar).toHaveBeenCalledTimes(1);
+    expect(mockAvisarConFoto).not.toHaveBeenCalled();
 
     await act(async () => tree.unmount());
   }, 30000);

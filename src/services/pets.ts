@@ -325,6 +325,27 @@ export async function deletePet(id: string, userId: string): Promise<void> {
     if (errStorage) console.warn('No se pudieron borrar algunas fotos:', errStorage.message);
   }
 
+  // La carpeta de fotos anónimas del reporte (bucket privado `avisos-anonimos`,
+  // D4/D5, migración 0062), organizada por `<pet_id>/...`. La lista el dueño
+  // porque la policy de SELECT se lo permite (join a `pets` por dueño); si algo
+  // falla, se avisa y se sigue igual, mismo criterio que arriba con `pet-photos`.
+  //
+  // OJO: Storage no lanza sobre un error de la base, contesta
+  // `{ data: null, error }` como cualquier otra llamada de Supabase — por eso
+  // se mira el campo `error` de cada respuesta en vez de un `try/catch` solo,
+  // que acá no agarraría nada.
+  const { data: anonimas, error: errListaAnonimas } = await supabase.storage
+    .from('avisos-anonimos')
+    .list(id);
+  if (errListaAnonimas) {
+    console.warn('No se pudo listar la carpeta de fotos anónimas:', errListaAnonimas.message);
+  } else if (anonimas && anonimas.length > 0) {
+    const { error: errAnonimas } = await supabase.storage
+      .from('avisos-anonimos')
+      .remove(anonimas.map((f) => `${id}/${f.name}`));
+    if (errAnonimas) console.warn('No se pudieron borrar las fotos anónimas:', errAnonimas.message);
+  }
+
   const { error } = await supabase.from('pets').delete().eq('id', id);
   if (error) throw error;
 }

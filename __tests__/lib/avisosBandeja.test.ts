@@ -54,6 +54,28 @@ describe('textoDeAviso: cada tipo se lee como algo que le pasa a TU mascota', ()
     expect(t.deDesconocido).toBe(true);
   });
 
+  it('el aviso anónimo con foto expone el path para que la pantalla la baje', () => {
+    // D5, sobre el bucket privado de la D4: `datos.foto` es el path dentro de
+    // `avisos-anonimos` (`<pet_id>/<archivo>`), y la pantalla del dueño
+    // (`FotoAvisoAnonimo`) lo usa para pedir una URL firmada.
+    const t = textoDeAviso(
+      base({ tipo: 'avistamiento_anonimo', datos: { nota: 'la vi en la plaza', foto: 'p/abc.jpg' } }),
+    );
+    expect(t.fotoPath).toBe('p/abc.jpg');
+  });
+
+  it('sin foto en los datos, fotoPath queda undefined: no hay nada que bajar', () => {
+    const t = textoDeAviso(base({ tipo: 'avistamiento_anonimo', datos: { nota: 'la vi' } }));
+    expect(t.fotoPath).toBeUndefined();
+  });
+
+  it('otros tipos de aviso nunca traen fotoPath, aunque datos.foto exista', () => {
+    // La foto anónima es SOLO del aviso anónimo: un `foto` suelto en el
+    // `datos` de cualquier otro tipo no tiene por qué significar lo mismo.
+    const t = textoDeAviso(base({ tipo: 'avistamiento', datos: { foto: 'algo' } }));
+    expect(t.fotoPath).toBeUndefined();
+  });
+
   it('los avisos normales NO se marcan como de desconocido', () => {
     for (const tipo of ['avistamiento', 'pista', 'coincidencia', 'escaneo_collar']) {
       expect(textoDeAviso(base({ tipo })).deDesconocido).toBeFalsy();
