@@ -36,8 +36,10 @@ Estas reglas valen para TODAS las tareas. Copiadas del spec
 - **Atribución ODbL obligatoria y VISIBLE** en toda pantalla que muestre datos de OpenStreetMap
   (lugares del área A, teselas del área C): `© colaboradores de OpenStreetMap`.
 - **Migraciones `0063`–`0066`, en ese orden.** El guardián `__tests__/db/ultimaMigracion.test.ts`
-  hoy afirma `0062`: hay que **MOVERLO, no duplicarlo** (en la tanda 10 tres agentes lo copiaron y
-  quedaron tres copias afirmando números distintos).
+  hoy afirma `0062` y **se mueve con CADA migración** (63 en A1, 64 en B2, 65 en B4, 66 en C3), no
+  de una vez al final: ponerlo en 66 desde el principio lo dejaría rojo toda la tanda, y un rojo
+  conocido y tolerado es como se cuelan los rojos nuevos. **MOVERLO, no duplicarlo** (en la tanda 10
+  tres agentes lo copiaron y quedaron tres copias afirmando números distintos).
 - **Las Edge Functions están fuera del typecheck y de la suite.** La lógica decidible va en
   `supabase/functions/_shared/` y se prueba desde jest; el espejo en `src/lib/` se copia **carácter
   por carácter, comentarios incluidos** (lección de la tarea C2 de la tanda 13).
@@ -86,14 +88,34 @@ con C y su ausencia no debe romper ni vaciar la pantalla.
 
 ---
 
-# Task 0: Numeración de migraciones y guardián
+# Task 0: Reservar la numeración y fijar el protocolo del guardián
 
 **Files:**
-- Modify: `__tests__/db/ultimaMigracion.test.ts`
+- Modify: `__tests__/db/ultimaMigracion.test.ts` (sólo el comentario de cabecera)
 
 **Interfaces:**
 - Consumes: nada.
-- Produces: la convicción de que `0063`–`0066` están libres y que el guardián afirma `0066`.
+- Produces: la convicción de que `0063`–`0066` están libres, y el protocolo escrito de cómo se mueve
+  el guardián.
+
+⚠️ **EL GUARDIÁN SE MUEVE CON CADA MIGRACIÓN, NO DE UNA VEZ.** Su propio comentario ya lo dice:
+*"viaja SIEMPRE con la migración más nueva del repo"*. Si acá lo pusiéramos en `0066`, el test
+quedaría **rojo durante toda la tanda** y los pasos de "suite completa en verde" de A4, B5 y C1
+serían imposibles de cumplir — o peor, el implementador se acostumbraría a un rojo conocido y
+dejaría de mirar los rojos nuevos.
+
+Protocolo, entonces:
+
+| Tarea que crea la migración | El guardián pasa a esperar |
+|---|---|
+| A1 (`0063`) | 63 |
+| B2 (`0064`) | 64 |
+| B4 (`0065`) | 65 |
+| C3 (`0066`) | 66 |
+
+Cada una de esas tareas tiene su propio paso para moverlo. **Moverlo, no duplicarlo:** en la tanda
+10 tres agentes lo copiaron a la vez y quedaron tres copias afirmando números distintos, dos de
+ellas rojas para siempre.
 
 - [ ] **Step 1: Comprobar que los números están libres**
 
@@ -101,35 +123,28 @@ Run: `ls supabase/migrations/ | tail -6`
 Expected: la última es `0062_foto_aviso_anonimo.sql`. Si aparece una `0063`, PARAR y avisar: el
 plan entero asume esa numeración.
 
-- [ ] **Step 2: Escribir el test que falla**
+- [ ] **Step 2: Dejar el protocolo escrito donde se va a leer**
 
-En `__tests__/db/ultimaMigracion.test.ts`, cambiar el `describe` y el número esperado:
+En `__tests__/db/ultimaMigracion.test.ts`, **sin tocar el número esperado (sigue en 62)**, agregar
+al comentario de cabecera:
 
-```ts
-describe('0066 es la ultima migracion del repo', () => {
-  it('no hay ninguna migracion con numero mayor', () => {
-    const numeros = readdirSync(DIR)
-      .filter((f) => f.endsWith('.sql'))
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(66);
-  });
-});
+```
+// TANDA 14: este guardian se mueve CON CADA migracion nueva, no de una vez al
+// final: 0063 (A1) -> 0064 (B2) -> 0065 (B4) -> 0066 (C3). Ponerlo en 66 desde
+// el principio lo dejaria rojo toda la tanda, y un rojo conocido y tolerado es
+// como se cuelan los rojos nuevos.
 ```
 
-Actualizar también el comentario de cabecera: `Venia de 0062 (tanda 13).`
-
-- [ ] **Step 3: Correr el test y verlo fallar**
+- [ ] **Step 3: Correr el test y verlo pasar**
 
 Run: `npx jest __tests__/db/ultimaMigracion.test.ts`
-Expected: FAIL — `Expected: 66, Received: 62`. Queda rojo a propósito hasta que exista la `0066`;
-es el semáforo de la tanda.
+Expected: PASS. La suite arranca la tanda en verde, como corresponde.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add __tests__/db/ultimaMigracion.test.ts
-git commit -m "t14-0: el guardian de ultima migracion pasa a esperar la 0066"
+git commit -m "t14-0: protocolo del guardian de migraciones para la tanda"
 ```
 
 ---
@@ -452,10 +467,20 @@ caso 50 `filas=1`; caso 51 `filas visibles=0`; caso 52 `filas visibles=1`.
 ⚠️ Si el caso 52 diera 0, la policy está de más y el tablero no le funcionaría a nadie: es el
 control que evita leer un `revoke` de más como "todo seguro".
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Mover el guardián de última migración a 63**
+
+En `__tests__/db/ultimaMigracion.test.ts`: `toBe(62)` → `toBe(63)`, el `describe` a
+`'0063 es la ultima migracion del repo'`, y la línea de procedencia a `Venia de 0062 (tanda 13).`
+**Moverlo, no duplicarlo.**
+
+Run: `npx jest __tests__/db/ultimaMigracion.test.ts`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/0063_difusion_y_lugares.sql __tests__/db/migracion0063.test.ts
+git add supabase/migrations/0063_difusion_y_lugares.sql __tests__/db/migracion0063.test.ts \
+        __tests__/db/ultimaMigracion.test.ts
 git commit -m "t14-A1: tablero de difusion y semilla de lugares (0063, ensayada en begin/rollback)"
 ```
 
@@ -1583,10 +1608,19 @@ select n, caso, resultado from r order by n;
 
 Expected: caso 0 `filas=1`; caso 1 `RECHAZADO 42501` o `filas visibles=0`; caso 2 `RECHAZADO 42501`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Mover el guardián de última migración a 64**
+
+`toBe(63)` → `toBe(64)`, el `describe` y la línea de procedencia (`Venia de 0063 (tanda 14, A1).`).
+**Moverlo, no duplicarlo.**
+
+Run: `npx jest __tests__/db/ultimaMigracion.test.ts`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/0064_vectores_de_foto.sql __tests__/db/migracion0064.test.ts
+git add supabase/migrations/0064_vectores_de_foto.sql __tests__/db/migracion0064.test.ts \
+        __tests__/db/ultimaMigracion.test.ts
 git commit -m "t14-B2: pgvector y pet_fotos_vector, invisibles para la app (0064)"
 ```
 
@@ -1963,10 +1997,18 @@ select 'sin vector' as caso, count(*) as coincidencias
 Expected: el mismo número de coincidencias que devuelve la función vigente **antes** de la
 migración. Correr la consulta primero fuera de la transacción para tener el número con que comparar.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Mover el guardián de última migración a 65**
+
+`toBe(64)` → `toBe(65)`, con su `describe` y su línea de procedencia. **Moverlo, no duplicarlo.**
+
+Run: `npx jest __tests__/db/ultimaMigracion.test.ts`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/0065_coincidencias_con_foto.sql __tests__/db/migracion0065.test.ts
+git add supabase/migrations/0065_coincidencias_con_foto.sql __tests__/db/migracion0065.test.ts \
+        __tests__/db/ultimaMigracion.test.ts
 git commit -m "t14-B4: la foto suma hasta 60 al match y nunca descarta; y el desglose del porque (0065)"
 ```
 
@@ -2266,7 +2308,7 @@ Expected: PASS, 6 tests.
 // Los pines son divIcon con SVG en vez de los iconos por defecto de Leaflet,
 // que se rompen con cualquier bundler porque resuelven rutas relativas.
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { iconoHtml, regionABounds, Region } from '../lib/mapaWeb';
@@ -2313,23 +2355,31 @@ export function Marker({
 }
 
 export default function MapView({ style, region, initialRegion, onPress, children }: any) {
-  const div = useRef<HTMLDivElement | null>(null);
   const [mapa, setMapa] = useState<L.Map | null>(null);
+  // Las regiones iniciales se leen UNA vez, al montar. Guardadas en un ref
+  // para no re-montar el mapa cuando el llamador re-renderiza con un objeto
+  // nuevo pero equivalente (`region={{...}}` crea uno distinto cada render).
+  const inicial = useRef(region ?? initialRegion);
 
-  useEffect(() => {
-    if (!div.current || mapa) return;
-    const r: Region = region ?? initialRegion ?? {
+  // REF CALLBACK, no `useRef` + `useEffect([div.current])`: un efecto que
+  // depende de `.current` no se vuelve a disparar cuando el ref se llena
+  // —mutar un ref no re-renderiza— asi que el mapa puede no montarse nunca.
+  const montar = useCallback((div: HTMLDivElement | null) => {
+    if (!div) return;
+    const r: Region = inicial.current ?? {
       latitude: -33.45, longitude: -70.66, latitudeDelta: 0.3, longitudeDelta: 0.3,
     };
-    const m = L.map(div.current, { attributionControl: true });
+    const m = L.map(div, { attributionControl: true });
     m.fitBounds(regionABounds(r));
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© colaboradores de OpenStreetMap',
     }).addTo(m);
     setMapa(m);
-    return () => { m.remove(); };
-  }, [div.current]);
+  }, []);
+
+  // El mapa se destruye al desmontar el componente, no al re-renderizar.
+  useEffect(() => () => { mapa?.remove(); }, [mapa]);
 
   // `region` controlada: cuando el llamador la cambia (por ejemplo
   // AddSightingScreen al usar "mi ubicación"), el mapa la sigue.
@@ -2346,7 +2396,9 @@ export default function MapView({ style, region, initialRegion, onPress, childre
   }, [mapa, onPress]);
 
   return (
-    <div ref={div} style={{ ...(style ?? {}), minHeight: 180 }}>
+    <div ref={montar} style={{ ...(style ?? {}), minHeight: 180 }}>
+      {/* Los hijos se montan recien con el mapa listo: un Marker sin mapa no
+          tiene donde agregarse. */}
       <MapaCtx.Provider value={mapa}>{mapa ? children : null}</MapaCtx.Provider>
     </div>
   );
@@ -2605,11 +2657,18 @@ Sin sesión no hay bloqueos que aplicar: verificar que ese camino no lance.
 Run: `npx tsc --noEmit && npx jest`
 Expected: 0 errores, todo verde.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Mover el guardián de última migración a 66**
+
+`toBe(65)` → `toBe(66)`, con su `describe` y su línea de procedencia. **Moverlo, no duplicarlo.**
+
+Run: `npx jest __tests__/db/ultimaMigracion.test.ts`
+Expected: PASS.
+
+- [ ] **Step 9: Commit**
 
 ```bash
 git add supabase/migrations/0066_rastro_publico.sql __tests__/db/migracion0066.test.ts \
-        src/services/sightings.ts src/screens/PublicPetScreen.tsx
+        src/services/sightings.ts src/screens/PublicPetScreen.tsx __tests__/db/ultimaMigracion.test.ts
 git commit -m "t14-C3: quien llega por el QR ve el rastro; oculto y cerrado siguen tapados (0066)"
 ```
 
