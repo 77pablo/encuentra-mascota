@@ -227,6 +227,19 @@ describe('MascotaPublica — avisar sin cuenta', () => {
     await act(async () => tree.unmount());
   }, 30000);
 
+  it('ofrece el seguimiento como opcional y con la promesa de finalidad única', async () => {
+    // D3, sobre la 0055/0061: quien avisa sin cuenta puede dejar un correo para
+    // enterarse si aparece. Tiene que quedar clarísimo que es opcional y que ese
+    // correo no se usa para nada más (Ley 21.719, finalidad única).
+    const tree = await montar();
+
+    const texto = textoDe(tree.root);
+    expect(texto).toContain('¿Querés que te avisemos si aparece?');
+    expect(texto).toContain('Solo para eso');
+
+    await act(async () => tree.unmount());
+  }, 30000);
+
   it('el botón de contacto de siempre sigue estando', async () => {
     // Guardia de no-regresión: la tarjeta nueva se monta al lado del flujo que
     // ya existía (el QR del afiche), no encima.

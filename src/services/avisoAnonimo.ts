@@ -21,6 +21,23 @@ export interface DatosAviso {
   // en createPet/addSighting: la coordenada exacta no sale del teléfono.
   lat?: number | null;
   lng?: number | null;
+  // Correo OPCIONAL de quien avisa, para un único aviso de reencuentro (D1,
+  // migración 0055/0061). Finalidad única (Ley 21.719): no se usa para nada
+  // más y este archivo no lo loguea ni lo muestra en ningún lado.
+  correo?: string | null;
+}
+
+// Mensaje del único chequeo de cliente sobre el correo: uno de forma, no de
+// existencia (eso no se puede saber sin mandar el mail). Deja avisar igual
+// si la persona prefiere dejarlo vacío.
+export const CORREO_INVALIDO =
+  'Ese correo no parece válido. Revisalo o dejalo vacío: el aviso sale igual.';
+
+// La misma forma laxa que valida la base (0061): algo@algo.algo. La
+// validación real es la del servidor; esta es solo para no mandar a la
+// persona a esperar un mail que la 0061 va a descartar en silencio.
+export function correoValido(correo: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo) && correo.length <= 254;
 }
 
 // Mensaje para el único caso en que este flujo puede fallar de forma esperable:
@@ -42,11 +59,18 @@ export async function avisarSinCuenta(petId: string, datos: DatosAviso = {}): Pr
 
   const nota = (datos.nota ?? '').trim().slice(0, TOPE_NOTA);
 
+  // Igual que la nota: se recorta/normaliza acá, pero quien de verdad decide
+  // si el correo vale es la 0061 en el servidor (esto es solo UX, para no
+  // hacer esperar a alguien un mail que nunca va a llegar).
+  const correo = (datos.correo ?? '').trim().toLowerCase();
+  if (correo && !correoValido(correo)) throw new ErrorAmigable(CORREO_INVALIDO);
+
   const { error } = await supabase.rpc('avistar_sin_cuenta', {
     p_pet_id: petId,
     p_nota: nota.length > 0 ? nota : null,
     p_lat: punto ? punto.lat : null,
     p_lng: punto ? punto.lng : null,
+    p_correo: correo || null,
   });
 
   if (!error) return;

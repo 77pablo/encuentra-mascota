@@ -1,4 +1,4 @@
-import { avisarSinCuenta, TOPE_NOTA } from '../../src/services/avisoAnonimo';
+import { avisarSinCuenta, CORREO_INVALIDO, TOPE_NOTA } from '../../src/services/avisoAnonimo';
 import { ErrorAmigable } from '../../src/lib/dbErrors';
 
 // AVISAR SIN CUENTA (migración 0050).
@@ -93,6 +93,25 @@ describe('avisarSinCuenta — la nota', () => {
     await avisarSinCuenta(PET, { nota: '   ' });
 
     expect(argumentos().p_nota).toBeNull();
+  });
+});
+
+describe('avisarSinCuenta — el correo (D3, sobre la 0055/0061)', () => {
+  it('manda p_correo normalizado cuando viene', async () => {
+    await avisarSinCuenta(PET, { nota: '', correo: '  Vecino@Mail.CL ' });
+
+    expect(argumentos().p_correo).toBe('vecino@mail.cl');
+  });
+
+  it('sin correo manda null, como siempre', async () => {
+    await avisarSinCuenta(PET, { nota: 'hola' });
+
+    expect(argumentos().p_correo).toBeNull();
+  });
+
+  it('un correo inválido corta ANTES de llamar, con mensaje amigable', async () => {
+    await expect(avisarSinCuenta(PET, { correo: 'no-es-un-correo' })).rejects.toThrow(CORREO_INVALIDO);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });
 

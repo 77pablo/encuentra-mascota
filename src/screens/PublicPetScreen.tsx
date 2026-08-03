@@ -37,6 +37,8 @@ export default function PublicPetScreen({ route, navigation }: any) {
 
   // "Lo vi acá": el aviso que puede dejar alguien SIN CUENTA (migración 0050).
   const [nota, setNota] = useState('');
+  // Correo opcional para el aviso de reencuentro (D1-D3, migración 0055/0061).
+  const [correo, setCorreo] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [avisado, setAvisado] = useState(false);
@@ -127,7 +129,7 @@ export default function PublicPetScreen({ route, navigation }: any) {
     try {
       // El servicio difumina el punto antes de mandarlo: la coordenada exacta
       // de quien avisa (que está parado ahí) no se guarda en ninguna parte.
-      await avisarSinCuenta(pet.id, { nota, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+      await avisarSinCuenta(pet.id, { nota, correo, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
       setAvisado(true);
     } catch (e: any) {
       // Solo se agradece si de verdad salió. Decir "listo" con el aviso caído
@@ -246,6 +248,11 @@ export default function PublicPetScreen({ route, navigation }: any) {
               <AppText muted size={13}>
                 Gracias por parar. Eso hace toda la diferencia.
               </AppText>
+              {correo.trim() ? (
+                <AppText muted size={13}>
+                  «Si aparece, te va a llegar un correo.»
+                </AppText>
+              ) : null}
             </Card>
           ) : (
             <Card style={styles.avisoCard}>
@@ -260,6 +267,22 @@ export default function PublicPetScreen({ route, navigation }: any) {
                 onChangeText={setNota}
                 multiline
               />
+              <Input
+                label="¿Querés que te avisemos si aparece? (opcional)"
+                placeholder="tu@correo.cl"
+                value={correo}
+                onChangeText={setCorreo}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {/* Finalidad única (Ley 21.719), dicha de frente: nada de letra
+                  chica. El correo que se deja acá se usa para UNA sola cosa
+                  (el aviso de reencuentro, D2) y después se borra; nadie más
+                  lo ve ni se reutiliza. */}
+              <AppText muted size={12} style={styles.finalidadUnica}>
+                Solo para eso: te llega un único correo si se reencuentran, y tu
+                dirección se borra. No la ve la familia ni se usa para nada más.
+              </AppText>
               {/* NO se ofrece sumar la ubicación, y es a propósito.
                   El botón existía y pedía permiso de GPS, la RPC guardaba el
                   punto difuminado en `datos.lat/lng`… y NADIE lo lee: el mapa
@@ -400,6 +423,10 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   avisoTexto: {
     lineHeight: 20,
+  },
+  finalidadUnica: {
+    lineHeight: 16,
+    marginTop: -spacing.xs,
   },
   avisoOkCard: {
     backgroundColor: colors.sky,
