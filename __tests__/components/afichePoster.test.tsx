@@ -20,6 +20,7 @@ jest.mock('../../src/components/QrCode', () => {
 
 import AfichePoster from '../../src/components/AfichePoster';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';
+import { AppText } from '../../src/ui';
 import { AficheContent, TEXTO_QR } from '../../src/lib/afiche';
 
 function textos(arbol: any): string[] {
@@ -57,6 +58,11 @@ const contenido = (extra: Partial<AficheContent> = {}): AficheContent => ({
 
 it('el QR va ANTES que el número en el orden de lectura', () => {
   const t = textos(render(contenido()));
+  // Si se borrara la leyenda del QR, indexOf devolvería -1 y "-1 < indexOf(numero)"
+  // pasaría igual sin haber comparado nada: por eso primero se exige que las DOS
+  // cosas estén presentes (F15).
+  expect(t.indexOf(TEXTO_QR)).toBeGreaterThanOrEqual(0);
+  expect(t.indexOf('+56 9 1234 5678')).toBeGreaterThanOrEqual(0);
   expect(t.indexOf(TEXTO_QR)).toBeLessThan(t.indexOf('+56 9 1234 5678'));
 });
 
@@ -84,4 +90,27 @@ it('el dominio ajeno tampoco sobrevive como respaldo en TarjetaCompartir ni en C
     );
   expect(leer('TarjetaCompartir.tsx')).not.toContain('encuentratumascota.app');
   expect(leer('CollarTag.tsx')).not.toContain('encuentratumascota.app');
+});
+
+// F1: el presupuesto de altura de AfichePoster.tsx solo cierra con el nombre
+// topeado a 1 línea, las señas a 2 y el QR achicado a 180 — si alguno de los
+// tres se destopa, el poster vuelve a desbordar la página fija (ver el
+// comentario "PRESUPUESTO DE ALTURA" en el propio componente).
+describe('F1: el presupuesto de altura no desborda la página fija', () => {
+  it('el nombre está topado a 1 línea y las señas a 2', () => {
+    const arbol = render(contenido());
+    const textos = arbol.root.findAllByType(AppText);
+    const nombre = textos.filter((n: any) => n.props.style?.fontSize === 46);
+    expect(nombre.length).toBeGreaterThan(0);
+    expect(nombre.every((n: any) => n.props.numberOfLines === 1)).toBe(true);
+    const senas = textos.filter((n: any) => n.props.style?.fontSize === 26);
+    expect(senas.length).toBeGreaterThan(0);
+    expect(senas.every((n: any) => n.props.numberOfLines === 2)).toBe(true);
+  });
+
+  it('el QR se pide al tamaño reducido que entra en el presupuesto (180, no 210)', () => {
+    render(contenido());
+    const QrCode = require('../../src/components/QrCode').default;
+    expect(QrCode.mock.calls[QrCode.mock.calls.length - 1][0].size).toBe(180);
+  });
 });

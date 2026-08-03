@@ -1,9 +1,24 @@
+import { tarjetaTextos, datosDeReporte, datosDeAdopcion, datosDeFinalFeliz, diasEntre } from './tarjeta';
+
 // `petUrl`/`adopcionUrl` (src/lib/links.ts) resuelven la URL desde
 // `EXPO_PUBLIC_WEB_URL` fuera de web (acá `Platform.OS` es 'ios', el default
 // de jest-expo): la fijamos para que las aserciones de `qrUrl` sean estables.
-process.env.EXPO_PUBLIC_WEB_URL = 'https://encuentratumascota.app';
+// Guardado/restaurado en beforeAll/afterAll (F12): `process.env` es GLOBAL al
+// worker de jest, compartido entre archivos de test que corren en el mismo
+// proceso — pisarlo a nivel de módulo, sin restaurar, se le filtraba a
+// cualquier otra suite que corriera en el mismo worker después de esta.
+const DOMINIO_TEST = 'https://encuentras-mascota.pages.dev';
+let envOriginal: string | undefined;
 
-import { tarjetaTextos, datosDeReporte, datosDeAdopcion, datosDeFinalFeliz, diasEntre } from './tarjeta';
+beforeAll(() => {
+  envOriginal = process.env.EXPO_PUBLIC_WEB_URL;
+  process.env.EXPO_PUBLIC_WEB_URL = DOMINIO_TEST;
+});
+
+afterAll(() => {
+  if (envOriginal === undefined) delete process.env.EXPO_PUBLIC_WEB_URL;
+  else process.env.EXPO_PUBLIC_WEB_URL = envOriginal;
+});
 
 const base = {
   id: 'x',
@@ -67,7 +82,7 @@ describe('datosDeReporte', () => {
       titulo: 'Luna',
       subtitulo: 'Perro · Quiltro',
       fotoUrl: 'https://ejemplo.com/foto.jpg',
-      qrUrl: 'https://encuentratumascota.app/mascota/abc123',
+      qrUrl: 'https://encuentras-mascota.pages.dev/mascota/abc123',
       nombreArchivo: 'mascota-abc123.png',
     });
   });
@@ -122,7 +137,7 @@ describe('datosDeAdopcion', () => {
       titulo: 'Pelusa',
       subtitulo: 'Perro · Cachorro · Mediano',
       fotoUrl: 'https://ejemplo.com/pelusa.jpg',
-      qrUrl: 'https://encuentratumascota.app/adopcion/ad-1',
+      qrUrl: 'https://encuentras-mascota.pages.dev/adopcion/ad-1',
       nombreArchivo: 'adopcion-ad-1.png',
     });
   });
@@ -158,7 +173,7 @@ describe('datosDeFinalFeliz', () => {
       titulo: 'Firulais',
       subtitulo: '2 días después',
       fotoUrl: 'https://ejemplo.com/foto.jpg',
-      qrUrl: 'https://encuentratumascota.app/mascota/p1',
+      qrUrl: 'https://encuentras-mascota.pages.dev/mascota/p1',
       nombreArchivo: 'final-feliz-p1.png',
     });
   });

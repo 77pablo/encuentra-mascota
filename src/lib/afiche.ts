@@ -31,8 +31,11 @@ export function normalizarWhatsapp(telefono: string | null | undefined): string 
   return (telefono ?? '').replace(/\D/g, '');
 }
 
-// Un afiche sin WhatsApp pierde fuerza: esto decide si mostrar la guardia
-// "cargá tu WhatsApp" antes de generar.
+// F17: ya no hay ninguna guardia que bloquee generar sin WhatsApp cargado
+// (esa pantalla murió en A3). Lo que este booleano decide hoy es el PRESET
+// del interruptor "Incluir mi número de WhatsApp" en AficheOpciones: sin
+// número, arranca apagado (y sin interruptor visible: ver AficheOpciones.tsx)
+// porque no hay nada que incluir.
 export function faltaWhatsapp(profile: Pick<Profile, 'telefono'> | null | undefined): boolean {
   return normalizarWhatsapp(profile?.telefono).length === 0;
 }

@@ -26,7 +26,7 @@ function datos(over: Partial<DatosTarjeta> = {}): DatosTarjeta {
     titulo: 'Luna',
     subtitulo: 'Perro · Quiltro',
     fotoUrl: null,
-    qrUrl: 'https://encuentratumascota.app/mascota/pet-1',
+    qrUrl: 'https://encuentras-mascota.pages.dev/mascota/pet-1',
     nombreArchivo: 'mascota-pet-1.png',
     ...over,
   };

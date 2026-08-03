@@ -20,6 +20,7 @@ export interface AfichePosterProps {
 
 const WIDTH = 816; // 8.5in * 96dpi
 const HEIGHT = 1056; // 11in * 96dpi
+const QR_SIZE = 180;
 
 export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }: AfichePosterProps) {
   return (
@@ -36,10 +37,18 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
         )}
       </View>
 
-      {content.nombre ? <AppText style={styles.nombre}>{content.nombre}</AppText> : null}
-      <AppText style={styles.subtitulo}>{content.subtitulo}</AppText>
+      {content.nombre ? (
+        <AppText style={styles.nombre} numberOfLines={1}>
+          {content.nombre}
+        </AppText>
+      ) : null}
+      <AppText style={styles.subtitulo} numberOfLines={1}>
+        {content.subtitulo}
+      </AppText>
 
-      <AppText style={styles.senas}>{content.senas}</AppText>
+      <AppText style={styles.senas} numberOfLines={2}>
+        {content.senas}
+      </AppText>
 
       {/* Sin la cifra, a propósito: un afiche con el monto pegado en la calle es
           el anzuelo perfecto para el que llama diciendo "la tengo, transferime". */}
@@ -51,7 +60,7 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
 
       <View style={styles.footer}>
         <View style={styles.qrWrap}>
-          <QrCode value={content.url} size={210} />
+          <QrCode value={content.url} size={QR_SIZE} />
           <AppText style={styles.qrText}>{TEXTO_QR}</AppText>
         </View>
         {content.whatsappDisplay ? (
@@ -68,6 +77,37 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
   );
 }
 
+// PRESUPUESTO DE ALTURA (F1, revisión adversarial final de la tanda 13).
+//
+// El footer es COLUMNA (QR + leyenda + [contacto] + zona), no fila: mide bastante
+// más que el footer viejo que calibró originalmente esta página. captureRef corta
+// el PNG exactamente en HEIGHT=1056, así que el peor caso (nombre 1 línea + señas
+// topeadas a 2 + recompensa + footer completo con número de WhatsApp) tiene que
+// entrar entero. Cada altura de acá abajo es DETERMINÍSTICA: todo texto que
+// participa del presupuesto lleva `lineHeight` explícito en su estilo (nunca el
+// alto "natural" de la fuente), así que un fallback de fuente (HankenGrotesk sin
+// cargar todavía cuando se dispara captureRef) no puede correr la cuenta.
+//
+// AVAILABLE = HEIGHT - 2*spacing.xxxl(32) = 1056 - 64 = 992
+//
+//   1. titular:      lineHeight 78              + marginBottom spacing.sm(8)  =  86
+//   2. fotoWrap:      foto 300                   + marginBottom spacing.sm(8)  = 308  (subtotal 394)
+//   3. nombre:        lineHeight 50 (1 línea)     + marginBottom 0              =  50  (subtotal 444)
+//   4. subtitulo:     lineHeight 32 (1 línea)     + marginBottom spacing.sm(8)  =  40  (subtotal 484)
+//   5. señas:         lineHeight 34 × 2 líneas    + marginBottom spacing.sm(8)  =  76  (subtotal 560)
+//   6. recompensaCaja: paddingVertical spacing.sm(8)×2=16 + texto lineHeight 32
+//                      + marginBottom spacing.sm(8)                            =  56  (subtotal 616)
+//   7. footer:
+//        borde 2 + paddingTop spacing.md(12)                                  =  14
+//        qrWrap: QR_SIZE 180 + marginBottom spacing.sm(8)
+//                + qrText (lineHeight 18 + marginTop spacing.xs(4))           = 210
+//        contacto: label lineHeight 28 + numero lineHeight 50                 =  78
+//        zona: lineHeight 24 + marginTop spacing.xs(4)                        =  28
+//        footer total = 14+210+78+28                                         = 330  (subtotal 946)
+//   8. marca:         lineHeight 22               + marginTop spacing.sm(8)   =  30  (TOTAL 976)
+//
+// TOTAL = 976 ≤ 992 → sobran 16px de margen. Si se agrega o agranda algo acá,
+// hay que volver a sumar esta tabla término a término (no "a ojo").
 const styles = StyleSheet.create({
   page: {
     width: WIDTH,
@@ -82,15 +122,15 @@ const styles = StyleSheet.create({
     lineHeight: 78,
     color: colors.lost,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   fotoWrap: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   foto: {
     width: WIDTH - spacing.xxxl * 2,
-    height: 420,
+    height: 300,
     borderRadius: radius.lg,
     backgroundColor: colors.sky,
   },
@@ -101,15 +141,17 @@ const styles = StyleSheet.create({
   nombre: {
     fontFamily: font.display,
     fontSize: 46,
+    lineHeight: 50,
     color: colors.ink,
     textAlign: 'center',
   },
   subtitulo: {
     fontFamily: font.bodySemi,
     fontSize: 28,
+    lineHeight: 32,
     color: colors.muted,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   senas: {
     fontFamily: font.body,
@@ -117,19 +159,20 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     color: colors.ink,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   recompensaCaja: {
     alignSelf: 'center',
     backgroundColor: colors.sun,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
   },
   recompensaText: {
     fontFamily: font.bodyBold,
     fontSize: 28,
+    lineHeight: 32,
     color: colors.ink,
   },
   footer: {
@@ -137,7 +180,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     borderTopWidth: 2,
     borderTopColor: colors.line,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.md,
   },
   contacto: {
     alignItems: 'center',
@@ -145,34 +188,39 @@ const styles = StyleSheet.create({
   contactoLabel: {
     fontFamily: font.bodySemi,
     fontSize: 24,
+    lineHeight: 28,
     color: colors.brand,
   },
   contactoNumero: {
     fontFamily: font.display,
     fontSize: 44,
+    lineHeight: 50,
     color: colors.ink,
   },
   zona: {
     fontFamily: font.body,
     fontSize: 20,
+    lineHeight: 24,
     color: colors.muted,
     marginTop: spacing.xs,
   },
   qrWrap: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   qrText: {
     fontFamily: font.body,
     fontSize: 16,
+    lineHeight: 18,
     color: colors.muted,
     marginTop: spacing.xs,
   },
   marca: {
     fontFamily: font.bodySemi,
     fontSize: 18,
+    lineHeight: 22,
     color: colors.muted,
     textAlign: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
 });

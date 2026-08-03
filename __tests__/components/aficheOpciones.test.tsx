@@ -1,5 +1,5 @@
 import React from 'react';
-import { Share } from 'react-native';
+import { Platform, Share } from 'react-native';
 import { act, create } from 'react-test-renderer';
 
 // LA HOJA PREVIA AL AFICHE.
@@ -99,4 +99,90 @@ it('el texto de imprenta se comparte entero', async () => {
   const arbol = await montar({ telefono: '+56911111111' });
   tocarBoton(arbol, 'Copiar texto para la fotocopiadora');
   expect(share.mock.calls[0][0].message).toContain('fluorescente');
+});
+
+// F10: en web, `Share.share` rechaza en Firefox/Chrome-Linux (no hay
+// `navigator.share`) y el botón no hacía nada, aunque el rótulo dijera
+// "Copiar". Ahora en web copia de verdad al portapapeles, con feedback.
+describe('F10: en web el botón COPIA de verdad', () => {
+  const platformOriginal = Platform.OS;
+
+  afterEach(() => {
+    Object.defineProperty(Platform, 'OS', { value: platformOriginal, configurable: true });
+    delete (globalThis as any).navigator;
+    // jest no resetea los mocks entre tests por defecto (ni clearMocks ni
+    // restoreMocks están prendidos en jest.config.js): sin esto, el
+    // `mock.calls` de `Share.share` arrastra las llamadas de OTRO test
+    // (incluido 'el texto de imprenta se comparte entero', arriba) y una
+    // aserción de "no se llamó" o "se llamó con esto" podría dar un falso
+    // verde con datos de una invocación que no es la de este test.
+    jest.clearAllMocks();
+  });
+
+  it('usa navigator.clipboard.writeText, muestra "Copiado ✓" y después vuelve al rótulo', async () => {
+    // Timers falsos: el componente arma un `setTimeout` real de 2s para
+    // revertir el rótulo. Sin controlarlo, ese timer sigue vivo después de
+    // que este test (y hasta el proceso de jest) terminó y revienta al
+    // disparar sobre un entorno ya destruido — pasó de verdad al escribir
+    // este test.
+    jest.useFakeTimers();
+    try {
+      Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      (globalThis as any).navigator = { clipboard: { writeText } };
+      const share = jest.spyOn(Share, 'share').mockClear();
+
+      const arbol = await montar({ telefono: '+56911111111' });
+      await act(async () => {
+        const b = arbol.root.findAllByType(require('../../src/ui').Button).find(
+          (n: any) => n.props.title === 'Copiar texto para la fotocopiadora',
+        );
+        await b!.props.onPress();
+      });
+
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(writeText.mock.calls[0][0]).toContain('fluorescente');
+      expect(share).not.toHaveBeenCalled();
+      expect(textos(arbol).join(' ')).toContain('Copiado ✓');
+
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(textos(arbol).join(' ')).not.toContain('Copiado ✓');
+      expect(textos(arbol).join(' ')).toContain('Copiar texto para la fotocopiadora');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('sin navigator.clipboard en web, cae al respaldo de Share.share (sin catch mudo)', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+    (globalThis as any).navigator = {};
+    const share = jest.spyOn(Share, 'share').mockClear().mockResolvedValue({ action: 'sharedAction' } as any);
+
+    const arbol = await montar({ telefono: '+56911111111' });
+    tocarBoton(arbol, 'Copiar texto para la fotocopiadora');
+
+    expect(share.mock.calls[0][0].message).toContain('fluorescente');
+  });
+
+  it('si el portapapeles falla, avisa por consola y cae igual al respaldo de Share.share', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+    const writeText = jest.fn().mockRejectedValue(new Error('permiso denegado'));
+    (globalThis as any).navigator = { clipboard: { writeText } };
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const share = jest.spyOn(Share, 'share').mockClear().mockResolvedValue({ action: 'sharedAction' } as any);
+
+    const arbol = await montar({ telefono: '+56911111111' });
+    await act(async () => {
+      const b = arbol.root.findAllByType(require('../../src/ui').Button).find(
+        (n: any) => n.props.title === 'Copiar texto para la fotocopiadora',
+      );
+      await b!.props.onPress();
+    });
+
+    expect(warn).toHaveBeenCalled();
+    expect(share.mock.calls[0][0].message).toContain('fluorescente');
+    warn.mockRestore();
+  });
 });

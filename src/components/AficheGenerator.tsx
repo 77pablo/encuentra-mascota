@@ -9,7 +9,12 @@ import { Profile } from '../services/profile';
 
 export interface AficheGeneratorProps {
   pet: Pet;
-  profile: Profile;
+  // F9 (revisión adversarial final): `perfil` puede llegar null si
+  // `getMyProfile()` falla o si la RPC vieja de la ventana de despliegue no
+  // trae la fila — la hoja de opciones YA promete generar igual (afiche solo
+  // con QR), así que este componente no puede exigir un perfil que puede no
+  // llegar nunca. `armarAfiche` ya acepta `null` (ver src/lib/afiche.ts).
+  profile: Profile | null;
   /** Decisión de la hoja de opciones (AficheOpciones); prendido por defecto. */
   incluirNumero?: boolean;
   onDone: () => void;

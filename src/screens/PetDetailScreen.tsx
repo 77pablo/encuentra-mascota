@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
@@ -145,6 +145,13 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // WhatsApp cargado. `incluirNumero` es la decisión que ahí se toma.
   const [opcionesAfiche, setOpcionesAfiche] = useState(false);
   const [incluirNumero, setIncluirNumero] = useState(true);
+  // F11 (revisión adversarial final): quien entra por "Plan de búsqueda"
+  // toca `onAfiche` con el plan arriba de la pantalla, pero la hoja se monta
+  // cientos de px más abajo (después de Recompensa, Mapa, etc.) — sin
+  // scrollear hasta ahí, el segundo toque ("Descargar afiche") queda fuera de
+  // pantalla y parece que no pasó nada. Ref al ScrollView + el `onLayout` de
+  // la propia hoja: apenas mide su posición, se scrollea hasta ella.
+  const scrollRef = useRef<ScrollView>(null);
   // "Compartir tarjeta" (F1): monta TarjetaGenerador off-screen, que se
   // encarga de capturar y compartir (mismo patrón que el afiche, ver abajo).
   const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
@@ -601,7 +608,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         {pet.fotos.length > 0 ? (
           <View onLayout={onCarouselLayout}>
             <ScrollView
@@ -946,16 +953,25 @@ export default function PetDetailScreen({ route, navigation }: any) {
         )}
 
         {opcionesAfiche && esMio ? (
-          <AficheOpciones
-            pet={pet}
-            profile={perfil}
-            onGenerar={(conNumero) => {
-              setIncluirNumero(conNumero);
-              setOpcionesAfiche(false);
-              setGenerandoAfiche(true);
+          <View
+            onLayout={(e: LayoutChangeEvent) => {
+              // F11: apenas se conoce la posición de la hoja, se scrollea
+              // hasta ahí. `y` viene relativo al contenido del ScrollView (es
+              // hijo directo suyo), que es exactamente lo que pide `scrollTo`.
+              scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: true });
             }}
-            onCerrar={() => setOpcionesAfiche(false)}
-          />
+          >
+            <AficheOpciones
+              pet={pet}
+              profile={perfil}
+              onGenerar={(conNumero) => {
+                setIncluirNumero(conNumero);
+                setOpcionesAfiche(false);
+                setGenerandoAfiche(true);
+              }}
+              onCerrar={() => setOpcionesAfiche(false)}
+            />
+          </View>
         ) : null}
 
         <View style={styles.sightingsSection}>
@@ -1297,7 +1313,11 @@ export default function PetDetailScreen({ route, navigation }: any) {
           </View>
         )}
 
-        {generandoAfiche && perfil && (
+        {/* F9 (revisión adversarial final): SIN el `&& perfil`. La hoja de
+            opciones promete generar el afiche igual si getMyProfile() dio
+            null (afiche solo con QR); exigir `perfil` acá dejaba el spinner
+            girando para siempre porque `onDone` nunca llegaba a dispararse. */}
+        {generandoAfiche && (
           <AficheGenerator
             pet={pet}
             profile={perfil}
