@@ -17,6 +17,7 @@
 const CATEGORIAS = { veterinary: 'veterinaria', animal_shelter: 'refugio' };
 
 function normalizarElemento(el) {
+  if (!el) return null;                           // tolerar un nulo de la API
   const tags = el.tags || {};
   const nombre = (tags.name || '').trim();
   if (!nombre) return null;                       // sin nombre no sirve de nada

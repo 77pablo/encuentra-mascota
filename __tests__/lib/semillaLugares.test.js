@@ -2,7 +2,22 @@ const { normalizarElemento } = require('../../scripts/semilla-lugares');
 
 describe('normalizarElemento', () => {
   it('descarta lo que no tiene nombre (el 9% de OSM en la RM)', () => {
-    expect(normalizarElemento({ type: 'node', id: 1, lat: -33, lon: -70, tags: {} })).toBeNull();
+    expect(normalizarElemento({
+      type: 'node', id: 1, lat: -33, lon: -70,
+      tags: { amenity: 'veterinary' }, // sin name, con amenity válida
+    })).toBeNull();
+  });
+
+  it('descarta un nombre que es solo espacios', () => {
+    expect(normalizarElemento({
+      type: 'node', id: 1, lat: -33, lon: -70,
+      tags: { name: '   ', amenity: 'veterinary' },
+    })).toBeNull();
+  });
+
+  it('tolera un elemento nulo de la API', () => {
+    expect(normalizarElemento(null)).toBeNull();
+    expect(normalizarElemento(undefined)).toBeNull();
   });
 
   it('toma el centro de un way (no tiene lat/lon propias)', () => {
