@@ -29,4 +29,17 @@ describe('0062: la foto del aviso anónimo solo la ve el dueño', () => {
     expect(sql).toMatch(/drop function public\.avistar_sin_cuenta\(uuid, text, double precision, double precision, text\)/);
     expect(sql).toMatch(/to anon/);
   });
+
+  it('cada descarte silencioso levanta aviso_descartado si venía con foto', () => {
+    const ocurrencias = sql.match(/raise exception 'aviso_descartado'/g) ?? [];
+    // Los 5 caminos de `return;` sin insertar: pet inexistente/oculto, bloqueo,
+    // dedupe por contenido, tope por hora y tope por día. Ninguno debe subir
+    // (ni dejar apuntando) una foto de un aviso que nunca se registró.
+    expect(ocurrencias.length).toBe(5);
+  });
+
+  it('el gate de aviso_descartado va siempre antes de un return silencioso', () => {
+    const returns = sql.match(/if p_foto_path is not null then\s*\n\s*raise exception 'aviso_descartado';\s*\n\s*end if;\s*\n\s*return;/g) ?? [];
+    expect(returns.length).toBe(5);
+  });
 });

@@ -74,6 +74,14 @@ begin
   -- Reporte inexistente, cerrado u oculto: no encolamos nada y NO delatamos
   -- cual de los tres casos es.
   if not found then
+    -- Con foto (o sea, llamada de la Edge Function con service_role): avisarle
+    -- que el aviso NO entró, sin decir por qué. El anónimo de a pie nunca pasa
+    -- por acá con foto (el gate de arriba lo corta), así que esto no es un
+    -- oráculo hacia afuera: es una señal interna para que la foto corra la
+    -- misma suerte que el aviso.
+    if p_foto_path is not null then
+      raise exception 'aviso_descartado';
+    end if;
     return;
   end if;
 
@@ -85,6 +93,10 @@ begin
     where (b.bloqueador = v_pet.user_id and b.bloqueado = auth.uid())
        or (b.bloqueador = auth.uid() and b.bloqueado = v_pet.user_id)
   ) then
+    -- ver el primer descarte: la foto corre la misma suerte
+    if p_foto_path is not null then
+      raise exception 'aviso_descartado';
+    end if;
     return;
   end if;
 
@@ -157,6 +169,10 @@ begin
       and round((ne.datos->>'lat')::numeric, 5) is not distinct from v_lat
       and round((ne.datos->>'lng')::numeric, 5) is not distinct from v_lng
   ) then
+    -- ver el primer descarte: la foto corre la misma suerte
+    if p_foto_path is not null then
+      raise exception 'aviso_descartado';
+    end if;
     return;
   end if;
 
@@ -190,6 +206,10 @@ begin
       and ne.pet_id = p_pet_id
       and ne.creado_en > now() - interval '1 hour'
   ) >= 10 then
+    -- ver el primer descarte: la foto corre la misma suerte
+    if p_foto_path is not null then
+      raise exception 'aviso_descartado';
+    end if;
     return;
   end if;
 
@@ -199,6 +219,10 @@ begin
       and ne.pet_id = p_pet_id
       and ne.creado_en > now() - interval '1 day'
   ) >= 30 then
+    -- ver el primer descarte: la foto corre la misma suerte
+    if p_foto_path is not null then
+      raise exception 'aviso_descartado';
+    end if;
     return;
   end if;
 
