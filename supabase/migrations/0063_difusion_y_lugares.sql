@@ -70,11 +70,11 @@ create table public.difusion_destinos (
   -- (o tipo 'institucion' sin institucion_id) viola el CHECK
   -- difusion_destinos_puntero_por_tipo de abajo, asi que 'set null' hacia que
   -- borrar un lugar o una institucion referenciados abortara el DELETE entero
-  -- con un 23514 en vez de limpiar (Critical 3). Si el lugar o la institucion
-  -- desaparecen, el destino que le apuntaba dejo de tener sentido y se va con
-  -- ellos. Esto importa de verdad: delete-account (0057/0058) borra la cuenta
-  -- completa de una institucion, y con 'set null' esa transaccion fallaba sin
-  -- manejo apenas la institucion tuviera un destino "avisado" pendiente.
+  -- con un 23514 en vez de limpiar (Critical 3). El cascade protege los DELETE
+  -- manuales sobre places o profiles (como la limpieza de cuentas de prueba),
+  -- evita un CHECK que contradice a su propia FK, y permite cualquier operacion
+  -- futura que borre lugares o perfiles sin romper las filas de destino que
+  -- apuntaban a ellos.
   lugar_id uuid references public.lugares(id) on delete cascade,
   institucion_id uuid references public.profiles(id) on delete cascade,
   estado text not null default 'pendiente',
