@@ -573,12 +573,16 @@ Deno.serve(async (req: Request) => {
   );
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('notification_events')
       .select('id, tipo, pet_id, actor_id, target_user_id, datos, intentos')
-      .eq('estado', 'pendiente')
-      .order('creado_en', { ascending: true })
-      .limit(LOTE);
+      .eq('estado', 'pendiente');
+    // Sin proveedor de correo, F4 deja cada 'reencuentro_seguimiento' pendiente
+    // tal cual (ver SIN_PROVEEDOR): si no se excluye acá, esos eventos se acumulan
+    // sin consumirse y, por orden de `creado_en`, acaparan el LOTE entero y sacan
+    // de circulación al resto de los tipos hasta que se active Brevo/Resend.
+    if (!hayProveedorDeCorreo()) query = query.neq('tipo', 'reencuentro_seguimiento');
+    const { data, error } = await query.order('creado_en', { ascending: true }).limit(LOTE);
 
     if (error) {
       // Sin la migración 0011 la tabla no existe: no es un error que valga la

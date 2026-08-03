@@ -48,6 +48,18 @@ describe('F7: el despachador no consume mudo un tipo que no conoce', () => {
   });
 });
 
+describe('Fix de cierre: el lote no se atasca sin Brevo (head-of-line blocking)', () => {
+  it('excluye reencuentro_seguimiento del select cuando no hay proveedor de correo', () => {
+    const i = codigo.indexOf("from('notification_events')");
+    const j = codigo.indexOf('.limit(LOTE)', i);
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(j).toBeGreaterThan(i);
+    const bloque = codigo.slice(i, j);
+    expect(bloque).toContain('!hayProveedorDeCorreo()');
+    expect(bloque).toContain(".neq('tipo', 'reencuentro_seguimiento')");
+  });
+});
+
 describe('F4: reencuentro_seguimiento sin proveedor de correo queda pendiente sin gastar intento', () => {
   it('corta ANTES de intentar enviarCorreo cuando no hay Brevo ni Resend', () => {
     const i = codigo.indexOf("ev.tipo === 'reencuentro_seguimiento'");

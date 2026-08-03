@@ -113,4 +113,28 @@ describe('F1: el presupuesto de altura no desborda la página fija', () => {
     const QrCode = require('../../src/components/QrCode').default;
     expect(QrCode.mock.calls[QrCode.mock.calls.length - 1][0].size).toBe(180);
   });
+
+  // Fix de cierre: un teléfono tipeado a mano no debe poder envolver a 2 líneas
+  // y empujarse a sí mismo (y a la marca) fuera del póster. El número cuenta
+  // como 1 línea SIEMPRE en el presupuesto (ver el comentario del componente).
+  it('el número de WhatsApp está topado a 1 línea', () => {
+    const arbol = render(contenido());
+    const textos = arbol.root.findAllByType(AppText);
+    const numero = textos.filter((n: any) => n.props.style?.fontSize === 44);
+    expect(numero.length).toBeGreaterThan(0);
+    expect(numero.every((n: any) => n.props.numberOfLines === 1)).toBe(true);
+  });
+
+  // Fix de cierre: el titular de "encontrada" ("¿CONOCÉS A ESTA MASCOTA?") envuelve
+  // a 2 líneas a 72px — el presupuesto tiene que asumir ese peor caso, no 1 línea.
+  // No hay `numberOfLines` en el titular (a propósito: no hay dónde recortarlo sin
+  // perder sentido), así que el renderizado con este titular largo, nombre, Y
+  // recompensa (el combo más pesado) tiene que seguir montando sin explotar.
+  it('el titular largo de "encontrada" (2 líneas) + nombre + recompensa renderiza sin desbordar el árbol', () => {
+    const arbol = render(
+      contenido({ titular: '¿CONOCÉS A ESTA MASCOTA?', hayRecompensa: true }),
+    );
+    const t = textos(arbol);
+    expect(t).toContain('¿CONOCÉS A ESTA MASCOTA?');
+  });
 });

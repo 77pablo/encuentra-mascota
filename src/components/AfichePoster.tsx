@@ -66,7 +66,9 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
         {content.whatsappDisplay ? (
           <View style={styles.contacto}>
             <AppText style={styles.contactoLabel}>Contactá por WhatsApp</AppText>
-            <AppText style={styles.contactoNumero}>{content.whatsappDisplay}</AppText>
+            <AppText style={styles.contactoNumero} numberOfLines={1}>
+              {content.whatsappDisplay}
+            </AppText>
           </View>
         ) : null}
         <AppText style={styles.zona}>{content.zonaTexto}</AppText>
@@ -77,37 +79,51 @@ export default function AfichePoster({ content, foto, onFotoLoad, onFotoError }:
   );
 }
 
-// PRESUPUESTO DE ALTURA (F1, revisión adversarial final de la tanda 13).
+// PRESUPUESTO DE ALTURA (F1, revisión adversarial final de la tanda 13; re-presupuestado
+// en el fix de cierre porque el titular de "encontrada" es de 2 LÍNEAS).
 //
 // El footer es COLUMNA (QR + leyenda + [contacto] + zona), no fila: mide bastante
 // más que el footer viejo que calibró originalmente esta página. captureRef corta
-// el PNG exactamente en HEIGHT=1056, así que el peor caso (nombre 1 línea + señas
-// topeadas a 2 + recompensa + footer completo con número de WhatsApp) tiene que
-// entrar entero. Cada altura de acá abajo es DETERMINÍSTICA: todo texto que
-// participa del presupuesto lleva `lineHeight` explícito en su estilo (nunca el
-// alto "natural" de la fuente), así que un fallback de fuente (HankenGrotesk sin
-// cargar todavía cuando se dispara captureRef) no puede correr la cuenta.
+// el PNG exactamente en HEIGHT=1056, así que el peor caso tiene que entrar entero.
+// El titular NO es siempre 1 línea: `armarAfiche` solo produce dos strings fijos
+// (src/lib/afiche.ts) — 'SE BUSCA' (1 línea) y '¿CONOCÉS A ESTA MASCOTA?' (2 líneas
+// a 72px HankenGrotesk ExtraBold en 752px de ancho útil) — así que el peor caso real
+// es: titular a 2 líneas + nombre 1 línea + señas topeadas a 2 + recompensa + footer
+// completo con número de WhatsApp (también topado a 1 línea, `numberOfLines={1}`: un
+// teléfono tipeado a mano no debe poder envolver y empujarse a sí mismo afuera).
+// Cada altura de acá abajo es DETERMINÍSTICA: todo texto que participa del
+// presupuesto lleva `lineHeight` explícito en su estilo (nunca el alto "natural" de
+// la fuente), así que un fallback de fuente (HankenGrotesk sin cargar todavía cuando
+// se dispara captureRef) no puede correr la cuenta.
 //
 // AVAILABLE = HEIGHT - 2*spacing.xxxl(32) = 1056 - 64 = 992
 //
-//   1. titular:      lineHeight 78              + marginBottom spacing.sm(8)  =  86
-//   2. fotoWrap:      foto 300                   + marginBottom spacing.sm(8)  = 308  (subtotal 394)
-//   3. nombre:        lineHeight 50 (1 línea)     + marginBottom 0              =  50  (subtotal 444)
-//   4. subtitulo:     lineHeight 32 (1 línea)     + marginBottom spacing.sm(8)  =  40  (subtotal 484)
-//   5. señas:         lineHeight 34 × 2 líneas    + marginBottom spacing.sm(8)  =  76  (subtotal 560)
-//   6. recompensaCaja: paddingVertical spacing.sm(8)×2=16 + texto lineHeight 32
-//                      + marginBottom spacing.sm(8)                            =  56  (subtotal 616)
+//   1. titular:      lineHeight 78 × 2 líneas    + marginBottom spacing.sm(8)  = 164
+//   2. fotoWrap:      foto 240                   + marginBottom spacing.sm(8)  = 248  (subtotal 412)
+//   3. nombre:        lineHeight 50 (1 línea)     + marginBottom 0              =  50  (subtotal 462)
+//   4. subtitulo:     lineHeight 32 (1 línea)     + marginBottom spacing.sm(8)  =  40  (subtotal 502)
+//   5. señas:         lineHeight 34 × 2 líneas    + marginBottom spacing.sm(8)  =  76  (subtotal 578)
+//   6. recompensaCaja: paddingVertical spacing.xs(4)×2=8 + texto lineHeight 32
+//                      + marginBottom spacing.sm(8)                            =  48  (subtotal 626)
 //   7. footer:
-//        borde 2 + paddingTop spacing.md(12)                                  =  14
-//        qrWrap: QR_SIZE 180 + marginBottom spacing.sm(8)
-//                + qrText (lineHeight 18 + marginTop spacing.xs(4))           = 210
-//        contacto: label lineHeight 28 + numero lineHeight 50                 =  78
+//        borde 2 + paddingTop spacing.sm(8)                                   =  10
+//        qrWrap: QR_SIZE 180 + marginBottom spacing.xs(4)
+//                + qrText (lineHeight 18 + marginTop spacing.xs(4))           = 206
+//        contacto: label lineHeight 28 + numero lineHeight 50 (numberOfLines=1
+//                  SIEMPRE: el número cuenta como 1 línea sin excepción)       =  78
 //        zona: lineHeight 24 + marginTop spacing.xs(4)                        =  28
-//        footer total = 14+210+78+28                                         = 330  (subtotal 946)
-//   8. marca:         lineHeight 22               + marginTop spacing.sm(8)   =  30  (TOTAL 976)
+//        footer total = 10+206+78+28                                         = 322  (subtotal 948)
+//   8. marca:         lineHeight 22               + marginTop spacing.xs(4)   =  26  (TOTAL 974)
 //
-// TOTAL = 976 ≤ 992 → sobran 16px de margen. Si se agrega o agranda algo acá,
-// hay que volver a sumar esta tabla término a término (no "a ojo").
+// TOTAL = 974 ≤ 992 → sobran 18px de margen real, con el PEOR caso (titular a 2
+// líneas). El caso "SE BUSCA" (titular 1 línea, item 1 = 86) da TOTAL = 896, con
+// 96px de margen. La foto bajó de 300 a 240 (recupera 60px) y se ajustó lo que
+// faltaba con spacing: recompensaCaja de spacing.sm a spacing.xs de padding
+// vertical (8px), footer de spacing.md a spacing.sm de paddingTop (4px), y
+// qrWrap/marca de spacing.sm a spacing.xs de margen (4px cada uno) — 20px más.
+// Si se agrega o agranda algo acá, hay que volver a sumar esta tabla término a
+// término (no "a ojo"), y el peor caso a presupuestar es SIEMPRE el titular de
+// 2 líneas, no el de 1.
 const styles = StyleSheet.create({
   page: {
     width: WIDTH,
@@ -130,7 +146,7 @@ const styles = StyleSheet.create({
   },
   foto: {
     width: WIDTH - spacing.xxxl * 2,
-    height: 300,
+    height: 240,
     borderRadius: radius.lg,
     backgroundColor: colors.sky,
   },
@@ -166,7 +182,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sun,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     marginBottom: spacing.sm,
   },
   recompensaText: {
@@ -180,7 +196,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     borderTopWidth: 2,
     borderTopColor: colors.line,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
   },
   contacto: {
     alignItems: 'center',
@@ -206,7 +222,7 @@ const styles = StyleSheet.create({
   },
   qrWrap: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   qrText: {
     fontFamily: font.body,
@@ -221,6 +237,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.muted,
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
 });
