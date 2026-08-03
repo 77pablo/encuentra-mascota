@@ -573,7 +573,7 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
           [
             {"texto":"Correo de seguimiento (opcional).","fuerte":true},
             {
-              "texto": " Si al avisar dejas tu correo, lo guardamos con una sola finalidad: mandarte un único correo si esa mascota se reencuentra con su familia. No se lo mostramos a nadie —tampoco a la familia—, no se usa para nada más, y se borra en cualquiera de estos casos: se manda ese único correo de reencuentro, el reporte se cierra sin reencuentro o vence solo, o el reporte se borra."
+              "texto": " Si al avisar dejas tu correo, lo guardamos con una sola finalidad: mandarte un único correo si esa mascota se reencuentra con su familia. No se lo mostramos a nadie —tampoco a la familia—, no se usa para nada más, y se borra en cualquiera de estos casos: se manda ese único correo de reencuentro, el reporte se cierra sin reencuentro, o el reporte se borra."
             }
           ],
           [

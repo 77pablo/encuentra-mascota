@@ -398,8 +398,8 @@ describe('MascotaPublica — sumar una foto al aviso (D5)', () => {
     expect(datos.fotoBase64.length).toBeGreaterThan(0);
 
     // Y agradece igual que sin foto: ni una palabra de más sobre si la foto
-    // llegó a subirse (D4/D5: `avisarConFoto` no distingue foto:true de
-    // foto:false hacia quien avisa).
+    // llegó a subirse (D4/D5/F2: la Edge Function ya ni siquiera manda esa
+    // señal en el body — las tres respuestas 200 son `{ ok: true }`).
     expect(textoDe(tree.root)).toContain('mandamos tu aviso');
 
     await act(async () => tree.unmount());

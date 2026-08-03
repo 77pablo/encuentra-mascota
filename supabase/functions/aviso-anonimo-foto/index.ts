@@ -4,17 +4,25 @@ import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
 // La única puerta por la que un anónimo puede subir una foto (spec F4). Valida
 // acá lo que Storage no puede: tamaño, tipo y a qué reporte va. El aviso y su
 // tope (10/hora, 30/día, 0055) los aplica la RPC; si la RPC descarta el aviso
-// en silencio (pet inexistente/oculto, bloqueo, dedupe o tope), devuelve
-// `false` cuando la llamada vino con foto y acá NO subimos nada — la foto
-// corre la misma suerte que el aviso, sin exponer por qué se descartó. La
-// señal viaja en el valor de retorno, no como excepción: un `raise exception`
-// haría rollback del insert en `seguimientos_anonimos` (el "avisame si
-// aparece" del correo), que corre ANTES de los descartes por dedupe/tope
-// justamente para sobrevivirlos.
+// en silencio (pet inexistente/oculto, bloqueo, dedupe o tope), la foto NO se
+// sube — la foto corre la misma suerte que el aviso, sin exponer por qué se
+// descartó. La señal de descarte viaja como un valor interno (ver `data ===
+// false` más abajo), NUNCA en la respuesta HTTP: las TRES 200 (camino feliz,
+// descarte enmascarado, subida fallida) contestan EXACTAMENTE `{ ok: true }`,
+// sin ningún campo que varíe — si no, un atacante distingue "entró" de
+// "descartado/tope/oculto" con solo mirar el body (revisión adversarial
+// final, F2). Tampoco se usa una excepción para señalar el descarte: un
+// `raise exception` haría rollback del insert en `seguimientos_anonimos` (el
+// "avisame si aparece" del correo), que corre ANTES de los descartes por
+// dedupe/tope justamente para sobrevivirlos.
 const WINDOW_MS = 60_000;
 const MAX = 5;
 const hits = new Map<string, number[]>();
 const MAX_BYTES = 2 * 1024 * 1024;
+// Base64 infla ~33% (4 chars por cada 3 bytes); se deja margen extra (~1.5×
+// sobre MAX_BYTES) para el resto de las claves del JSON.
+const MAX_BASE64_LEN = Math.ceil((MAX_BYTES * 4) / 3) + 1024;
+const MAX_CONTENT_LENGTH = MAX_BASE64_LEN + 2048; // + margen para pet_id/nota/correo/comillas del JSON
 const TIPOS: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,6 +56,16 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // F16: el tope de tamaño se chequea ANTES de parsear nada. Base64 infla el
+    // tamaño real ~33%, así que 2 MB de foto pesan hasta ~2.7 MB en el body;
+    // MAX_CONTENT_LENGTH deja margen para el resto del JSON (pet_id, nota,
+    // correo) sin abrir la puerta a un body gigante que igual iba a ser
+    // rechazado después de gastar CPU en `req.json()`.
+    const contentLength = Number(req.headers.get('content-length') ?? '');
+    if (Number.isFinite(contentLength) && contentLength > MAX_CONTENT_LENGTH) {
+      return new Response(JSON.stringify({ error: 'La foto pesa más de 2 MB' }), { status: 413, headers: HEADERS });
+    }
+
     let body: { pet_id?: string; nota?: string; correo?: string; foto_base64?: string; content_type?: string };
     try {
       body = await req.json();
@@ -59,6 +77,12 @@ Deno.serve(async (req: Request) => {
     const contentType = body.content_type ?? '';
     if (!UUID_RE.test(petId) || !(contentType in TIPOS) || typeof body.foto_base64 !== 'string') {
       return new Response(JSON.stringify({ error: 'Datos inválidos' }), { status: 400, headers: HEADERS });
+    }
+    // Mismo tope, pero sobre el string base64 ya en memoria: cubre el caso sin
+    // `Content-Length` (proxies/streaming) ANTES de gastar CPU decodificando
+    // con `atob` un string que de todos modos íbamos a rechazar.
+    if (body.foto_base64.length > MAX_BASE64_LEN) {
+      return new Response(JSON.stringify({ error: 'La foto pesa más de 2 MB' }), { status: 413, headers: HEADERS });
     }
 
     let bytes: Uint8Array;
@@ -96,16 +120,20 @@ Deno.serve(async (req: Request) => {
       // La RPC descartó el aviso en silencio (pet inexistente/oculto,
       // bloqueo, dedupe o tope de 10/hora-30/día) y nos lo señala con
       // `false` para que la foto NO se suba — pero hacia afuera contestamos
-      // EXACTAMENTE lo mismo que el camino feliz, para no convertirnos en un
-      // oráculo de bloqueos ni de topes.
-      return new Response(JSON.stringify({ ok: true, foto: false }), { status: 200, headers: HEADERS });
+      // EXACTAMENTE lo mismo que el camino feliz (F2): ni `foto` ni ningún
+      // otro campo que varíe, para no convertirnos en un oráculo de bloqueos
+      // ni de topes.
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: HEADERS });
     }
 
+    // Si la subida falla, el aviso ya salió igual: el dueño ve la nota sin la
+    // foto. La respuesta es la MISMA de los otros dos caminos 200 (F2): la
+    // única señal es un console.warn en los logs del servidor, no en el body.
     const { error: errSubida } = await supabase.storage
       .from('avisos-anonimos')
       .upload(path, bytes, { contentType, upsert: false });
-    // Si la subida falla, el aviso ya salió: el dueño ve la nota sin la foto.
-    return new Response(JSON.stringify({ ok: true, foto: errSubida ? false : true }), { status: 200, headers: HEADERS });
+    if (errSubida) console.warn('no se pudo subir la foto del aviso anonimo', errSubida.message);
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: HEADERS });
   } catch (e) {
     // Nunca loguear el body ni datos del request acá: podría contener la
     // foto en base64 o el correo de seguimiento.

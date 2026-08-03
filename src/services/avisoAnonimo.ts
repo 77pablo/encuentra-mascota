@@ -106,13 +106,12 @@ export async function avisarConFoto(petId: string, datos: DatosAvisoConFoto): Pr
     },
   });
 
-  // La Edge Function contesta SIEMPRE `{ ok: true, foto: boolean }` con 200
-  // salvo un error real (rate-limit, datos inválidos, foto > 2 MB, 5xx): acá
-  // solo se mira `error`, nunca `data.foto`. Un `foto: false` puede significar
-  // tanto "el aviso entró pero la subida falló" como "se descartó en silencio"
-  // (bloqueo/tope/dedupe, mismo criterio que `avisar_sin_cuenta`) — a
-  // propósito indistinguibles, y leerlo acá convertiría este cliente en el
-  // oráculo que la Edge Function evitó ser. Hacia quien avisa, el resultado es
-  // el mismo "gracias" de siempre.
+  // La Edge Function contesta SIEMPRE `{ ok: true }` con 200 salvo un error
+  // real (rate-limit, datos inválidos, foto > 2 MB, 5xx): las tres 200
+  // (camino feliz, descarte enmascarado por bloqueo/tope/dedupe, subida
+  // fallida) devuelven EXACTAMENTE el mismo body, sin ningún campo que las
+  // distinga (F2) — a propósito, para no convertir a la EF en un oráculo. Acá
+  // solo se mira `error`. Hacia quien avisa, el resultado es el mismo
+  // "gracias" de siempre en los tres casos.
   if (error) throw new ErrorAmigable(AVISO_NO_DISPONIBLE);
 }

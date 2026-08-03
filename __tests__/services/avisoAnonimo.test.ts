@@ -27,7 +27,7 @@ beforeEach(() => {
   mockRpc.mockReset();
   mockRpc.mockResolvedValue({ data: null, error: null });
   mockInvoke.mockReset();
-  mockInvoke.mockResolvedValue({ data: { ok: true, foto: true }, error: null });
+  mockInvoke.mockResolvedValue({ data: { ok: true }, error: null });
 });
 
 /** Los argumentos con los que se llamó a la RPC. */
@@ -152,11 +152,12 @@ describe('avisarSinCuenta — cuando algo falla', () => {
 // Este archivo protege dos cosas puntuales de ese contrato:
 //   1. Este camino NO toca la RPC directamente (a diferencia de
 //      `avisarSinCuenta`): pasa siempre por `functions.invoke`.
-//   2. `foto: false` en la respuesta (200, `ok: true`) NO es un error: puede
-//      significar tanto "el aviso entró pero la subida falló" como "se
-//      descartó en silencio" (bloqueo/tope/dedupe) — a propósito
-//      indistinguibles, para no volver esto un oráculo. El mensaje hacia quien
-//      avisa tiene que ser el mismo "gracias" de siempre en los dos casos.
+//   2. Las TRES respuestas 200 de la Edge Function son EXACTAMENTE `{ ok: true }`
+//      (F2): tanto si el aviso entró y la foto se subió, como si la subida
+//      falló, como si la RPC lo descartó en silencio (bloqueo/tope/dedupe) —
+//      a propósito indistinguibles, para no volver esto un oráculo. Acá no
+//      hay ningún campo que leer aparte de `error`; el mensaje hacia quien
+//      avisa es el mismo "gracias" de siempre en los tres casos.
 describe('avisarConFoto — pasa por la Edge Function, no por la RPC (D4/D5)', () => {
   it('avisarConFoto pasa por la Edge Function, no por la RPC', async () => {
     await avisarConFoto('pet-1', { nota: 'hola', fotoBase64: 'QUJD', contentType: 'image/jpeg' });
@@ -194,12 +195,12 @@ describe('avisarConFoto — pasa por la Edge Function, no por la RPC (D4/D5)', (
     expect(mockInvoke).not.toHaveBeenCalled();
   });
 
-  it('foto:false NO es un error: la EF ya decidió qué pasó y acá no se relee', async () => {
-    // `{ ok: true, foto: false }` con 200 es la MISMA respuesta tanto si la
-    // subida falló (el aviso ya salió) como si la RPC descartó todo en
-    // silencio (bloqueo/tope/dedupe). Leer `foto` acá convertiría este cliente
-    // en el oráculo que la Edge Function evitó ser a propósito.
-    mockInvoke.mockResolvedValue({ data: { ok: true, foto: false }, error: null });
+  it('un 200 { ok: true } sin más campos resuelve igual, sin releer nada del body', async () => {
+    // La Edge Function ya no manda `foto` en NINGÚN camino 200 (F2): las tres
+    // respuestas (subida ok, subida fallida, descarte enmascarado por
+    // bloqueo/tope/dedupe) son EXACTAMENTE el mismo body. Este cliente no lee
+    // nada de `data`, así que se comporta igual pase lo que pase adentro.
+    mockInvoke.mockResolvedValue({ data: { ok: true }, error: null });
 
     await expect(
       avisarConFoto(PET, { fotoBase64: 'QUJD', contentType: 'image/jpeg' }),

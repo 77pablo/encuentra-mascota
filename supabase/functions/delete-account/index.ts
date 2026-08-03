@@ -165,6 +165,45 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // 2.5. Borrar las fotos ANÓNIMAS (bucket privado `avisos-anonimos`, D4/D5,
+    //      migración 0062), organizadas por `<pet_id>/...`. `anonimizar_mi_cuenta`
+    //      (paso 3, más abajo) BORRA las filas de `pets`, así que estas carpetas
+    //      hay que vaciarlas ANTES: Storage no está atado a la base por ninguna
+    //      FK, y sin esto quedarían huérfanas para siempre (F13, revisión
+    //      adversarial final — el mismo patrón list+remove que ya usa
+    //      `deletePet` en src/services/pets.ts, acá con `admin` porque una vez
+    //      borrada la fila de `pets` la policy de SELECT del dueño ya no tendría
+    //      con qué hacer join). Si algo falla, se avisa y se sigue igual: mismo
+    //      criterio que el resto de este archivo, no aborta el borrado de la cuenta.
+    const { data: misPets, error: errPets } = await admin
+      .from('pets')
+      .select('id')
+      .eq('user_id', userId);
+    if (errPets) {
+      console.warn(
+        `delete-account: no se pudieron listar los reportes del usuario ${userId} para limpiar avisos-anonimos:`,
+        errPets.message,
+      );
+    } else {
+      for (const { id: petId } of (misPets ?? []) as Array<{ id: string }>) {
+        const { data: anonimas, error: errLista } = await admin.storage
+          .from('avisos-anonimos')
+          .list(petId);
+        if (errLista) {
+          console.warn(`delete-account: no se pudo listar avisos-anonimos/${petId}:`, errLista.message);
+          continue;
+        }
+        if (anonimas && anonimas.length > 0) {
+          const { error: errRemove } = await admin.storage
+            .from('avisos-anonimos')
+            .remove(anonimas.map((f) => `${petId}/${f.name}`));
+          if (errRemove) {
+            console.warn(`delete-account: no se pudieron borrar las fotos anonimas de ${petId}:`, errRemove.message);
+          }
+        }
+      }
+    }
+
     // 3. Anonimizar los datos (transaccional e idempotente).
     const { error: anonError } = await callerClient.rpc('anonimizar_mi_cuenta');
     if (anonError) throw new Error(`anonimizar_mi_cuenta fallo: ${anonError.message}`);

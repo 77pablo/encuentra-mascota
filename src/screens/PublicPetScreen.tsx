@@ -292,15 +292,18 @@ export default function PublicPetScreen({ route, navigation }: any) {
               <View style={styles.avisoOkRow}>
                 <Ionicons name="checkmark-circle" size={24} color={colors.found} />
                 {/* Dice lo que de verdad pasó y ni un centímetro más.
-                    `avistar_sin_cuenta` es `returns void` a propósito (con
-                    cualquier valor de retorno la RPC sería un oráculo para
-                    enumerar reportes probando uuids), así que desde acá no hay
-                    forma de saber si el aviso se encoló, si se descartó por
-                    repetido, o si el correo y el push llegaron a algún lado.
-                    Lo único cierto es que lo mandamos. Antes decía "su familia
-                    ya sabe": afirmaba conocimiento ajeno, y quien paró en la
-                    calle se iba a su casa creyendo que del otro lado ya
-                    sabían. */}
+                    `avistar_sin_cuenta` devuelve un boolean desde la 0062
+                    (antes era `returns void`), pero ese boolean es una señal
+                    INTERNA para la Edge Function de la foto (F2/F18: "¿hubo
+                    foto y se descartó?"), no un canal para este cliente — acá
+                    no se lee `data`, así que sigue sin haber forma de saber
+                    si el aviso se encoló, si se descartó por repetido, o si
+                    el correo y el push llegaron a algún lado (leerlo
+                    convertiría a esta pantalla en un oráculo para enumerar
+                    reportes probando uuids). Lo único cierto es que lo
+                    mandamos. Antes decía "su familia ya sabe": afirmaba
+                    conocimiento ajeno, y quien paró en la calle se iba a su
+                    casa creyendo que del otro lado ya sabían. */}
                 <AppText weight="semi" size={16} style={styles.avisoOkText}>
                   Listo, le mandamos tu aviso a su familia.
                 </AppText>
