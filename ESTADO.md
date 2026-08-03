@@ -1,6 +1,35 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (3-ago-2026, tarde — TANDA 13 DESPLEGADA salvo la web)
+## 👉 DÓNDE RETOMAR (3-ago-2026, noche — TANDA 14 en curso, área A lista, área B a medias)
+
+**Rama `feat/t13`, árbol limpio, último commit `cbdb363`. Suite en verde: tsc 0, jest 212 suites /
+2868 tests, exit 0.** Nada de la tanda 14 está desplegado ni tiene que estarlo todavía: **las
+migraciones `0063` y `0064` están escritas y ensayadas contra la base real, pero NO aplicadas** —
+aplicarlas es trabajo de la tarea INT, al final de la tanda.
+
+El detalle tarea por tarea vive en `.superpowers/sdd/progress.md`. Lo que hay que saber para
+retomar:
+
+- **Área A (tablero de difusión con veterinarias) — COMPLETA.** 5 tareas, 8 vueltas de revisión.
+- **Área B (coincidencia por foto) — a medias, y con una decisión tuya esperando.**
+  - **B1 cerró las dos rutas de servidor con medición, no con corazonada.** CLIP no arranca en el
+    runtime Deno de Supabase (ningún backend de ONNX Runtime se registra, probado con 3 variantes
+    de import), y Cloudflare Workers AI no tiene **ningún** modelo de embedding que acepte
+    imágenes — los suyos son todos de texto. De ahí tu decisión de calcularlo en el navegador.
+  - **B2 (migración `0064`, pgvector) está implementada y arreglada, pero le falta la
+    re-revisión.** Es el primer paso de mañana.
+- **⚠️ DECISIÓN TUYA PENDIENTE antes de despachar B3:** el ensayo de B2 midió que `.upsert()` no
+  funciona contra esa tabla (42501), porque Postgres exigiría poder leer la columna `embedding` —
+  y esconder esa columna es justamente lo que impide que el vector sea un oráculo de parecido. Pero
+  el plan que aprobaste manda usar `.upsert()` en B3. **Recomiendo un `insert` liso** (una foto se
+  vectoriza una vez; una foto nueva trae una URL nueva), que ya está medido funcionando. La
+  alternativa sería abrir el `embedding` a lectura, y eso devuelve el oráculo. Te lo planteo
+  entero mañana antes de tocar nada.
+- **Falta:** B3, B4, B5 → C1, C2, C3 (mapa web de verdad) → D1, D2, D3 (pulido) → INT.
+
+---
+
+## Pendiente de la tanda 13 (3-ago-2026, tarde — DESPLEGADA salvo la web)
 
 **Lo único que falta es que Pablo suba el `dist`.** Bundle exportado y listo:
 `index-bc39e15598aceda88b0434487d27bb21.js` — Cloudflare Pages → Deployments → Create new
