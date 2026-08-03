@@ -70,8 +70,8 @@ con C y su ausencia no debe romper ni vaciar la pantalla.
 - `supabase/migrations/0064_vectores_de_foto.sql` — `create extension vector`, `pet_fotos_vector`.
 - `supabase/migrations/0065_coincidencias_con_foto.sql` — `buscar_coincidencias` con término de foto
   y desglose.
-- `supabase/functions/foto-vector/index.ts` — Edge Function.
-- `supabase/functions/_shared/vectorFoto.ts` — puro: normalización y coseno.
+- `src/lib/vectorFoto.ts` — puro: normalización, coseno y validación.
+- `src/services/vectorFoto.ts` — carga el modelo y escribe el vector. **Sólo web** (ver Task B1).
 - `src/lib/porQueCoincide.ts` — puro: arma el desglose legible.
 - Modifica: `src/services/busqueda.ts` (tipos nuevos), `src/services/pets.ts` (disparo best-effort),
   `src/screens/PetDetailScreen.tsx` (mostrar puntaje y desglose).
@@ -1386,83 +1386,42 @@ git commit -m "t14-A5: semilla de lugares desde OSM, sin columna de telefono a p
 
 ---
 
-# Task B1: Medir la Edge Function de embeddings (go / no-go)
+# Task B1: Medir el modelo de embeddings — HECHA, con resultado NO-GO
 
-**Files:**
-- Create: `supabase/functions/spike-vector/index.ts` (temporal, se borra en el Step 5)
+⚠️ **ESTA TAREA YA SE EJECUTÓ Y CAMBIÓ EL ÁREA B. No la repitas.** Queda acá como registro de por
+qué el área tiene la forma que tiene.
 
-**Interfaces:**
-- Produces: un número. Si el modelo no entra en memoria o el arranque en frío supera ~25 s, el área
-  B cambia de forma y hay que avisarle a Pablo antes de seguir.
+**Qué se midió:** si CLIP (`Xenova/clip-vit-base-patch32`, `image-feature-extraction`) podía correr
+dentro de una Edge Function de Supabase, para calcular el vector en el servidor y que la función
+existiera igual en la web y en el build nativo de Android.
 
-⚠️ **Esta tarea existe porque el spec la exige.** Todo lo demás del área B se construye encima de
-que esto funcione. No saltearla.
+**Resultado: NO-GO.** Tres variantes de import, las tres fallidas por la misma raíz — el runtime
+Deno de Supabase **no registra ningún backend de ONNX Runtime**:
 
-- [ ] **Step 1: Escribir la función de prueba**
+| Variante | Resultado |
+|---|---|
+| `@huggingface/transformers@3.0.0` por jsDelivr | 500; revienta dentro de `from_pretrained` |
+| `@xenova/transformers@2.17.2` por jsDelivr (la de la doc de Supabase) | 500 a los ~41,6 s; `Cannot read properties of undefined (reading 'create')` |
+| Igual por `esm.sh` | Ni bundlea: `esm.sh` intenta resolver `onnxruntime-node`, que son bindings nativos de Node |
+| V1 + `env.backends.onnx.wasm.numThreads = 1` | `env.backends.onnx` ya es `undefined` antes de llegar a `pipeline()` |
 
-Crear `supabase/functions/spike-vector/index.ts`:
+**Y Cloudflare Workers AI tampoco sirve** (verificado en su catálogo el 3-ago-2026): tiene modelos
+de embedding de **texto** (BGE, EmbeddingGemma, Qwen3) pero **ninguno acepta imágenes**; sus modelos
+de visión generan texto desde una imagen o clasifican, no devuelven el vector. No hay CLIP.
 
-```ts
-// SPIKE — mide si CLIP entra en una Edge Function. Se borra al terminar B1.
-import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+**Decisión de Pablo (3-ago), con las dos rutas de servidor cerradas: el vector se calcula EN EL
+NAVEGADOR.** Consecuencias que el resto del área B tiene que respetar:
 
-let extractor: any = null;
-
-Deno.serve(async (req) => {
-  const t0 = Date.now();
-  const frio = extractor === null;
-  if (!extractor) {
-    extractor = await pipeline('image-feature-extraction', 'Xenova/clip-vit-base-patch32');
-  }
-  const tCarga = Date.now() - t0;
-
-  const { url } = await req.json().catch(() => ({ url: null }));
-  const t1 = Date.now();
-  const salida = await extractor(url ?? 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/cats.png');
-  const tInferencia = Date.now() - t1;
-
-  return new Response(JSON.stringify({
-    frio,
-    ms_carga: tCarga,
-    ms_inferencia: tInferencia,
-    dims: salida.dims,
-    primeros: Array.from(salida.data.slice(0, 4)),
-  }), { headers: { 'Content-Type': 'application/json' } });
-});
-```
-
-- [ ] **Step 2: Desplegar y medir el arranque en frío**
-
-```bash
-export SUPABASE_ACCESS_TOKEN=<token>
-npx supabase functions deploy spike-vector --project-ref ywlrcfaybnikaurxsgtj --use-api
-curl -s -X POST https://ywlrcfaybnikaurxsgtj.supabase.co/functions/v1/spike-vector \
-  -H "Authorization: Bearer <anon key>" -H "Content-Type: application/json" -d '{}'
-```
-
-Expected: JSON con `"dims": [1, 512]` y `frio: true`. **Anotar `ms_carga` y `ms_inferencia`.**
-
-- [ ] **Step 3: Medir el caliente y un fallo de memoria**
-
-Repetir el `curl` dos veces más. Expected: `frio: false` y `ms_carga` cercano a 0.
-
-⚠️ **Criterio de corte:** si la función devuelve 546 (worker terminado por memoria), un 502, o
-`ms_carga` supera 25 s de forma consistente, **PARAR** y avisarle a Pablo: la salida es calcular en
-el navegador y aceptar que en nativo no exista — que es la opción que él ya descartó, así que la
-decisión vuelve a ser suya con el número en la mano.
-
-- [ ] **Step 4: Anotar el resultado en el ledger**
-
-Escribir en `.superpowers/sdd/progress.md` la línea con los tres números medidos y el veredicto.
-
-- [ ] **Step 5: Borrar el spike**
-
-```bash
-rm -rf supabase/functions/spike-vector
-git add -A && git commit -m "t14-B1: medido CLIP en Edge Function (ver ledger); spike borrado"
-```
-
----
+1. **Sólo la web calcula vectores.** Un reporte publicado desde la app nativa de Android no tendrá
+   vector, y **eso está bien**: la regla global "lo que falta nunca descarta" ya lo cubre — ese
+   reporte encuentra coincidencias exactamente como hoy, sólo no gana el punto de la foto. La web es
+   además la única plataforma publicada.
+2. **El cliente escribe en `pet_fotos_vector`**, no una Edge Function. Eso cambia la RLS de la
+   migración `0064` respecto de lo que decía el plan original: hay que dejar insertar, acotado a los
+   reportes propios.
+3. **Nunca automático.** El modelo pesa unos 40 MB la primera vez, así que el cálculo va detrás de
+   un botón que lo explica, y jamás en el camino de publicar.
+4. **La Edge Function `foto-vector` NO se construye.** La Task B3 pasa a ser un módulo del cliente.
 
 # Task B2: Migración 0064 — `pgvector` y `pet_fotos_vector`
 
@@ -1501,10 +1460,21 @@ describe('0064: vectores de foto', () => {
     expect(sql).toMatch(/unique \(pet_id, foto_url\)/);
   });
 
-  it('nadie escribe vectores desde la app: solo la Edge Function', () => {
+  it('el vector lo escribe el dueño del reporte y NADIE mas', () => {
     expect(sql).toMatch(/alter table public\.pet_fotos_vector enable row level security/);
-    expect(sql).not.toMatch(/create policy[^;]*for insert[^;]*pet_fotos_vector[^;]*authenticated/);
-    expect(sql).toMatch(/revoke[^;]*on public\.pet_fotos_vector from (public, )?anon, authenticated/);
+    // El cliente web calcula el vector (B1 dio NO-GO en el servidor), asi que
+    // tiene que poder escribir — pero solo sobre SUS reportes.
+    expect(sql).toMatch(/p\.user_id = auth\.uid\(\)/);
+    expect(sql).toMatch(/with check/);
+  });
+
+  it('anon no escribe ni lee vectores', () => {
+    expect(sql).toMatch(/revoke[^;]*on public\.pet_fotos_vector from[^;]*anon/);
+    expect(sql).not.toMatch(/to anon/);
+  });
+
+  it('el vector NO se puede leer desde el cliente (seria un oraculo de parecido)', () => {
+    expect(sql).not.toMatch(/create policy[^;]*for select[^;]*pet_fotos_vector/);
   });
 
   it('se borra con el reporte', () => {
@@ -1534,9 +1504,23 @@ Crear `supabase/migrations/0064_vectores_de_foto.sql`:
 -- tocan: su vector seria un dato derivado de una imagen que su autor mando en
 -- privado.
 --
--- QUIEN ESCRIBE: solo la Edge Function `foto-vector` (service_role). Sin esto,
--- cualquiera podria plantar un vector arbitrario y fabricar coincidencias
--- falsas hacia el reporte que quisiera.
+-- QUIEN ESCRIBE, Y POR QUE ES EL CLIENTE: la Task B1 midio que CLIP no corre en
+-- una Edge Function de Supabase (el runtime Deno no registra ningun backend de
+-- ONNX Runtime, tres variantes de import probadas) y que Cloudflare Workers AI
+-- no tiene ningun modelo de embedding que acepte imagenes. Con las dos rutas de
+-- servidor cerradas, Pablo decidio calcular el vector EN EL NAVEGADOR. Asi que
+-- escribe el cliente, acotado por RLS a sus propios reportes.
+--
+-- LO QUE ESO CONCEDE, DICHO DE FRENTE: alguien puede plantar en SU reporte un
+-- vector que no corresponde a su foto —por ejemplo el de la foto publica de otro
+-- reporte— y fabricarse una coincidencia hacia esa persona. No es un agujero
+-- nuevo: subir directamente la foto ajena como foto del reporte consigue lo
+-- mismo y ya era posible. Lo que la RLS SI impide es tocar el vector de un
+-- reporte ajeno.
+--
+-- Y NO SE PUEDE LEER: sin policy de SELECT, el vector no sale nunca al cliente.
+-- Si saliera seria un oraculo de parecido — cualquiera podria medir cuanto se
+-- parece su foto a la de un reporte ajeno sin que nadie se entere.
 
 create extension if not exists vector;
 
@@ -1552,17 +1536,46 @@ create table public.pet_fotos_vector (
 create index pet_fotos_vector_pet_idx on public.pet_fotos_vector (pet_id);
 
 alter table public.pet_fotos_vector enable row level security;
--- SIN politicas, a proposito (mismo criterio que notification_events en la 0011
--- y seguimientos_anonimos en la 0061): invisible para anon y authenticated.
--- Escribe la Edge Function; lee `buscar_coincidencias`, que es definer.
 
+-- SIN policy de SELECT a proposito: el vector no sale nunca al cliente (ver
+-- arriba). Quien lo lee es `buscar_coincidencias`, que es security definer.
+--
+-- INSERT y UPDATE acotados al dueño del reporte. El `with check` es lo que de
+-- verdad ata la escritura: sin el, la policy solo filtraria que filas se pueden
+-- mirar para actualizar, no cuales se pueden crear (es exactamente la forma del
+-- agujero de escalada de privilegios que aparecio en `profiles`, donde un
+-- `for update using (...)` SIN `with check` dejaba a cualquiera hacerse admin).
+create policy "el vector es del dueño del reporte"
+  on public.pet_fotos_vector for insert to authenticated
+  with check (
+    exists (select 1 from public.pets p
+             where p.id = pet_fotos_vector.pet_id and p.user_id = auth.uid())
+  );
+
+create policy "el dueño puede recalcular el vector de su foto"
+  on public.pet_fotos_vector for update to authenticated
+  using (
+    exists (select 1 from public.pets p
+             where p.id = pet_fotos_vector.pet_id and p.user_id = auth.uid())
+  )
+  with check (
+    exists (select 1 from public.pets p
+             where p.id = pet_fotos_vector.pet_id and p.user_id = auth.uid())
+  );
+
+-- Fail-closed y explicito, con los roles NOMBRADOS: `revoke ... from public` NO
+-- le saca el privilegio a `anon` ni a `authenticated`, porque las default
+-- privileges de Supabase se lo conceden a ellos de forma directa y no via
+-- PUBLIC. Es la trampa que la 0058 ya documenta y que la 0063 de esta misma
+-- tanda se comio en la primera pasada.
 revoke all on public.pet_fotos_vector from public, anon, authenticated;
+grant insert, update on public.pet_fotos_vector to authenticated;
 ```
 
 - [ ] **Step 4: Correr los tests y verlos pasar**
 
 Run: `npx jest __tests__/db/migracion0064.test.ts`
-Expected: PASS, 6 tests.
+Expected: PASS, 8 tests.
 
 - [ ] **Step 5: Ensayar contra la base real en `begin … rollback`**
 
@@ -1587,26 +1600,53 @@ select set_config('request.jwt.claims', json_build_object(
 do $$
 declare n int;
 begin
+  -- Ni el dueño lee el vector: si saliera seria un oraculo de parecido.
   select count(*) into n from public.pet_fotos_vector;
   insert into r values (1, 'el DUEÑO lee vectores', 'filas visibles=' || n || ' (esperado 0)');
 exception when insufficient_privilege then
-  insert into r values (1, 'el DUEÑO lee vectores', 'RECHAZADO 42501');
+  insert into r values (1, 'el DUEÑO lee vectores', 'RECHAZADO 42501 (mejor todavia)');
 end $$;
 do $$
 begin
+  -- El dueño SI escribe el vector de SU reporte: es el camino real del cliente
+  -- web desde que B1 dio NO-GO en el servidor. Sin este control, un revoke de
+  -- mas se leeria como "todo seguro" mientras la funcion no le anda a nadie.
   insert into public.pet_fotos_vector (pet_id, foto_url, embedding)
-  values (current_setting('mi.pet')::uuid, 'https://x/falso.jpg',
-          (select array_agg(0.9)::vector from generate_series(1, 512)));
-  insert into r values (2, 'plantar un vector falso', 'AGUJERO: lo inserto');
+  values (current_setting('mi.pet')::uuid, 'https://x/propio.jpg',
+          (select array_agg(0.2)::vector from generate_series(1, 512)));
+  insert into r values (2, 'CONTROL: el dueño escribe el vector de SU reporte', 'OK');
 exception when others then
-  insert into r values (2, 'plantar un vector falso', 'RECHAZADO ' || SQLSTATE);
+  insert into r values (2, 'CONTROL: el dueño escribe el vector de SU reporte', 'ROTO ' || SQLSTATE);
+end $$;
+reset role;
+
+-- Y el ataque que de verdad importa: escribir sobre el reporte de OTRO.
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object(
+  'sub', (select id::text from public.profiles
+           where id <> (select user_id from public.pets where id = current_setting('mi.pet')::uuid)
+             and eliminado_en is null limit 1),
+  'role', 'authenticated')::text, true);
+do $$
+begin
+  insert into public.pet_fotos_vector (pet_id, foto_url, embedding)
+  values (current_setting('mi.pet')::uuid, 'https://x/ajeno.jpg',
+          (select array_agg(0.9)::vector from generate_series(1, 512)));
+  insert into r values (3, 'un TERCERO planta un vector en reporte ajeno', 'AGUJERO: lo inserto');
+exception when others then
+  insert into r values (3, 'un TERCERO planta un vector en reporte ajeno', 'RECHAZADO ' || SQLSTATE);
 end $$;
 reset role;
 
 select n, caso, resultado from r order by n;
 ```
 
-Expected: caso 0 `filas=1`; caso 1 `RECHAZADO 42501` o `filas visibles=0`; caso 2 `RECHAZADO 42501`.
+Expected: caso 0 `filas=1` · caso 1 `filas visibles=0` o `RECHAZADO 42501` · caso 2 **`OK`** ·
+caso 3 `RECHAZADO 42501`.
+
+⚠️ **Si el caso 2 diera `ROTO`, la migración está mal**: el cliente web es quien calcula y escribe el
+vector desde que B1 dio NO-GO en el servidor, así que sin esa escritura la función no le anda a
+nadie. Un caso 3 en rechazado con un caso 2 también rechazado no es "seguro": es roto.
 
 - [ ] **Step 6: Mover el guardián de última migración a 64**
 
@@ -1626,26 +1666,41 @@ git commit -m "t14-B2: pgvector y pet_fotos_vector, invisibles para la app (0064
 
 ---
 
-# Task B3: Edge Function `foto-vector` y su módulo puro
+# Task B3: El vector se calcula en el navegador
+
+⚠️ **Esta tarea cambió de forma por el resultado de B1.** El plan original la escribía como una Edge
+Function; B1 midió que CLIP no corre en el runtime de Supabase y que Cloudflare Workers AI no tiene
+ningún modelo de embedding que acepte imágenes. Pablo decidió calcular en el navegador. **Nada de
+`supabase/functions/foto-vector/` se construye.**
 
 **Files:**
-- Create: `supabase/functions/_shared/vectorFoto.ts`, `supabase/functions/foto-vector/index.ts`
+- Create: `src/lib/vectorFoto.ts` (puro: normalización, coseno, validación)
+- Create: `src/services/vectorFoto.ts` (carga el modelo y escribe en la base; **sólo web**)
 - Test: `__tests__/lib/vectorFoto.test.ts`
+- Modify: `package.json`
 
 **Interfaces:**
-- Produces (en `_shared/vectorFoto.ts`):
+- Produces (en `src/lib/vectorFoto.ts`, puro y sin red):
   - `export const DIMENSIONES = 512`
   - `export function normalizar(v: number[]): number[]`
   - `export function coseno(a: number[], b: number[]): number`
   - `export function esVectorValido(v: unknown): v is number[]`
+- Produces (en `src/services/vectorFoto.ts`):
+  - `export function hayModeloDisponible(): boolean` — `false` fuera de web
+  - `export async function calcularYGuardar(petId: string, fotoUrl: string): Promise<boolean>`
 
-- [ ] **Step 1: Escribir el test que falla**
+- [ ] **Step 1: Instalar la librería**
+
+```bash
+npm install @huggingface/transformers@3.0.0
+```
+
+- [ ] **Step 2: Escribir el test que falla**
 
 Crear `__tests__/lib/vectorFoto.test.ts`:
 
 ```ts
-import { coseno, DIMENSIONES, esVectorValido, normalizar } from
-  '../../supabase/functions/_shared/vectorFoto';
+import { coseno, DIMENSIONES, esVectorValido, normalizar } from '../../src/lib/vectorFoto';
 
 describe('normalizar', () => {
   it('deja el vector con norma 1', () => {
@@ -1694,20 +1749,20 @@ describe('esVectorValido', () => {
 });
 ```
 
-- [ ] **Step 2: Correr y ver que falla**
+- [ ] **Step 3: Correr y ver que falla**
 
 Run: `npx jest __tests__/lib/vectorFoto.test.ts`
-Expected: FAIL — módulo inexistente.
+Expected: FAIL — `Cannot find module '../../src/lib/vectorFoto'`
 
-- [ ] **Step 3: Escribir el módulo puro**
+- [ ] **Step 4: Escribir el módulo puro**
 
-Crear `supabase/functions/_shared/vectorFoto.ts`:
+Crear `src/lib/vectorFoto.ts`:
 
 ```ts
 // VECTOR DE FOTO — logica pura del area B (tanda 14).
 //
-// Este archivo es a proposito PURO (no toca `Deno`): asi lo puede importar el
-// test de jest, que corre en Node. Mismo criterio que `_shared/cors.ts`.
+// PURO A PROPOSITO: no importa el modelo ni toca la red, asi que jest lo puede
+// probar sin bajar 40 MB. El que carga el modelo es services/vectorFoto.ts.
 
 export const DIMENSIONES = 512;
 
@@ -1743,110 +1798,69 @@ export function esVectorValido(v: unknown): v is number[] {
 }
 ```
 
-- [ ] **Step 4: Correr los tests y verlos pasar**
+- [ ] **Step 5: Correr los tests y verlos pasar**
 
 Run: `npx jest __tests__/lib/vectorFoto.test.ts`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Escribir la Edge Function**
+- [ ] **Step 6: Escribir el servicio, que sólo funciona en web**
 
-Crear `supabase/functions/foto-vector/index.ts`, calcada en estructura de
-`supabase/functions/aviso-anonimo-foto/index.ts` (CORS, try/catch externo, 401 sin credenciales):
+Crear `src/services/vectorFoto.ts`. Requisitos, todos obligatorios:
 
-```ts
-import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { cabecerasCors, ORIGENES_DEV } from '../_shared/cors.ts';
-import { DIMENSIONES, esVectorValido, normalizar } from '../_shared/vectorFoto.ts';
-import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+- **`hayModeloDisponible()` devuelve `Platform.OS === 'web'`.** En nativo la librería no corre (es
+  WASM), y la función tiene que decirlo en vez de fallar recién al usarse. Un reporte publicado desde
+  Android queda sin vector, y **eso está bien**: la regla global "lo que falta nunca descarta" ya lo
+  cubre — ese reporte encuentra coincidencias exactamente como hoy, sólo no gana el punto de la foto.
+- **El modelo se importa DINÁMICAMENTE** (`await import('@huggingface/transformers')`) y sólo cuando
+  se lo va a usar. Un import estático arriba del archivo mete ~40 MB en el bundle de todos, incluido
+  quien nunca toca la función.
+- **El pipeline se guarda a nivel de módulo y se reusa.** Bajar el modelo dos veces sería absurdo.
+- **La escritura usa `.upsert(..., { onConflict: 'pet_id,foto_url' })` y mira si volvió fila**,
+  porque la RLS rechaza en silencio: 200 con 0 filas, no `42501`. Es la sexta aparición de este
+  silencio en el proyecto, y por lo mismo los tests **no deben mockear `42501`**.
+- **Valida con `esVectorValido` antes de escribir.** Un `NaN` adentro de pgvector rompe el índice
+  entero, no sólo esa fila.
+- **Devuelve `false` en vez de lanzar** cuando el modelo no está disponible o falla la carga. Nada de
+  esto puede romper la pantalla que lo llama: es best-effort por diseño.
 
-// FOTO-VECTOR — calcula el embedding CLIP de una foto de reporte (0064).
-//
-// POR QUE EN EL SERVIDOR Y NO EN EL NAVEGADOR: transformers.js corre sobre
-// WASM. Anda en la PWA y NO en el build nativo de EAS que apunta a Google
-// Play. Calculando aca, la funcion existe igual en las dos plataformas y nadie
-// descarga 40 MB.
-//
-// BEST-EFFORT: si esto falla, publicar un reporte no se entera. Nunca esta en
-// el camino critico.
-//
-// SOLO FOTOS DE REPORTES. El bucket privado `avisos-anonimos` (0062) no se toca.
-
-let extractor: any = null;
-
-Deno.serve(async (req) => {
-  try {
-    const cors = cabecerasCors(req.headers.get('Origin'), ORIGENES_DEV);
-    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-
-    const { pet_id, foto_url } = await req.json();
-    if (!pet_id || !foto_url) {
-      return new Response(JSON.stringify({ error: 'faltan datos' }), { status: 400, headers: cors });
-    }
-
-    const sb = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
-    // La foto tiene que pertenecer al reporte que dice: sin esto, cualquiera
-    // con la funcion abierta plantaria el vector de una imagen ajena.
-    const { data: pet } = await sb
-      .from('pets').select('id, fotos').eq('id', pet_id).maybeSingle();
-    if (!pet || !(pet.fotos ?? []).includes(foto_url)) {
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: cors });
-    }
-
-    if (!extractor) {
-      extractor = await pipeline('image-feature-extraction', 'Xenova/clip-vit-base-patch32');
-    }
-    const salida = await extractor(foto_url);
-    const vector = normalizar(Array.from(salida.data as Float32Array));
-
-    if (!esVectorValido(vector)) {
-      return new Response(JSON.stringify({ ok: false }), { status: 200, headers: cors });
-    }
-
-    await sb.from('pet_fotos_vector')
-      .upsert({ pet_id, foto_url, embedding: vector }, { onConflict: 'pet_id,foto_url' });
-
-    return new Response(JSON.stringify({ ok: true, dims: DIMENSIONES }), { status: 200, headers: cors });
-  } catch (e) {
-    // try/catch externo con CORS, calcado de send-push: sin el, un error tira
-    // una respuesta sin cabeceras y el navegador reporta un error de CORS que
-    // no tiene nada que ver con la causa real.
-    return new Response(JSON.stringify({ error: 'error interno' }), {
-      status: 500,
-      headers: cabecerasCors(req.headers.get('Origin'), ORIGENES_DEV),
-    });
-  }
-});
-```
-
-- [ ] **Step 6: Guardián de que la función no toca el bucket privado**
+- [ ] **Step 7: Guardianes de lo que más importa**
 
 Agregar a `__tests__/lib/vectorFoto.test.ts`:
 
 ```ts
-it('la Edge Function NO toca el bucket privado de avisos anonimos', () => {
-  const fuente = require('fs').readFileSync(
-    require('path').join(__dirname, '..', '..', 'supabase', 'functions', 'foto-vector', 'index.ts'),
-    'utf8');
-  expect(fuente).not.toMatch(/avisos-anonimos/);
-  expect(fuente).toMatch(/pet_fotos_vector/);
+const fuenteServicio = () =>
+  require('fs').readFileSync(
+    require('path').join(__dirname, '..', '..', 'src', 'services', 'vectorFoto.ts'), 'utf8');
+
+it('el modelo se importa dinamico: no entra al bundle de quien nunca lo usa', () => {
+  const fuente = fuenteServicio();
+  // Un import estatico de la libreria mete ~40 MB en el bundle de TODOS.
+  expect(fuente).not.toMatch(/^import [^\n]*@huggingface\/transformers/m);
+  expect(fuente).toMatch(/await import\(/);
+});
+
+it('en nativo dice que no hay modelo, en vez de fallar al usarse', () => {
+  expect(fuenteServicio()).toMatch(/Platform\.OS === 'web'/);
+});
+
+it('la escritura mira si volvio fila (la RLS rechaza en silencio)', () => {
+  const fuente = fuenteServicio();
+  expect(fuente).toMatch(/\.select\(/);
+  expect(fuente).toMatch(/length === 0/);
 });
 ```
 
-- [ ] **Step 7: Correr los tests y verlos pasar**
+- [ ] **Step 8: Correr los tests y el typecheck**
 
-Run: `npx jest __tests__/lib/vectorFoto.test.ts`
-Expected: PASS, 9 tests.
+Run: `npx jest __tests__/lib/vectorFoto.test.ts` y `npx tsc --noEmit`
+Expected: PASS, 11 tests, 0 errores de tipos.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add supabase/functions/_shared/vectorFoto.ts supabase/functions/foto-vector/index.ts \
+git add package.json package-lock.json src/lib/vectorFoto.ts src/services/vectorFoto.ts \
         __tests__/lib/vectorFoto.test.ts
-git commit -m "t14-B3: Edge Function foto-vector y su modulo puro probado desde jest"
+git commit -m "t14-B3: el vector se calcula en el navegador (B1 cerro las dos rutas de servidor)"
 ```
 
 ---
@@ -2110,19 +2124,34 @@ En `src/services/busqueda.ts`, agregar al tipo — **opcionales**, igual que `ch
   porque?: Record<string, boolean> | null;
 ```
 
-- [ ] **Step 6: Disparar el vector al publicar, best-effort**
+- [ ] **Step 6: El botón que calcula el vector, en la ficha del reporte propio**
 
-En `src/services/pets.ts`, después de que `createPet` devuelve el reporte con sus fotos:
+⚠️ **Cambió por el resultado de B1.** El plan original lo disparaba solo al publicar, contra una Edge
+Function. Ahora el modelo se baja al teléfono de la persona (~40 MB la primera vez), así que **no
+puede ser automático ni ir en el camino de publicar**: sería bajarle 40 MB a alguien que está
+apurado subiendo la foto de su perro perdido, sin avisarle.
+
+Va como un botón en la ficha del **reporte propio**, gateado por `esMio && !reunida`, que:
+
+- Sólo se muestra si `hayModeloDisponible()` (o sea, sólo en web). En nativo no aparece, y la ficha
+  se ve exactamente como hoy.
+- **Dice de frente lo que va a pasar antes de hacerlo**: que se descarga una vez, que puede tardar
+  unos segundos, y para qué sirve (que si alguien publica un animal parecido, la coincidencia lo
+  tenga en cuenta). Nada de spinners misteriosos.
+- Llama `calcularYGuardar(pet.id, foto)` por cada foto del reporte.
+- Si falla, lo dice y ofrece reintentar. **No rompe la ficha**: es best-effort.
+
+Requisito de tono, que acá importa: el botón **no puede prometer que va a encontrar a la mascota**.
+Suma una señal al matching, no es un buscador de fotos.
+
+- [ ] **Step 6b: Guardián de que no es automático**
 
 ```ts
-// Best-effort y a proposito sin await encadenado al retorno: si el vector no
-// se calcula, publicar NO se entera. El matching funciona sin el.
-void Promise.all(
-  (pet.fotos ?? []).map((foto) =>
-    supabase.functions.invoke('foto-vector', { body: { pet_id: pet.id, foto_url: foto } })
-      .catch(() => undefined),
-  ),
-);
+it('el vector NO se calcula solo al publicar: bajar 40 MB pide permiso', () => {
+  const pets = require('fs').readFileSync(
+    require('path').join(__dirname, '..', '..', 'src', 'services', 'pets.ts'), 'utf8');
+  expect(pets).not.toMatch(/calcularYGuardar/);
+});
 ```
 
 - [ ] **Step 7: Mostrar el porqué en la tarjeta de coincidencia**
@@ -2140,7 +2169,7 @@ Expected: 0 errores, todo verde.
 
 ```bash
 git add src/lib/porQueCoincide.ts __tests__/lib/porQueCoincide.test.ts \
-        src/services/busqueda.ts src/services/pets.ts src/screens/PetDetailScreen.tsx
+        src/services/busqueda.ts src/screens/PetDetailScreen.tsx
 git commit -m "t14-B5: el puntaje deja de ser invisible y la coincidencia dice por que coincide"
 ```
 
@@ -2968,8 +2997,9 @@ Preguntas que cada revisor tiene que responder ejecutando, no leyendo:
 
 - [ ] **Step 4: Desplegar en este orden (NO cambiarlo)**
 
-1. **Desplegar `foto-vector`** (Edge Function nueva). Humo: `OPTIONS` → 204, `POST` sin
-   credenciales → 401.
+1. **Ninguna Edge Function nueva.** El área B terminó calculando el vector en el navegador (ver Task
+   B1), así que no hay nada que desplegar del lado de las funciones. Las cinco que ya están en
+   producción **no se tocan**.
 2. **Aplicar `0063` → `0064` → `0065` → `0066` en orden**, cada una ensayada dentro de
    `begin … rollback` contra la base real y con los ataques de su tarea **después** de aplicar.
    ⚠️ La `0065` dropea y recrea `buscar_coincidencias`: correr el control de "sin vector encuentra
