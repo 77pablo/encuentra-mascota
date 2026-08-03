@@ -22,7 +22,12 @@ export type TipoEvento =
   | 'avistamiento_anonimo'
   // Lo encola el trigger de la 0060 para cada admin activo, cuando entra una
   // denuncia nueva (bandeja de Moderación). Sin pet ni actor.
-  | 'denuncia_nueva';
+  | 'denuncia_nueva'
+  // Lo encola el trigger de la 0061 cuando se reencuentra la mascota de un
+  // seguimiento anónimo (avistar_sin_cuenta). El correo del seguidor viaja en
+  // datos.correo, de FINALIDAD ÚNICA: nunca resuelve destinatarios con
+  // cuenta, index.ts lo manda directo y nada más.
+  | 'reencuentro_seguimiento';
 
 export type EventoAviso = {
   id: string;
@@ -64,6 +69,11 @@ export type EventoAviso = {
     // el aviso apunta a la bandeja, no repite el contenido.
     tipo_denuncia?: string;
     motivo?: string;
+    // 'reencuentro_seguimiento' (0061): el correo del seguidor anónimo, de
+    // FINALIDAD ÚNICA — nunca sale por ninguna otra superficie (ni
+    // mis_avisos, ni campanita, ni logs). index.ts lo usa DIRECTO como
+    // destinatario del envío, nunca lo mete en el cuerpo de otro aviso.
+    correo?: string;
   };
 };
 
@@ -180,6 +190,10 @@ function canalesDe(p: Omit<Prefs, 'userId'>): ('email' | 'push')[] {
 //   recibe uno solo.
 // - En todos los casos se respeta el filtro de canales (email/push).
 export function resolverDestinatarios(evento: EventoAviso, ctx: Contexto): Destinatario[] {
+  // El seguimiento anónimo no tiene cuenta: el correo va directo desde
+  // index.ts (datos.correo), nunca por la resolución normal.
+  if (evento.tipo === 'reencuentro_seguimiento') return [];
+
   // Bloqueo con el actor: nadie de este conjunto recibe nada. Se arma una sola
   // vez, arriba de todo, para que ningún camino de los de abajo pueda saltearlo
   // por olvido — y por el mismo motivo la excepción de 'coincidencia' se aplica
@@ -311,6 +325,25 @@ export function componerAviso(
         'Hay contenido esperando revisión. Los Términos prometen plazos: ' +
         'entrá a Perfil → Moderación para verla.',
       ruta: '/',
+    };
+  }
+
+  // 'reencuentro_seguimiento' (0061): lo dispara el trigger de la mascota que
+  // volvió a casa, para cada correo de seguimiento anónimo. Este es el ÚNICO
+  // correo que le llega a esa persona (la fila de seguimientos_anonimos ya se
+  // borró) — el texto lo dice explícito, y por eso no pide nada ni ofrece
+  // apagar avisos: no hay ningún otro que apagar. `evento.petId` puede venir
+  // vacío (defensivo): si no hay a dónde apuntar, mejor el inicio que un
+  // deep link roto.
+  if (evento.tipo === 'reencuentro_seguimiento') {
+    const nombre = evento.datos.nombre?.trim();
+    return {
+      titulo: nombre ? `¡${nombre} volvió a casa!` : '¡Volvió a casa!',
+      cuerpo:
+        'La mascota por la que avisaste se reencontró con su familia. ' +
+        'Gracias por parar: eso hizo la diferencia. Este es el único correo ' +
+        'que te mandamos y tu dirección ya fue borrada.',
+      ruta: evento.petId ? `/mascota/${evento.petId}` : '/',
     };
   }
 

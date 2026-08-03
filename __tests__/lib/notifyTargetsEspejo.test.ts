@@ -237,6 +237,21 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       },
     },
   },
+  {
+    // Reencuentro con seguimiento (Tanda 13 · D, migración 0061): el correo
+    // del seguidor anónimo va DIRECTO desde index.ts, nunca por acá — pero
+    // las dos copias tienen que devolver lo mismo (vacío) igual, y componer
+    // el mismo texto: si se separan, index.ts arma un correo distinto según
+    // qué copia haya quedado desactualizada.
+    nombre: 'reencuentro con seguimiento: no resuelve destinatarios, compone el mismo texto',
+    evento: {
+      id: 'r1', tipo: 'reencuentro_seguimiento', petId: 'p1', actorId: null,
+      datos: { correo: 'vecino@mail.cl', nombre: 'Luna' },
+    },
+    ctx: {
+      duenoPetId: '', nombrePet: null, zonas: [], prefs: {}, seguidoresComuna: [],
+    },
+  },
 ];
 
 // Todos los tipos del union, para exigirle a las dos copias la MISMA respuesta

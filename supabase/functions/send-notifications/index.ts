@@ -37,7 +37,8 @@ interface EventoRow {
     | 'escaneo_collar'
     | 'busqueda_guardada'
     | 'avistamiento_anonimo'
-    | 'denuncia_nueva';
+    | 'denuncia_nueva'
+    | 'reencuentro_seguimiento';
   // pet_id es nullable desde la 0027: un 'escaneo_collar' no tiene reporte.
   pet_id: string | null;
   actor_id: string | null;
@@ -415,6 +416,32 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
 }
 
 async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {
+  // 'reencuentro_seguimiento' (0061): el seguidor no tiene cuenta, así que no
+  // hay contexto que armar (ni dueño, ni prefs, ni bloqueos: nada de eso
+  // aplica a un correo suelto). El destinatario es DIRECTO — datos.correo,
+  // de finalidad única— y por eso este branch va ANTES de `armarContexto`:
+  // ese correo NUNCA debe pasar por `resolverDestinatarios` ni terminar en
+  // el cuerpo de otro aviso. Un solo intento, sin push, sin prefs.
+  if (ev.tipo === 'reencuentro_seguimiento') {
+    const correo = typeof ev.datos.correo === 'string' ? ev.datos.correo : '';
+    if (!correo) return 0; // fila corrupta o sin correo: no hay a quién mandarle
+    const evento: EventoAviso = {
+      id: ev.id,
+      tipo: ev.tipo,
+      petId: ev.pet_id ?? '',
+      actorId: ev.actor_id,
+      targetUserId: ev.target_user_id,
+      datos: (ev.datos ?? {}) as EventoAviso['datos'],
+    };
+    // Contexto vacío: `componerAviso` para este tipo no usa nada del contexto
+    // (ni nombrePet, ni prefs), así que las mismas claves vacías que arma
+    // `armarContexto` alcanzan.
+    const ctxVacio: Contexto = { duenoPetId: '', nombrePet: null, zonas: [], prefs: {}, seguidoresComuna: [] };
+    const { titulo, cuerpo, ruta } = componerAviso(evento, ctxVacio);
+    const base = Deno.env.get('EXPO_PUBLIC_WEB_URL') ?? '';
+    return (await enviarCorreo(correo, titulo, cuerpo, `${base}${ruta}`)) ? 1 : 0;
+  }
+
   const ctx = await armarContexto(supabase, ev);
   if (!ctx) return 0;
 

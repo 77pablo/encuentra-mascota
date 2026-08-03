@@ -616,6 +616,51 @@ describe('componerAviso - denuncia_nueva', () => {
   });
 });
 
+// Reencuentro con seguimiento (Tanda 13 · D, migración 0061): lo encola el
+// trigger cuando la mascota de un seguimiento anónimo se reencuentra. El
+// correo del seguidor viaja en datos.correo, de FINALIDAD ÚNICA — nunca hay
+// cuenta detrás, así que jamás resuelve destinatarios: index.ts manda el
+// correo directo a datos.correo y nada más (sin push, sin prefs).
+describe('resolverDestinatarios - reencuentro_seguimiento', () => {
+  it('no resuelve destinatarios con cuenta: va por correo directo', () => {
+    const ev: EventoAviso = {
+      id: 'r1', tipo: 'reencuentro_seguimiento', petId: 'p1', actorId: null,
+      targetUserId: null, datos: { correo: 'vecino@mail.cl', nombre: 'Luna' },
+    };
+    expect(resolverDestinatarios(ev, ctxBase)).toEqual([]);
+  });
+});
+
+describe('componerAviso - reencuentro_seguimiento', () => {
+  it('el aviso del reencuentro agradece, dice que es el único correo, y no pide nada', () => {
+    const ev: EventoAviso = {
+      id: 'r2', tipo: 'reencuentro_seguimiento', petId: 'p1', actorId: null,
+      datos: { correo: 'x@x.cl', nombre: 'Luna' },
+    };
+    const aviso = componerAviso(ev, ctxBase);
+    expect(aviso.titulo).toBe('¡Luna volvió a casa!');
+    expect(aviso.cuerpo).toContain('Gracias por parar');
+    expect(aviso.cuerpo).toContain('único correo');
+    expect(aviso.ruta).toBe('/mascota/p1');
+  });
+
+  it('sin nombre no deja un hueco en el título', () => {
+    const ev: EventoAviso = {
+      id: 'r3', tipo: 'reencuentro_seguimiento', petId: 'p1', actorId: null,
+      datos: { correo: 'x@x.cl' },
+    };
+    expect(componerAviso(ev, ctxBase).titulo).toBe('¡Volvió a casa!');
+  });
+
+  it('sin petId la ruta cae a inicio, no a un deep link roto', () => {
+    const ev: EventoAviso = {
+      id: 'r4', tipo: 'reencuentro_seguimiento', petId: '', actorId: null,
+      datos: { correo: 'x@x.cl', nombre: 'Luna' },
+    };
+    expect(componerAviso(ev, ctxBase).ruta).toBe('/');
+  });
+});
+
 describe('componerAviso', () => {
   it('usa el nombre de la mascota cuando lo hay', () => {
     const ev: EventoAviso = { id: 'e8', tipo: 'avistamiento', petId: 'p1', actorId: 'v', datos: {} };
