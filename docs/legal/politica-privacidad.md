@@ -132,9 +132,8 @@ Esta es la tabla que la ley pide. Está ordenada por lo que tú haces en la app.
 ### 2.6 Cuando avisas desde el link público sin tener cuenta
 
 Si escaneas el código del afiche y avisas que viste a la mascota sin entrar a la app, tu
-nota y tu ubicación aproximada reciben el mismo tratamiento que un avistamiento común (ver
-§2.3): se difuminan igual, unos 250 metros. Dos datos de este camino son distintos y
-merecen su propia explicación:
+nota acompaña al aviso. Dos datos de este camino son distintos y merecen su propia
+explicación:
 
 - **Correo de seguimiento (opcional).** Si al avisar dejas tu correo, lo guardamos con
   una sola finalidad: mandarte un único correo si esa mascota se reencuentra con su

@@ -561,7 +561,7 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
         "tipo": "parrafo",
         "texto": [
           {
-            "texto": "Si escaneas el código del afiche y avisas que viste a la mascota sin entrar a la app, tu nota y tu ubicación aproximada reciben el mismo tratamiento que un avistamiento común (ver §2.3): se difuminan igual, unos 250 metros. Dos datos de este camino son distintos y merecen su propia explicación:"
+            "texto": "Si escaneas el código del afiche y avisas que viste a la mascota sin entrar a la app, tu nota acompaña al aviso. Dos datos de este camino son distintos y merecen su propia explicación:"
           }
         ]
       },
