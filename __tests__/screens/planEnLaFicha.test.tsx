@@ -101,6 +101,8 @@ jest.mock('../../src/services/difusion', () => ({
 
 import PetDetailScreen from '../../src/screens/PetDetailScreen';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';
+import { listarDestinos } from '../../src/services/difusion';
+import { VENTANAS } from '../../src/lib/planBusqueda';
 
 const PERDIDA_PROPIA = {
   id: 'pet-1',
@@ -210,5 +212,58 @@ describe('el orden del tablero de difusión y el plan de búsqueda en la ficha',
     expect(iTablero).toBeGreaterThanOrEqual(0);
     expect(iPlan).toBeGreaterThanOrEqual(0);
     expect(iTablero).toBeLessThan(iPlan);
+  });
+});
+
+describe('sin la migración 0063 (tablero no disponible), el plan no ofrece abrirlo', () => {
+  // Guardián de un hallazgo real: un arreglo anterior recortó el texto del
+  // plan y movió sus botones, y de paso dejó que `PetDetailScreen` le pasara
+  // `onTablero` a `PlanBusqueda` con el MISMO gate que `TableroDifusion` pero
+  // SIN mirar si el tablero de verdad se montó. Con la migración ausente,
+  // `TableroDifusion` se renderiza `null` y ese botón scrolleaba hasta una
+  // `View` de alto cero: no pasaba nada. Este test monta la ficha con
+  // `listarDestinos` devolviendo `{ tipo: 'no-disponible' }` (la migración
+  // simulada como ausente) y comprueba que NINGUNA oferta de abrir el
+  // tablero llegue a la pantalla.
+  beforeEach(() => {
+    (listarDestinos as jest.Mock).mockResolvedValue({ tipo: 'no-disponible' });
+  });
+
+  afterEach(() => {
+    (listarDestinos as jest.Mock).mockResolvedValue({ tipo: 'listo', destinos: [] });
+  });
+
+  it('no aparece "Tablero de difusión" en la ficha', async () => {
+    const t = textos(await montarFicha());
+    expect(t).not.toContain('Tablero de difusión');
+  });
+
+  it('el plan no ofrece "Abrir el tablero" en los dos pasos que enlazan con él', async () => {
+    const arbol = await montarFicha();
+
+    // Se abre la ventana "Hoy" (ahí viven los dos pasos que enlazan con el
+    // tablero) y, adentro, cada uno de esos dos pasos — para que un botón mal
+    // condicionado no se esconda simplemente por venir plegado.
+    const abrirPorLabel = async (label: string, exacto = true) => {
+      const nodo = arbol.root.find(
+        (n: any) =>
+          n.props.accessibilityRole === 'button' &&
+          (exacto
+            ? n.props.accessibilityLabel === label
+            : n.props.accessibilityLabel?.startsWith(label)),
+      );
+      await act(async () => {
+        nodo.props.onPress();
+      });
+    };
+
+    await abrirPorLabel(VENTANAS.hoy.titulo, false);
+    await abrirPorLabel('Avisá a tu barrio');
+    await abrirPorLabel('Llamá a veterinarias y refugios cercanos');
+
+    const botonesTablero = arbol.root.findAll(
+      (n: any) => typeof n.props.onPress === 'function' && n.props.title === 'Abrir el tablero',
+    );
+    expect(botonesTablero.length).toBe(0);
   });
 });

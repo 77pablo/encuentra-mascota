@@ -72,13 +72,19 @@ export const GUIA_PERDIDA: readonly GuiaPaso[] = [
     titulo: 'Avisá a tu barrio',
     // Reducido a propósito (tanda 14, A4): el "a quién avisarle" —el grupo de
     // WhatsApp, la junta de vecinos, el almacén— ya lo sugiere y lo REGISTRA
-    // el tablero de difusión de tu reporte, con casillas de "ya avisé". Acá
-    // sólo queda el porqué; repetir la lista sería duplicar lo que el tablero
-    // vino a resolver.
+    // el tablero de difusión de tu reporte, con casillas de "ya avisé". Acá NO
+    // se repite esa lista concreta. Pero el texto tiene que sostenerse SOLO:
+    // si la migración 0063 no está aplicada, o si alguien simplemente lee la
+    // guía sin abrir el reporte, "el tablero" no existe para esa persona (fix
+    // t14, arreglo posterior a A4: una versión anterior nombraba "el tablero"
+    // acá y el paso dejaba de tener sentido sin él). Por eso el consejo de
+    // llevar la cuenta queda en genérico (mental, papel, o el tablero si lo
+    // tenés) en vez de asumirlo.
     detalle:
       'Mientras más ojos, mejor: el barrio es tu mejor aliado en las primeras horas. ' +
-      'Anotá en el tablero a quién le fuiste avisando, así no repetís ni te olvidás ' +
-      'de nadie.',
+      'Tocá puertas, preguntá a quien se cruce contigo y dejale tu contacto para que ' +
+      'te avise si lo ve. Llevá la cuenta de a quién le fuiste avisando, así no ' +
+      'repetís ni te olvidás de nadie.',
     accion: {
       label: 'Ir a mi comunidad',
       ruta: 'Explorar',

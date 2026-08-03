@@ -157,6 +157,13 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // (`onTablero`): el tablero vive arriba del plan en la ficha, así que el
   // botón scrollea hasta ahí en vez de no hacer nada.
   const tableroYRef = useRef(0);
+  // Sin la migración 0063, `TableroDifusion` se renderiza `null` (la ficha
+  // queda EXACTAMENTE como hoy) — pero eso no basta si `PlanBusqueda`, un
+  // componente hermano, sigue ofreciendo un botón "Abrir el tablero" que
+  // scrollea hasta una `View` de alto cero. `onDisponible` (ver
+  // TableroDifusion.tsx) avisa acá cuando el tablero terminó de montarse de
+  // verdad, y sólo entonces se le pasa `onTablero` al plan.
+  const [tableroDisponible, setTableroDisponible] = useState(false);
   // "Compartir tarjeta" (F1): monta TarjetaGenerador off-screen, que se
   // encarga de capturar y compartir (mismo patrón que el afiche, ver abajo).
   const [compartiendoTarjeta, setCompartiendoTarjeta] = useState(false);
@@ -748,7 +755,11 @@ export default function PetDetailScreen({ route, navigation }: any) {
               tableroYRef.current = e.nativeEvent.layout.y;
             }}
           >
-            <TableroDifusion pet={pet} onAfiche={crearAfiche} />
+            <TableroDifusion
+              pet={pet}
+              onAfiche={crearAfiche}
+              onDisponible={setTableroDisponible}
+            />
           </View>
         ) : null}
 
@@ -774,7 +785,16 @@ export default function PetDetailScreen({ route, navigation }: any) {
             pet={pet}
             navigation={navigation}
             onAfiche={crearAfiche}
-            onTablero={() => scrollRef.current?.scrollTo({ y: tableroYRef.current, animated: true })}
+            // Sólo se ofrece "Abrir el tablero" si el tablero de verdad se
+            // montó (`tableroDisponible`, ver `onDisponible` arriba). Sin la
+            // migración 0063 el tablero es `null` y este `onTablero` queda
+            // `undefined`, así que el plan no dibuja el botón que llevaría a
+            // ningún lado.
+            onTablero={
+              tableroDisponible
+                ? () => scrollRef.current?.scrollTo({ y: tableroYRef.current, animated: true })
+                : undefined
+            }
           />
         ) : null}
 

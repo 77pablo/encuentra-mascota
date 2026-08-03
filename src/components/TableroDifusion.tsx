@@ -42,6 +42,15 @@ import type { Pet } from '../services/pets';
 export interface TableroDifusionProps {
   pet: Pick<Pet, 'id' | 'especie' | 'comuna' | 'creado_en' | 'ambito'>;
   onAfiche?: () => void;
+  // Avisa hacia arriba si el tablero terminó montado de verdad (estado 'listo'
+  // u 'error', que igual deja una Card en pantalla con "Reintentar") o no
+  // ('no-disponible', que renderiza null). Sin esto, quien monta este
+  // componente (PetDetailScreen) no tiene forma de saber si ofrecer un botón
+  // que lleve hasta acá: sin la migración 0063 el tablero es null, pero un
+  // botón "Abrir el tablero" en OTRO componente no tiene por qué enterarse por
+  // su cuenta — y duplicar el mismo cálculo de estado allá sería una segunda
+  // fuente de verdad para lo mismo.
+  onDisponible?: (disponible: boolean) => void;
 }
 
 const NOMBRE_CATEGORIA: Record<LugarCerca['categoria'], string> = {
@@ -49,7 +58,7 @@ const NOMBRE_CATEGORIA: Record<LugarCerca['categoria'], string> = {
   refugio: 'Refugio',
 };
 
-export function TableroDifusion({ pet, onAfiche }: TableroDifusionProps) {
+export function TableroDifusion({ pet, onAfiche, onDisponible }: TableroDifusionProps) {
   const colors = useColors();
   const styles = useMemo(() => crearEstilos(colors), [colors]);
 
@@ -110,6 +119,14 @@ export function TableroDifusion({ pet, onAfiche }: TableroDifusionProps) {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  // 'listo' y 'error' SÍ montan algo en pantalla (el error deja una Card con
+  // "Reintentar"); sólo 'no-disponible' es el null real. 'cargando' no avisa
+  // nada todavía: recién se sabe al resolver.
+  useEffect(() => {
+    if (estado === 'cargando') return;
+    onDisponible?.(estado !== 'no-disponible');
+  }, [estado, onDisponible]);
 
   // Recarga sólo los destinos (agregar/marcar/borrar): los lugares no cambian
   // con esas acciones, así que no vale la pena repetir esa llamada.
