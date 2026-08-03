@@ -1,5 +1,10 @@
 -- 0061: cerrar el círculo con quien avisó desde el afiche (tanda 13, función 3).
 --
+-- REDESPLEGAR send-notifications ANTES de aplicar esta migración: agrega el
+-- tipo 'reencuentro_seguimiento' a la cola, y una función vieja desplegada no
+-- lo reconoce (F7, revisión adversarial final: sin el guardián de tipos
+-- conocidos, un tipo nuevo se marcaba 'enviado' sin hacer nada).
+--
 -- Quien avisa desde el link público no deja identidad (actor_id null, 0050):
 -- justo el caso más emotivo era el único al que no había a quién avisarle.
 -- Correo OPCIONAL y de FINALIDAD ÚNICA (Ley 21.719): tabla propia con purga
@@ -210,10 +215,18 @@ grant execute on function public.avistar_sin_cuenta(uuid, text, double precision
 grant execute on function public.avistar_sin_cuenta(uuid, text, double precision, double precision, text) to authenticated;
 
 -- ── El trigger que cierra el círculo ─────────────────────────────────────
--- Un solo camino para los tres finales: reencuentro (manda y borra), cierre
--- sin final feliz (borra sin mandar) y vencimiento (el auto-archivado pone
--- activo = false y cae en la misma rama). responder_estado 'aparecio' setea
--- reunida_en y activo = false en el MISMO update: la primera rama gana.
+-- Dos finales, no tres. (a) Reencuentro: manda el correo y borra. (b) Cierre
+-- sin final feliz: `activo` pasa de true a false — esto cubre 'ya_no_busco' y
+-- cualquier otro cierre manual (closePet/responder_estado), y borra sin
+-- mandar nada. responder_estado 'aparecio' setea reunida_en y activo = false
+-- en el MISMO update: la rama (a) gana porque se evalúa primero.
+--
+-- OJO: el vencimiento del reporte (45 días sin renovar) es PEREZOSO — se
+-- calcula al leer (`renovado_en` en las consultas), nada escribe nunca
+-- `activo = false` por vencimiento — así que la rama (b) de este trigger
+-- NUNCA corre por esa vía. Un reporte vencido sigue teniendo su fila en
+-- `seguimientos_anonimos` sin que nada la borre hasta que el dueño lo cierre
+-- a mano o lo borre. La limpieza de vencidos queda como deuda anotada.
 create or replace function public.avisar_seguimientos()
 returns trigger
 language plpgsql
@@ -222,8 +235,18 @@ set search_path = public, pg_temp
 as $$
 begin
   if new.reunida_en is not null and old.reunida_en is null then
+    -- pet_id = null A PROPÓSITO (F6, revisión adversarial final): con
+    -- pet_id = new.id, `notification_events.pet_id` es `on delete cascade`
+    -- (0011) y borrar el reporte recién reencontrado en la MISMA transacción
+    -- que lo borra `avisar_seguimientos` de abajo (`delete from
+    -- seguimientos_anonimos`) haría cascadear los eventos 'reencuentro_seguimiento'
+    -- pendientes antes de que el cron los despache: correos perdidos. El
+    -- nombre ya viaja en datos.nombre; el correo se manda con `petId ?? ''`
+    -- (send-notifications/index.ts, degrada a la ruta '/'); `mis_avisos` ya
+    -- excluye este tipo por completo (línea ~275), así que no necesita pet_id
+    -- para la rama (b) de esa RPC.
     insert into public.notification_events (tipo, pet_id, target_user_id, actor_id, datos)
-    select 'reencuentro_seguimiento', new.id, null, null,
+    select 'reencuentro_seguimiento', null, null, null,
            jsonb_build_object('correo', s.correo,
                               'nombre', new.nombre,
                               'especie', new.especie::text)

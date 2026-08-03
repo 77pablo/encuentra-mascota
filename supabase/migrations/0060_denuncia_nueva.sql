@@ -1,5 +1,10 @@
 -- 0060: la bandeja de moderación que avisa (tanda 13, función 2).
 --
+-- REDESPLEGAR send-notifications ANTES de aplicar esta migración: agrega el
+-- tipo 'denuncia_nueva' a la cola, y una función vieja desplegada no lo
+-- reconoce (F7, revisión adversarial final: sin el guardián de tipos
+-- conocidos, un tipo nuevo se marcaba 'enviado' sin hacer nada).
+--
 -- Los Términos publicados prometen plazos de retiro (24 h / 72 h / 7 días) y
 -- hasta hoy NADA avisaba que entró una denuncia: la bandeja había que abrirla
 -- a mano. Se reusa la cola de la 0011: un evento dirigido por admin, que llega

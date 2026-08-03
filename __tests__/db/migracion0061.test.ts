@@ -43,4 +43,18 @@ describe('0061: cerrar el círculo con quien avisó', () => {
     expect(sql).toMatch(/>= 30/);
     expect(sql).toMatch(/interval '5 minutes'/);
   });
+
+  // F6 (revisión adversarial final): notification_events.pet_id es `on delete
+  // cascade`. Si el trigger encolara con pet_id = new.id, borrar el reporte
+  // recién reencontrado en la MISMA transacción (el `delete from
+  // seguimientos_anonimos` de acá abajo, en el mismo trigger) cascadearía los
+  // eventos 'reencuentro_seguimiento' que el cron todavía no despachó: correos
+  // de reencuentro perdidos.
+  it('F6: el evento de reencuentro se encola con pet_id null (no cascadea con el borrado del reporte)', () => {
+    const bloque = sql.slice(
+      sql.indexOf('new.reunida_en is not null and old.reunida_en is null'),
+      sql.indexOf('delete from public.seguimientos_anonimos where pet_id = new.id'),
+    );
+    expect(bloque).toMatch(/select 'reencuentro_seguimiento', null, null, null,/);
+  });
 });

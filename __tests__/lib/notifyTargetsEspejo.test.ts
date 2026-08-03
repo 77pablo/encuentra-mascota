@@ -252,21 +252,47 @@ const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = 
       duenoPetId: '', nombrePet: null, zonas: [], prefs: {}, seguidoresComuna: [],
     },
   },
+  {
+    // Denuncia nueva (Tanda 13 · C, migración 0060): destinatario DIRIGIDO
+    // (el admin de targetUserId), sin pasar por el interruptor de tipo —
+    // mismo criterio que 'escaneo_collar'/'busqueda_guardada'. `datos` NO
+    // lleva el detalle libre del denunciante (solo tipo_denuncia/motivo, de
+    // listas cerradas), y el texto apunta a la bandeja de Moderación, nunca
+    // al contenido denunciado (F14: este caso faltaba entero en CASOS).
+    nombre: 'denuncia nueva al admin destinatario (dirigido, sin interruptor de tipo)',
+    evento: {
+      id: 'd1', tipo: 'denuncia_nueva', petId: '', actorId: null,
+      targetUserId: 'admin-1', datos: { tipo_denuncia: 'reporte', motivo: 'spam' },
+    },
+    ctx: {
+      duenoPetId: 'otro', nombrePet: null, zonas: [], seguidoresComuna: [],
+      prefs: {
+        // 'pistas' apagada a propósito: 'denuncia_nueva' no pasa por
+        // `quiereEsteTipo`, así que este interruptor no debe apagarla.
+        'admin-1': { userId: 'admin-1', zona: true, avistamientos: true, pistas: false,
+                     coincidencias: true, canalEmail: true, canalPush: true },
+      },
+    },
+  },
 ];
 
-// Todos los tipos del union, para exigirle a las dos copias la MISMA respuesta
-// sobre a cuáles les aplica el bloqueo. Escrito a mano a propósito: si alguien
-// agrega un tipo nuevo, el `TipoEvento` de abajo deja de compilar hasta que
-// decida de qué lado del bloqueo cae.
-const TODOS_LOS_TIPOS: app.TipoEvento[] = [
-  'reporte_nuevo',
-  'avistamiento',
-  'pista',
-  'coincidencia',
-  'escaneo_collar',
-  'busqueda_guardada',
-  'avistamiento_anonimo',
-];
+// Todos los tipos del union, con exhaustividad REAL: `Record<TipoEvento, true>`
+// no compila si a `TipoEvento` se le agrega un miembro y no se lo suma acá
+// (TS tira "falta la propiedad"), a diferencia de un array literal —que
+// acepta cualquier subconjunto sin quejarse— como este mismo archivo tenía
+// antes (F14: el comentario viejo prometía esa exhaustividad y no era cierto).
+const TODOS_LOS_TIPOS_MAPA: Record<app.TipoEvento, true> = {
+  reporte_nuevo: true,
+  avistamiento: true,
+  pista: true,
+  coincidencia: true,
+  escaneo_collar: true,
+  busqueda_guardada: true,
+  avistamiento_anonimo: true,
+  denuncia_nueva: true,
+  reencuentro_seguimiento: true,
+};
+const TODOS_LOS_TIPOS = Object.keys(TODOS_LOS_TIPOS_MAPA) as app.TipoEvento[];
 
 describe('el espejo de notifyTargets no se desincroniza', () => {
   it('exporta los mismos valores por defecto', () => {

@@ -144,12 +144,20 @@ describe('el indice de la purga', () => {
 // Lo que ningun archivo solo puede probar: los dos extremos.
 // ------------------------------------------------------------
 describe('el despachador y la purga siguen hablando el mismo idioma', () => {
-  it('el despachador marca EXACTAMENTE `enviado` y llena procesado_en en el camino feliz', () => {
+  it('el despachador marca `enviado` y llena procesado_en JUNTOS en el mismo update, en el camino feliz', () => {
     // Si dejara de escribir procesado_en, esas filas quedarian con NULL y la
     // purga no las tomaria NUNCA (null < x es null): la cola volveria a crecer
     // para siempre, sin un solo error.
+    //
+    // El cierre `\}\)` quedó deliberadamente abierto a más campos en el mismo
+    // objeto (antes exigía que el update terminara ahí mismo): desde F5 el
+    // mismo update también puede llevar `datos` (limpia el correo del
+    // seguidor cuando el evento es 'reencuentro_seguimiento'). Lo que este
+    // test protege — que 'enviado' y procesado_en viajen SIEMPRE juntos en el
+    // camino feliz — sigue intacto; ajustado al alza (más estricto en orden,
+    // no en campos extra) para no quedar desactualizado por un cambio legítimo.
     expect(despachador).toMatch(
-      /\.update\(\{\s*estado:\s*'enviado',\s*procesado_en:\s*new Date\(\)\.toISOString\(\)\s*\}\)/,
+      /\.update\(\{\s*estado:\s*'enviado',\s*procesado_en:\s*new Date\(\)\.toISOString\(\),?[\s\S]*?\}\)/,
     );
   });
 

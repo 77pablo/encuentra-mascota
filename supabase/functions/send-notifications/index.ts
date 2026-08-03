@@ -88,6 +88,20 @@ function armarHtml(titulo: string, cuerpo: string, url: string): string {
 // Si no hay ninguno configurado, el canal se salta en silencio y devuelve false:
 // el push igual se intenta. Un error del proveedor SÍ se propaga, para que el
 // evento quede marcado y se reintente.
+//
+// `hayProveedorDeCorreo` expone el MISMO chequeo ("¿hay Brevo o Resend
+// configurado?") para quien necesita decidir ANTES de intentar mandar, sin
+// duplicar la condición: hoy lo usa `procesar` (F4) para 'reencuentro_seguimiento',
+// el único tipo donde el correo es el canal ÚNICO y perder el intento importa.
+function hayProveedorDeCorreo(): boolean {
+  const brevoKey = Deno.env.get('BREVO_API_KEY');
+  const brevoFrom = Deno.env.get('BREVO_FROM');
+  if (brevoKey && brevoFrom) return true;
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  const resendFrom = Deno.env.get('RESEND_FROM');
+  return !!(resendKey && resendFrom);
+}
+
 async function enviarCorreo(para: string, titulo: string, cuerpo: string, url: string): Promise<boolean> {
   const html = armarHtml(titulo, cuerpo, url);
 
@@ -415,7 +429,51 @@ async function armarContexto(supabase: Supa, ev: EventoRow): Promise<Contexto | 
   return { duenoPetId, nombrePet, zonas, prefs, seguidoresComuna, bloqueadosConActor };
 }
 
-async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {
+// Los 9 tipos que este despachador sabe procesar (F7). Un evento de un tipo
+// que no está acá —una migración que agrega un tipo nuevo y se aplica ANTES
+// de redesplegar esta función, ver la cabecera de la 0060/0061— NO se debe
+// consumir mudo (quedaría 'enviado' sin haber hecho nada) ni caer al
+// fallthrough de 'pista' con un texto que no le corresponde: mejor un error
+// recuperable (queda 'pendiente'/'error' con error_detalle) que un aviso
+// perdido en silencio.
+const TIPOS_CONOCIDOS = new Set<EventoRow['tipo']>([
+  'reporte_nuevo',
+  'avistamiento',
+  'pista',
+  'coincidencia',
+  'escaneo_collar',
+  'busqueda_guardada',
+  'avistamiento_anonimo',
+  'denuncia_nueva',
+  'reencuentro_seguimiento',
+]);
+
+// Señal de `procesar` para 'reencuentro_seguimiento' sin proveedor de correo
+// configurado (F4): el correo es el ÚNICO canal de este tipo y las filas de
+// `seguimientos_anonimos` ya se borraron (el trigger de la 0061 las borra al
+// encolar), así que "marcar enviado sin enviar" pierde el aviso para siempre.
+// El llamador debe dejar el evento 'pendiente' TAL CUAL (sin tocar `intentos`)
+// para que la próxima corrida lo reintente gratis en cuanto Pablo active Brevo.
+const SIN_PROVEEDOR = Symbol('sin_proveedor');
+
+// F5: `datos.correo` del seguidor anónimo es de FINALIDAD ÚNICA (Ley 21.719).
+// Una vez que el evento 'reencuentro_seguimiento' ya no lo va a necesitar más
+// (se mandó el correo, o se abandonó tras agotar los intentos) no tiene por
+// qué seguir viviendo en la fila — sobre todo porque el propio correo dice
+// "tu dirección ya fue borrada" (ver `componerAviso`). Devuelve `datos` SIN
+// la clave `correo`; el resto de las claves (nombre, especie) quedan tal cual
+// (no son dato personal de un tercero identificado, y la 0023 igual purga la
+// fila entera a los 90 días de 'enviada').
+function sinCorreo(datos: Record<string, unknown>): Record<string, unknown> {
+  const { correo: _correo, ...resto } = datos ?? {};
+  return resto;
+}
+
+async function procesar(supabase: Supa, ev: EventoRow): Promise<number | typeof SIN_PROVEEDOR> {
+  if (!TIPOS_CONOCIDOS.has(ev.tipo)) {
+    throw new Error(`tipo de evento desconocido: ${ev.tipo}`);
+  }
+
   // 'reencuentro_seguimiento' (0061): el seguidor no tiene cuenta, así que no
   // hay contexto que armar (ni dueño, ni prefs, ni bloqueos: nada de eso
   // aplica a un correo suelto). El destinatario es DIRECTO — datos.correo,
@@ -425,6 +483,15 @@ async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {
   if (ev.tipo === 'reencuentro_seguimiento') {
     const correo = typeof ev.datos.correo === 'string' ? ev.datos.correo : '';
     if (!correo) return 0; // fila corrupta o sin correo: no hay a quién mandarle
+    // F4: sin Brevo NI Resend configurados, `enviarCorreo` devolvería `false`
+    // como si el envío se hubiera intentado y no hubiera nadie del otro lado
+    // (comportamiento correcto para los OTROS tipos, que también tienen push).
+    // Acá NO hay push de respaldo: devolver 0 haría que el loop lo marque
+    // 'enviado' sin haber mandado nada. Se corta ANTES de intentar.
+    if (!hayProveedorDeCorreo()) {
+      console.warn(`evento ${ev.id} (reencuentro_seguimiento) queda pendiente: sin proveedor de correo configurado`);
+      return SIN_PROVEEDOR;
+    }
     const evento: EventoAviso = {
       id: ev.id,
       tipo: ev.tipo,
@@ -439,6 +506,9 @@ async function procesar(supabase: Supa, ev: EventoRow): Promise<number> {
     const ctxVacio: Contexto = { duenoPetId: '', nombrePet: null, zonas: [], prefs: {}, seguidoresComuna: [] };
     const { titulo, cuerpo, ruta } = componerAviso(evento, ctxVacio);
     const base = Deno.env.get('EXPO_PUBLIC_WEB_URL') ?? '';
+    // Si el proveedor SÍ está configurado y el envío falla, `enviarCorreo`
+    // lanza (ver su propio comentario): eso sigue subiendo tal cual al catch
+    // del loop de abajo (intentos/error), sin pasar por acá.
     return (await enviarCorreo(correo, titulo, cuerpo, `${base}${ruta}`)) ? 1 : 0;
   }
 
@@ -527,32 +597,54 @@ Deno.serve(async (req: Request) => {
       if (ev.intentos >= MAX_INTENTOS) {
         await supabase
           .from('notification_events')
-          .update({ estado: 'error', procesado_en: new Date().toISOString() })
+          .update({
+            estado: 'error',
+            procesado_en: new Date().toISOString(),
+            // F5: el correo del seguidor ya cumplió su única finalidad (o se
+            // abandonó); no tiene por qué seguir en la fila (Ley 21.719).
+            ...(ev.tipo === 'reencuentro_seguimiento' ? { datos: sinCorreo(ev.datos) } : {}),
+          })
           .eq('id', ev.id);
         continue;
       }
 
       try {
-        await procesar(supabase, ev);
+        const resultado = await procesar(supabase, ev);
+        // F4: sin proveedor de correo configurado, 'reencuentro_seguimiento'
+        // queda EXACTAMENTE como estaba (pendiente, mismos intentos): no hay
+        // nada que reintentar todavía, así que no se toca la fila. Cuando
+        // Pablo active Brevo, la próxima corrida lo despacha solo.
+        if (resultado === SIN_PROVEEDOR) continue;
+
         await supabase
           .from('notification_events')
-          .update({ estado: 'enviado', procesado_en: new Date().toISOString() })
+          .update({
+            estado: 'enviado',
+            procesado_en: new Date().toISOString(),
+            // F5: mismo motivo que arriba — finalidad única cumplida.
+            ...(ev.tipo === 'reencuentro_seguimiento' ? { datos: sinCorreo(ev.datos) } : {}),
+          })
           .eq('id', ev.id);
         ok++;
       } catch (e) {
         console.error(`fallo el evento ${ev.id}`, e);
         const intentos = ev.intentos + 1;
+        const agotado = intentos >= MAX_INTENTOS;
         await supabase
           .from('notification_events')
           .update({
             // Si todavía le quedan intentos lo dejamos pendiente para la
             // próxima corrida; si no, queda marcado como error.
-            estado: intentos >= MAX_INTENTOS ? 'error' : 'pendiente',
+            estado: agotado ? 'error' : 'pendiente',
             intentos,
             // Guardamos el motivo en la fila: sin esto, un aviso que no sale
             // falla en absoluto silencio y hay que adivinar por qué. Los logs
             // de la Edge Function no siempre están a mano.
             error_detalle: String(e instanceof Error ? e.message : e).slice(0, 500),
+            // F5: recién cuando se agotan los intentos y el evento pasa a
+            // 'error' se borra el correo — mientras queden reintentos
+            // ('pendiente') todavía hace falta para el próximo intento.
+            ...(ev.tipo === 'reencuentro_seguimiento' && agotado ? { datos: sinCorreo(ev.datos) } : {}),
           })
           .eq('id', ev.id);
         fallidos++;
