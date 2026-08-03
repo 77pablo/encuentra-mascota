@@ -100,6 +100,12 @@ describe('los compromisos del documento llegan enteros a la app', () => {
     { que: 'moderación: todo lo demás', patron: /7 días/i, doc: 'terminos' },
     { que: 'una suspensión se puede levantar', patron: /Una suspensión no es definitiva/, doc: 'terminos' },
     { que: 'aviso previo si se cierra el servicio', patron: /30 días de anticipación/i, doc: 'terminos' },
+    { que: 'el correo de seguimiento es de finalidad única', patron: /único\s+correo/i, doc: 'privacidad' },
+    {
+      que: 'la foto del aviso anónimo no es pública',
+      patron: /solo la ve la familia del reporte/i,
+      doc: 'privacidad',
+    },
   ];
 
   it.each(compromisos)('$que está en el documento y llega a la app', ({ patron, doc }) => {

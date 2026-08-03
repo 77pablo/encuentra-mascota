@@ -552,6 +552,39 @@ export const DOCUMENTOS_LEGALES: DocumentoLegal[] = [
         ]
       },
       {
+        "tipo": "titulo",
+        "nivel": 3,
+        "id": "2-6-cuando-avisas-desde-el-link-publico-sin-tener-cuenta",
+        "texto": [{"texto":"2.6 Cuando avisas desde el link público sin tener cuenta"}]
+      },
+      {
+        "tipo": "parrafo",
+        "texto": [
+          {
+            "texto": "Si escaneas el código del afiche y avisas que viste a la mascota sin entrar a la app, tu nota y tu ubicación aproximada reciben el mismo tratamiento que un avistamiento común (ver §2.3): se difuminan igual, unos 250 metros. Dos datos de este camino son distintos y merecen su propia explicación:"
+          }
+        ]
+      },
+      {
+        "tipo": "lista",
+        "ordenada": false,
+        "inicio": 1,
+        "items": [
+          [
+            {"texto":"Correo de seguimiento (opcional).","fuerte":true},
+            {
+              "texto": " Si al avisar dejas tu correo, lo guardamos con una sola finalidad: mandarte un único correo si esa mascota se reencuentra con su familia. No se lo mostramos a nadie —tampoco a la familia—, no se usa para nada más, y se borra en cualquiera de estos casos: se manda ese único correo de reencuentro, el reporte se cierra sin reencuentro o vence solo, o el reporte se borra."
+            }
+          ],
+          [
+            {"texto":"Foto (opcional).","fuerte":true},
+            {
+              "texto": " Si adjuntas una foto, solo la ve la familia del reporte. No se publica en el mapa, ni en la ficha, ni en ningún otro lado, y se borra junto con el reporte."
+            }
+          ]
+        ]
+      },
+      {
         "tipo": "parrafo",
         "texto": [
           {"texto":"No hacemos:","fuerte":true},
