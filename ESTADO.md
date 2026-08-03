@@ -1,31 +1,36 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (2-ago-2026, noche — spec APROBADA, escribiendo el plan)
+## 👉 DÓNDE RETOMAR (3-ago-2026 — TANDA 13 COMPLETA EN CÓDIGO, falta el despliegue)
 
-**Pablo aprobó la spec entera y revocó el token de Supabase.** Queda UNA cosa suya pendiente:
+**La tanda 13 entera está implementada, revisada y lista para merge en `feat/t13`** (HEAD
+`8db5b36`, 27 commits sobre `0998435`). Las 16 tareas del plan pasaron: implementador + revisor
+por tarea, y al final 4 revisores adversariales por área (A afiche · B perfil · C moderación ·
+D aviso anónimo) que encontraron 3 Criticals + 10 Importants — TODOS arreglados en la ola de
+fixes (`f238cad`→`8db5b36`) y re-verificados por los mismos revisores: **las 4 áreas LISTAS PARA
+MERGE, sin pendientes**. Suite final: `tsc` 0 errores, jest 206 suites / 2797 tests, exit 0 real.
+La historia completa está en `.superpowers/sdd/progress.md` (ledger) y los hallazgos de la final
+en `.superpowers/sdd/final-findings.md`.
 
-1. **Subir el `dist`** (ya exportado: `index-eb9ae5d7ef8da61b08fdb54323edde27.js`). La `0058` ya está
-   aplicada, así que se puede subir cuando quieras.
+**Pendiente de Pablo (independiente de la tanda):** subir el `dist` de la tanda 12 (ya exportado:
+`index-eb9ae5d7ef8da61b08fdb54323edde27.js`; la `0058` ya está aplicada).
 
-### La tanda siguiente: aprobada, plan en escritura
-Spec en **`docs/superpowers/specs/2026-08-02-privacidad-y-4-funciones-design.md`** — **APROBADA por
-Pablo el 2-ago (noche), entera, con las decisiones finas delegadas a criterio conservador en el
-plan.** Son cinco cosas: ocultar el contacto (número en el afiche, red social, correo enmascarado),
-el afiche en dos toques, la bandeja de moderación que avisa, cerrarle el círculo a quien avisó, y
-foto en el aviso anónimo.
+### Lo que falta de la tanda 13: SOLO el despliegue (orden con cicatrices, NO cambiarlo)
+1. **Redesplegar `send-notifications`** ANTES de aplicar `0060`/`0061` (si no, el despachador
+   consume eventos que no conoce — ahora al menos quedan en `error` recuperable, F7).
+2. **Desplegar `aviso-anonimo-foto`** (Edge Function nueva). Humo: OPTIONS→204, POST sin
+   credenciales→401.
+3. **Aplicar `0059`→`0060`→`0061`→`0062` en orden**, cada una ensayada en `begin…rollback` contra
+   la base real + ataques post-aplicar (detalle en el plan, Task INT). La `0059` va ANTES del
+   deploy web (rompe guardar el perfil si se invierte — advertencia en su cabecera).
+4. **Exportar `dist` nuevo de la tanda 13** y que Pablo lo suba (SIEMPRE después de las migraciones).
+5. **Verificar contra el sitio real** (afiche sin número, red social apagada desde otra cuenta,
+   aviso anónimo con correo y foto).
 
-**El plan está ESCRITO**: `docs/superpowers/plans/2026-08-02-privacidad-y-4-funciones.md` — 16
-tareas en 4 áreas paralelas (A afiche · B perfil · C moderación · D aviso anónimo) sobre ramas
-`feat/t13-a…d`, migraciones `0059`–`0062` (la `0056` sigue libre). Sigue la ejecución con
-implementadores + revisión adversarial ANTES de aplicar nada: la tanda 11 tenía 4 errores en el
-plan que encontraron los 4 agentes, y la tanda 12 se fusionó sin revisión con 3 Criticals adentro.
-
-**Las dos decisiones difíciles ya están tomadas** (están en la spec con su fundamento): el correo de
-seguimiento es **opcional y de finalidad única**, y la foto del aviso anónimo **solo la ve el dueño,
-nunca es pública**.
-
-**Y lo que se descubrió antes de diseñar, para no construirlo dos veces:** el teléfono ya es privado
-desde la tanda A, el correo no se expone nunca, y lo único realmente público es la red social.
+**Deuda anotada de la tanda** (triada por la revisión final, no bloqueante): al final del ledger
+`.superpowers/sdd/progress.md`. Las tres grandes: Brevo sigue inactivo (los correos de reencuentro
+quedan `pendiente` y salen solos al activarlo — el despachador ya no los marca enviados en falso ni
+se atasca el lote), el vencimiento perezoso nunca borra seguimientos (falta un cron de limpieza), y
+el código corto del afiche sigue atado al dominio propio.
 
 ---
 
