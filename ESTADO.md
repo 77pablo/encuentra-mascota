@@ -1,6 +1,63 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (3-ago-2026 — TANDA 13 COMPLETA EN CÓDIGO, falta el despliegue)
+## 👉 DÓNDE RETOMAR (3-ago-2026, tarde — TANDA 13 DESPLEGADA salvo la web)
+
+**Lo único que falta es que Pablo suba el `dist`.** Bundle exportado y listo:
+`index-bc39e15598aceda88b0434487d27bb21.js` — Cloudflare Pages → Deployments → Create new
+deployment → arrastrar `dist`. Va **después** de las migraciones (ya aplicadas), así que se puede
+subir cuando quieras. Después de subirlo queda el paso 5 del plan: verificar contra el sitio real
+(afiche sin número, red social apagada mirada desde otra cuenta, aviso anónimo con correo y foto).
+
+⚠️ **Revocá el token de Supabase** (`token 12.txt`, otra vez en OneDrive → ya se sincronizó a la
+nube): <https://supabase.com/dashboard/account/tokens>.
+
+### Lo que se desplegó y se verificó hoy, en el orden del plan
+1. ✅ **`send-notifications` redesplegada ANTES de las migraciones** (humo: `OPTIONS` → 204,
+   `POST`/`GET` sin credenciales → 401). La cola quedó sin nada atascado.
+2. ✅ **`aviso-anonimo-foto` desplegada** (Edge Function nueva; mismo humo, 204 / 401).
+3. ✅ **`0059` → `0060` → `0061` → `0062` aplicadas en orden**, cada una ensayada primero dentro de
+   `begin … rollback` contra la base real, y con ataques **después** de aplicar. **Sin residuo**:
+   0 filas en `seguimientos_anonimos`, 0 objetos en el bucket, 0 eventos de los tipos nuevos.
+4. ✅ **`dist` exportado** (pendiente de subir, ver arriba).
+
+**Lo que se comprobó ejecutándolo, no leyéndolo** (11 casos en el ensayo de la 0062, 12 ataques
+después de aplicar las cuatro, más las lecturas por HTTP como `anon`):
+- **El ataque central de la 0062 está cerrado:** `anon` llamando la RPC con un `p_foto_path` que
+  apunta a la carpeta de otro reporte deja `datos.foto = NULL`. Con las claims de `service_role`
+  —el camino de la Edge Function— la foto sí se adjunta. Y el **no-oráculo** aguanta: con foto y
+  aviso descartado la RPC devuelve `false` (señal privada para la EF), sin foto devuelve `true`
+  igual que el camino feliz, así que desde afuera el descarte sigue siendo invisible.
+- **El bucket `avisos-anonimos` es privado y no filtra:** un tercero autenticado ve **0 filas**
+  mientras el control confirma que el objeto existe; el dueño del reporte ve **1**; `anon` ve 0, el
+  `list` devuelve `[]` y bajar un objeto da 400 (también por la ruta `/object/public/`).
+- **Los correos de seguimiento no los ve nadie**, ni siquiera el dueño del reporte (0 filas con el
+  control en 1), y `anon` **no puede insertar directo** para saltearse los topes (42501).
+- **El círculo se cierra de verdad:** `responder_estado('aparecio')` encola el correo de reencuentro
+  con `pet_id = null` y **borra** el seguimiento; un cierre sin reencuentro borra **sin** mandar
+  nada; y `mis_avisos` **nunca** muestra ese evento (lleva el correo del vecino adentro).
+- **Las cinco escaladas de privilegio siguen rechazadas** con el grant nuevo de la `0059`
+  (hacerse admin, auto-desuspenderse, auto-verificarse la insignia, reescribir `fecha_nacimiento`,
+  apagar el interruptor ajeno → 0 filas), **con el control** de que guardar el perfil propio con las
+  cinco columnas sigue funcionando.
+- **La denuncia avisa a quien tiene que avisar:** entra el evento dirigido al admin, sin `pet_id`,
+  sin actor y **sin el detalle libre** del denunciante; el admin que denuncia no se auto-avisa; y un
+  no-admin no ve ese aviso en su bandeja.
+- **El bundle exportado lleva la tanda 13**: `mostrar_red_social`, `aviso-anonimo-foto`,
+  `avisos-anonimos`, `denuncia_nueva`, `reencuentro_seguimiento` y `p_correo` presentes;
+  `p_foto_path` **ausente** del cliente (viaja solo por la Edge Function, como se diseñó); y el
+  dominio ajeno `encuentratumascota.app` **ya no aparece** — el fix del área A confirmado en el
+  compilado, no solo en el fuente.
+
+### ⚠️ Lo único que quedó sin comprobar del plan
+**El filtro de la red social apagada, mirado por HTTP como `anon`.** Se probó a nivel SQL con
+control (interruptor en `false` → `perfil_publico` devuelve `red_social` null mientras la columna
+sigue teniendo valor) y se probó por HTTP que `perfil_publico` es el **único** camino a esa columna
+(leer `profiles` directo da 42501 para `anon`). Lo que falta es la composición de las dos: apagar el
+interruptor en una cuenta real y volver a pedir el perfil por HTTP. Requiere escribir en un perfil
+de producción, así que **entra en la verificación con navegador del paso 5**, que es donde
+corresponde: apagarlo desde la app y mirar el perfil desde otra cuenta.
+
+## 👉 (histórico) 3-ago-2026 — TANDA 13 COMPLETA EN CÓDIGO, falta el despliegue
 
 **La tanda 13 entera está implementada, revisada y lista para merge en `feat/t13`** (HEAD
 `8db5b36`, 27 commits sobre `0998435`). Las 16 tareas del plan pasaron: implementador + revisor
@@ -13,8 +70,10 @@ en `.superpowers/sdd/final-findings.md`.
 
 **Pendiente de Pablo (independiente de la tanda):** subir el `dist` de la tanda 12 (ya exportado:
 `index-eb9ae5d7ef8da61b08fdb54323edde27.js`; la `0058` ya está aplicada).
+→ **OBSOLETO (3-ago, tarde):** ese `dist` no hace falta subirlo. El export de la tanda 13
+(`index-bc39e15598aceda88b0434487d27bb21.js`) incluye todo lo de la 12; es un solo deploy.
 
-### Lo que falta de la tanda 13: SOLO el despliegue (orden con cicatrices, NO cambiarlo)
+### Lo que faltaba de la tanda 13 — HECHO el 3-ago salvo el punto 4 (orden con cicatrices)
 1. **Redesplegar `send-notifications`** ANTES de aplicar `0060`/`0061` (si no, el despachador
    consume eventos que no conoce — ahora al menos quedan en `error` recuperable, F7).
 2. **Desplegar `aviso-anonimo-foto`** (Edge Function nueva). Humo: OPTIONS→204, POST sin
