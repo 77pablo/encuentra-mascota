@@ -146,6 +146,20 @@ export function textoDeAviso(a: Aviso): AvisoPresentado {
       };
     }
 
+    // Lo encola el trigger de la 0060 para cada admin activo. Es un PUNTERO a
+    // la bandeja de Moderación, no una copia de la denuncia: el detalle libre
+    // del denunciante no viaja en el evento (a propósito, ver notifyTargets.ts),
+    // así que no hay nada más que mostrar acá salvo el motivo, que sale de
+    // MOTIVOS_DENUNCIA — una lista cerrada, no texto libre de nadie.
+    case 'denuncia_nueva': {
+      const motivo = texto(d, 'motivo');
+      return {
+        titulo: 'Entró una denuncia',
+        detalle: motivo ? `Motivo: ${motivo} · Revisala en Perfil → Moderación.` : 'Revisala en Perfil → Moderación.',
+        icono: 'shield-checkmark-outline',
+      };
+    }
+
     default:
       // Tipo desconocido para esta versión del cliente. Se muestra igual: un
       // aviso que no se sabe nombrar sigue siendo un aviso, y esconderlo es

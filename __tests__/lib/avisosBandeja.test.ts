@@ -114,6 +114,21 @@ describe('textoDeAviso: cada tipo se lee como algo que le pasa a TU mascota', ()
     }
   });
 
+  it('denuncia_nueva se presenta como puntero a la bandeja, con el motivo de lista cerrada', () => {
+    const t = textoDeAviso(
+      base({
+        id: '1',
+        tipo: 'denuncia_nueva',
+        pet_id: null,
+        datos: { tipo_denuncia: 'reporte', motivo: 'spam' },
+        creado_en: '2026-08-01T10:00:00Z',
+      }),
+    );
+    expect(t.titulo).toBe('Entró una denuncia');
+    expect(t.detalle).toContain('spam');
+    expect(t.icono).toBe('shield-checkmark-outline');
+  });
+
   it('un extracto larguisimo no rompe la tarjeta', () => {
     const t = textoDeAviso(base({ tipo: 'pista', datos: { extracto: 'x'.repeat(4000) } }));
     expect((t.detalle ?? '').length).toBeLessThanOrEqual(200);

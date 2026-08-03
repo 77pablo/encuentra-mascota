@@ -15,6 +15,7 @@ import { getPerfilPublico } from '../services/perfilPublico';
 import { uploadPetPhoto } from '../services/storage';
 import { useAuth } from '../hooks/useAuth';
 import { useAvisosSinLeer } from '../hooks/useAvisosSinLeer';
+import { useDenunciasPendientes } from '../hooks/useDenunciasPendientes';
 import { pluralizar } from '../lib/plural';
 import { confirmAction, notify } from '../lib/notify';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
@@ -59,6 +60,10 @@ export default function ProfileScreen({ navigation }: any) {
   // Perfil sigue igual.
   const { sinLeer: avisosSinLeer, recargar: recargarAvisos } = useAvisosSinLeer();
   const [profile, setProfile] = useState<Profile | null>(null);
+  // Lo pendiente de Moderación (tarea C3, tanda 13). Solo pregunta si
+  // `profile.es_admin`, así que hasta que el perfil no cargue esto vale 0 —
+  // eso es lo correcto: no hay fila que mostrar todavía.
+  const denunciasPendientes = useDenunciasPendientes(profile?.es_admin === true);
   const [mis, setMis] = useState<Pet[]>([]);
   // Todos los reportes cerrados. Se parten en pantalla entre los que tienen
   // reencuentro registrado y los que se cerraron por otro motivo: la lista
@@ -873,9 +878,16 @@ export default function ProfileScreen({ navigation }: any) {
           icon="ban-outline"
           onPress={() => navigation.navigate('Bloqueados')}
         />
+        {/* El número sale de `useDenunciasPendientes` (migración 0060): antes
+            de esto, la única forma de saber si había algo esperando era
+            entrar a mirar la bandeja a mano. */}
         {profile?.es_admin ? (
           <Button
-            title="Moderación"
+            title={
+              denunciasPendientes > 0
+                ? `Moderación · ${denunciasPendientes} ${pluralizar(denunciasPendientes, 'pendiente', 'pendientes')}`
+                : 'Moderación'
+            }
             variant="ghost"
             icon="shield-checkmark-outline"
             onPress={() => navigation.navigate('Moderacion')}
