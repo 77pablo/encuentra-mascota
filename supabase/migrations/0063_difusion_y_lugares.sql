@@ -66,8 +66,17 @@ create table public.difusion_destinos (
   tipo text not null,
   -- Un destino 'persona' guarda su texto aca y deja los dos punteros en null.
   etiqueta text,
-  lugar_id uuid references public.lugares(id) on delete set null,
-  institucion_id uuid references public.profiles(id) on delete set null,
+  -- 'on delete cascade' y NO 'set null': un destino tipo 'lugar' sin lugar_id
+  -- (o tipo 'institucion' sin institucion_id) viola el CHECK
+  -- difusion_destinos_puntero_por_tipo de abajo, asi que 'set null' hacia que
+  -- borrar un lugar o una institucion referenciados abortara el DELETE entero
+  -- con un 23514 en vez de limpiar (Critical 3). Si el lugar o la institucion
+  -- desaparecen, el destino que le apuntaba dejo de tener sentido y se va con
+  -- ellos. Esto importa de verdad: delete-account (0057/0058) borra la cuenta
+  -- completa de una institucion, y con 'set null' esa transaccion fallaba sin
+  -- manejo apenas la institucion tuviera un destino "avisado" pendiente.
+  lugar_id uuid references public.lugares(id) on delete cascade,
+  institucion_id uuid references public.profiles(id) on delete cascade,
   estado text not null default 'pendiente',
   avisado_en timestamptz,
   creado_en timestamptz not null default now()
@@ -83,18 +92,27 @@ alter table public.difusion_destinos
 alter table public.difusion_destinos
   add constraint difusion_destinos_avisado_coherente
   check ((estado = 'avisado') = (avisado_en is not null));
--- Cada tipo cuelga de lo suyo y de nada mas.
+-- Cada tipo cuelga de lo suyo y de nada mas. 'lugar' e 'institucion' tambien
+-- dejan etiqueta en null (Minor 4): sin eso, un destino 'lugar' podia traer
+-- ademas una etiqueta, dato muerto que nadie lee y que contradice la frase de
+-- arriba.
 alter table public.difusion_destinos
   add constraint difusion_destinos_puntero_por_tipo
   check (
     (tipo = 'persona' and lugar_id is null and institucion_id is null
        and length(btrim(coalesce(etiqueta, ''))) between 1 and 80)
-    or (tipo = 'lugar' and lugar_id is not null and institucion_id is null)
-    or (tipo = 'institucion' and institucion_id is not null and lugar_id is null)
+    or (tipo = 'lugar' and lugar_id is not null and institucion_id is null
+        and etiqueta is null)
+    or (tipo = 'institucion' and institucion_id is not null and lugar_id is null
+        and etiqueta is null)
   );
 -- Un mismo lugar no se agrega dos veces al mismo reporte.
 create unique index difusion_destinos_lugar_unico
   on public.difusion_destinos (pet_id, lugar_id) where lugar_id is not null;
+-- Misma regla, simetrica, para instituciones (Minor 6): sin este indice la
+-- misma institucion se podia sumar dos veces al tablero del mismo reporte.
+create unique index difusion_destinos_institucion_unico
+  on public.difusion_destinos (pet_id, institucion_id) where institucion_id is not null;
 create index difusion_destinos_pet_idx on public.difusion_destinos (pet_id);
 
 alter table public.difusion_destinos enable row level security;
@@ -136,9 +154,25 @@ as $$
          )
    where b.id = p_pet_id
      and b.oculto = false
+     -- Mismo criterio que el pet base de `buscar_coincidencias` (0058):
+     -- `security definer` se saltea la RLS de `pets` (cuya policy publica es
+     -- `activo = true and oculto = false`), asi que sin este filtro un
+     -- llamador podia pedir el recorrido de lugares de un reporte INACTIVO
+     -- que por lectura directa no podria ver (Critical 2). El dueño si sigue
+     -- viendo el recorrido de su propio reporte aunque lo haya desactivado.
+     and (b.activo = true or b.user_id = auth.uid())
    order by distancia_km asc, l.id
    limit 60;
 $$;
 
-revoke all on function public.lugares_cerca(uuid, double precision) from public;
+-- 'revoke all ... from public' SOLO le saca el privilegio al pseudo-rol
+-- PUBLIC. Este proyecto de Supabase tiene 'alter default privileges ... grant
+-- execute on functions to anon, authenticated', asi que toda funcion nueva
+-- NACE con EXECUTE ya concedido a anon de forma EXPLICITA, y ese revoke a
+-- PUBLIC no se lo quita (Critical 1, verificado con
+-- has_function_privilege('anon', ...) = true). El precedente correcto es la
+-- 0058: 'revoke all on function public._insignia_publica(uuid) from public,
+-- anon, authenticated'. Se nombran los tres roles y se vuelve a conceder solo
+-- a authenticated, que es lo unico que esta funcion necesita.
+revoke all on function public.lugares_cerca(uuid, double precision) from public, anon, authenticated;
 grant execute on function public.lugares_cerca(uuid, double precision) to authenticated;
