@@ -171,6 +171,16 @@ export interface Coincidencia {
   // por nadie. Ver supabase/migrations/0054 y src/services/petChip.ts.
   chip_coincide?: boolean;
   puntaje?: number;
+  // DESGLOSE (migración 0065). Igual que `chip_coincide` y `puntaje`, llega
+  // `undefined` contra una base sin la 0065 — la RPC vieja no la conoce y
+  // PostgREST no manda una clave que no existe. `porQueCoincide` (lib) ya
+  // sabe tratar `undefined`/`null` como "sin razones", así que ninguna
+  // pantalla necesita otro chequeo.
+  //
+  // `foto_similitud` NO va acá: la RPC no la devuelve (decisión de Pablo,
+  // 4-ago — el coseno exacto era un oráculo del embedding). El parecido de
+  // la foto llega SOLO como el booleano `porque.foto`.
+  porque?: Record<string, boolean> | null;
 }
 
 export async function buscarCoincidencias(

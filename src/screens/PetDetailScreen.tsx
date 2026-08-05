@@ -5,6 +5,8 @@ import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
+import { porQueCoincide } from '../lib/porQueCoincide';
+import { calcularYGuardar, hayModeloDisponible } from '../services/vectorFoto';
 import { NudgeVigencia } from '../components/NudgeVigencia';
 import { PreguntaSiAparecio, seVaAPreguntar } from '../components/PreguntaSiAparecio';
 import { RespuestaCierre } from '../lib/cierreCasos';
@@ -180,6 +182,10 @@ export default function PetDetailScreen({ route, navigation }: any) {
   const [mostrarConfetti, setMostrarConfetti] = useState(false);
   // Nudge de vigencia (ciclo de vida): "sigue perdida" / "archivar".
   const [guardandoVigencia, setGuardandoVigencia] = useState(false);
+  // Vector de foto (B5): calculándolo en este momento. Solo importa en web
+  // (ver `hayModeloDisponible`), pero el estado no hace daño en nativo, donde
+  // el botón que lo usa directamente no se dibuja.
+  const [calculandoVector, setCalculandoVector] = useState(false);
   // CUADRILLA (migración 0048): ¿hay búsqueda organizada en este reporte?
   //
   // Se pregunta en una consulta APARTE de la del reporte, y ese detalle es el
@@ -554,6 +560,34 @@ export default function PetDetailScreen({ route, navigation }: any) {
       notify('No se pudo archivar', mensajeDeErrorDb(e));
     } finally {
       setGuardandoVigencia(false);
+    }
+  };
+
+  // VECTOR DE FOTO (B5). Gateado por esMio && !reunida y por hayModeloDisponible()
+  // en el render (solo web). Best-effort a propósito: `calcularYGuardar` no
+  // lanza, así que acá solo se decide qué decir según cuántas fotos quedaron
+  // sumadas. No puede ser automático al publicar (B1): bajar el modelo son
+  // ~40 MB la primera vez y avisarle a alguien apurado subiendo la foto de su
+  // perro perdido sería el peor momento para hacerlo sin permiso.
+  const sumarVectorDeFoto = async () => {
+    if (!pet) return;
+    const quiere = await confirmAction(
+      'Sumar tus fotos al matching',
+      'Esto descarga un modelo de reconocimiento de fotos en tu navegador (~40 MB la primera vez) y puede tardar unos segundos. Sirve para que, si alguien publica un animal parecido, la coincidencia lo tenga en cuenta. No es un buscador de fotos: no te asegura que la vayas a encontrar.',
+    );
+    if (!quiere) return;
+    setCalculandoVector(true);
+    try {
+      const resultados = await Promise.all(
+        pet.fotos.map((foto) => calcularYGuardar(pet.id, foto)),
+      );
+      if (resultados.some((ok) => ok)) {
+        notify('Listo', 'Tus fotos ya suman al matching.');
+      } else {
+        notify('No se pudo calcular', 'Probá de nuevo en un rato.');
+      }
+    } finally {
+      setCalculandoVector(false);
     }
   };
 
@@ -1316,34 +1350,88 @@ export default function PetDetailScreen({ route, navigation }: any) {
                 : 'Personas que buscan una mascota parecida por la zona.'}
             </AppText>
             <View style={styles.matchesList}>
-              {matches.map((m) => (
-                <View key={m.id}>
-                  {/* EL CHIP COINCIDE (0054). La RPC ya los pone primero. Acá
-                      se dice, porque si no esta tarjeta se ve idéntica a las
-                      otras diez y la persona la puede pasar de largo — y de
-                      todas las coincidencias que produce el motor, esta es la
-                      única que es casi una certeza.
+              {matches.map((m) => {
+                // EL POR QUÉ (0065, B5). El `puntaje` que ordena estas
+                // coincidencias existe hace rato pero NUNCA se mostraba: el
+                // orden era inexplicable para quien lo miraba. Acá no se
+                // muestra el número (mostrar un puntaje suena a gamificar, y
+                // la regla del tono lo prohíbe) sino LAS RAZONES en criollo.
+                // Contra una base sin la 0065, `m.porque` llega `undefined` y
+                // `porQueCoincide` devuelve `[]`: la tarjeta queda idéntica a
+                // como se veía hoy.
+                const razones = porQueCoincide(m.porque ?? null);
+                return (
+                  <View key={m.id}>
+                    {/* EL CHIP COINCIDE (0054). La RPC ya los pone primero. Acá
+                        se dice, porque si no esta tarjeta se ve idéntica a las
+                        otras diez y la persona la puede pasar de largo — y de
+                        todas las coincidencias que produce el motor, esta es la
+                        única que es casi una certeza.
 
-                      Lo que llega es SOLO el booleano: el número de chip no
-                      sale de la base, por nadie. */}
-                  {m.chip_coincide ? (
-                    <View style={styles.chipMatchAviso}>
-                      <Ionicons name="shield-checkmark" size={16} color={colors.found} />
-                      <AppText size={13} weight="bold" color={colors.found} style={styles.chipMatchTexto}>
-                        El chip coincide con el tuyo. Casi seguro es tu mascota.
-                      </AppText>
-                    </View>
-                  ) : null}
-                  <PetCard
-                    pet={m as unknown as Pet}
-                    distanceKm={m.distancia_km}
-                    onPress={() => navigation.push('PetDetail', { id: m.id })}
-                  />
-                </View>
-              ))}
+                        Lo que llega es SOLO el booleano: el número de chip no
+                        sale de la base, por nadie. */}
+                    {m.chip_coincide ? (
+                      <View style={styles.chipMatchAviso}>
+                        <Ionicons name="shield-checkmark" size={16} color={colors.found} />
+                        <AppText size={13} weight="bold" color={colors.found} style={styles.chipMatchTexto}>
+                          El chip coincide con el tuyo. Casi seguro es tu mascota.
+                        </AppText>
+                      </View>
+                    ) : null}
+                    <PetCard
+                      pet={m as unknown as Pet}
+                      distanceKm={m.distancia_km}
+                      onPress={() => navigation.push('PetDetail', { id: m.id })}
+                    />
+                    {razones.length > 0 ? (
+                      <View style={styles.porqueRow}>
+                        {razones.map((r) => (
+                          <AppText key={r} muted size={12} style={styles.porqueTexto}>
+                            {r}
+                          </AppText>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
+
+        {/* VECTOR DE FOTO (B5). Sólo en el reporte propio, mientras se busca, y
+            sólo donde hay cómo calcularlo: `hayModeloDisponible()` da `true`
+            únicamente en web (ver services/vectorFoto.ts — CLIP corre en el
+            navegador vía WASM, no hay build nativo). En nativo esta sección
+            no se dibuja y la ficha queda EXACTAMENTE como hoy.
+
+            No va en el camino de publicar (B1 lo cambió): bajar el modelo son
+            ~40 MB la primera vez, así que es un botón explícito que avisa lo
+            que va a pasar ANTES de hacerlo (ver `sumarVectorDeFoto`), nunca
+            algo automático ni un spinner misterioso. */}
+        {esMio && !reunida && hayModeloDisponible() ? (
+          <Card style={styles.vectorCard}>
+            <View style={styles.matchesHeader}>
+              <Ionicons name="camera-outline" size={18} color={colors.brand} />
+              <Title size={17} style={styles.matchesTitle}>
+                Sumá tus fotos al matching
+              </Title>
+            </View>
+            <AppText muted size={13} style={styles.matchesSubtitle}>
+              Descarga un modelo de reconocimiento de fotos en tu navegador (~40 MB la primera
+              vez) y puede tardar unos segundos. Sirve para que, si alguien publica un animal
+              parecido, la coincidencia lo tenga en cuenta — no es un buscador de fotos ni
+              asegura que la vayas a encontrar.
+            </AppText>
+            <Button
+              title={calculandoVector ? 'Calculando…' : 'Sumar mis fotos'}
+              variant="secondary"
+              icon="camera-outline"
+              loading={calculandoVector}
+              onPress={sumarVectorDeFoto}
+            />
+          </Card>
+        ) : null}
 
         {!esMio && (
           <View style={styles.reportSection}>
@@ -1683,6 +1771,18 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   chipMatchTexto: {
     flex: 1,
     lineHeight: 18,
+  },
+  porqueRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  porqueTexto: {
+    lineHeight: 16,
+  },
+  vectorCard: {
+    marginTop: spacing.lg,
   },
   reportSection: {
     marginTop: spacing.lg,
