@@ -196,10 +196,10 @@ export default function ProfileScreen({ navigation }: any) {
           <AppText weight="bold" size={14} style={styles.apparienceLabel}>
             Apariencia
           </AppText>
-          <View style={styles.apparienceRow}>
-            <Chip label="Automático" active={modo === 'auto'} onPress={() => setModo('auto')} />
-            <Chip label="Claro" active={modo === 'claro'} onPress={() => setModo('claro')} />
-            <Chip label="Oscuro" active={modo === 'oscuro'} onPress={() => setModo('oscuro')} />
+          <View style={styles.apparienceRow} accessibilityRole="radiogroup">
+            <Chip rol="opcion" label="Automático" active={modo === 'auto'} onPress={() => setModo('auto')} />
+            <Chip rol="opcion" label="Claro" active={modo === 'claro'} onPress={() => setModo('claro')} />
+            <Chip rol="opcion" label="Oscuro" active={modo === 'oscuro'} onPress={() => setModo('oscuro')} />
           </View>
         </View>
       </Screen>
@@ -510,10 +510,11 @@ export default function ProfileScreen({ navigation }: any) {
                   <AppText weight="semi" muted size={13} style={styles.redesLabel}>
                     Red social
                   </AppText>
-                  <View style={styles.redesRow}>
+                  <View style={styles.redesRow} accessibilityRole="radiogroup">
                     {REDES.map((r) => (
                       <Chip
                         key={r.tipo}
+                        rol="opcion"
                         label={r.label}
                         active={redTipoDraft === r.tipo}
                         onPress={() => setRedTipoDraft(r.tipo)}

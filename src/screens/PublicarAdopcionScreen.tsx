@@ -81,10 +81,11 @@ function OptionRow<T extends string>({
       <AppText weight="semi" muted size={13} style={styles.fieldLabel}>
         {label}
       </AppText>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
         {options.map((o) => (
           <Chip
             key={o.key}
+            rol="opcion"
             label={o.label}
             active={value === o.key}
             onPress={() => onChange(value === o.key ? null : o.key)}
@@ -258,7 +259,7 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
           <Title size={16} style={styles.sectionTitle}>
             Sobre la mascota
           </Title>
-          <View style={styles.chipsRow}>
+          <View style={styles.chipsRow} accessibilityRole="radiogroup">
             {especieOptions.map((o) => {
               const active = especie === o.key;
               return (
@@ -267,6 +268,12 @@ export default function PublicarAdopcionScreen({ navigation }: any) {
                   activeOpacity={0.8}
                   onPress={() => setEspecie(o.key)}
                   style={[styles.chip, active ? styles.chipActiveBrand : styles.chipInactive]}
+                  accessibilityRole="radio"
+                  // `aria-checked` además del state: en web, react-native-web 0.21 ya no
+                  // traduce `accessibilityState`. Ver RegisterScreen / la casilla de
+                  // confirmación más abajo en esta misma pantalla.
+                  accessibilityState={{ checked: active }}
+                  aria-checked={active}
                 >
                   <AppText weight="bold" size={14} color={active ? colors.white : colors.muted}>
                     {o.label}

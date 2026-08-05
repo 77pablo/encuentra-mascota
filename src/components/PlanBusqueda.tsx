@@ -171,13 +171,15 @@ export function PlanBusqueda({ pet, ahora, navigation, onAfiche, onTablero }: Pl
           <AppText muted size={12} style={styles.perfilPregunta}>
             Cuando se asusta, ¿se esconde o se acerca a la gente?
           </AppText>
-          <View style={styles.perfilChips}>
+          <View style={styles.perfilChips} accessibilityRole="radiogroup">
             <Chip
+              rol="opcion"
               label="Se esconde"
               active={temperamento !== 'sociable'}
               onPress={() => elegirTemperamento('asustadizo')}
             />
             <Chip
+              rol="opcion"
               label="Se acerca"
               active={temperamento === 'sociable'}
               onPress={() => elegirTemperamento('sociable')}
@@ -191,13 +193,15 @@ export function PlanBusqueda({ pet, ahora, navigation, onAfiche, onTablero }: Pl
           <AppText muted size={12} style={styles.perfilPregunta}>
             ¿Salía solo a la calle?
           </AppText>
-          <View style={styles.perfilChips}>
+          <View style={styles.perfilChips} accessibilityRole="radiogroup">
             <Chip
+              rol="opcion"
               label="Vivía adentro"
               active={ambito !== 'exterior'}
               onPress={() => elegirAmbito('interior')}
             />
             <Chip
+              rol="opcion"
               label="Salía solo"
               active={ambito === 'exterior'}
               onPress={() => elegirAmbito('exterior')}

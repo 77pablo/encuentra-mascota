@@ -124,10 +124,11 @@ export default function EncontreScreen({ navigation }: any) {
           <Title size={16} style={styles.sectionTitle}>
             ¿Qué especie es?
           </Title>
-          <View style={styles.chipsRow}>
+          <View style={styles.chipsRow} accessibilityRole="radiogroup">
             {especieOptions.map((o) => (
               <Chip
                 key={o.key}
+                rol="opcion"
                 label={o.label}
                 active={especie === o.key}
                 onPress={() => elegirEspecie(o.key)}

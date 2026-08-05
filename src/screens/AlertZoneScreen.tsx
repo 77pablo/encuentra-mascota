@@ -192,10 +192,11 @@ export default function AlertZoneScreen() {
           <AppText weight="bold" size={15}>
             Radio
           </AppText>
-          <View style={styles.chipsRow}>
+          <View style={styles.chipsRow} accessibilityRole="radiogroup">
             {RADIOS.map((r) => (
               <Chip
                 key={r}
+                rol="opcion"
                 label={`${r} km`}
                 active={radioKm === r}
                 onPress={() => setRadioKm(r)}

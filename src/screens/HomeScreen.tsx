@@ -378,10 +378,12 @@ export default function HomeScreen({ navigation }: any) {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsRow}
+          accessibilityRole="radiogroup"
         >
           {ACCESOS_INICIO.map((acceso, i) => (
             <Chip
               key={acceso.label}
+              rol="opcion"
               label={acceso.label}
               // El activo describe lo que se está viendo abajo; ya no es "el
               // primero" por costumbre. Sin ubicación, la tira NO es cercana a

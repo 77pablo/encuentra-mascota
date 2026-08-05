@@ -81,3 +81,24 @@ describe('las casillas declaran su estado en las dos APIs', () => {
     }
   });
 });
+
+// LOS GRUPOS DE "ELEGÍ UNO" NO SON CASILLAS.
+//
+// El barrido de arriba solo mira `accessibilityRole="checkbox"` literal, así
+// que nunca vio este agujero: los Chip de un grupo de "elegí uno" (tamaño,
+// sexo, especie, radio de búsqueda…) se llamaban sin `rol="opcion"`, y por
+// default `Chip` cae en 'casilla' en cuanto recibe `active`. El resultado es
+// un lector de pantalla que anuncia "casilla, Chico" en vez de "radio, Chico,
+// 1 de 3": promete que se puede marcar Chico Y Grande a la vez, que es
+// justo lo que el grupo prohíbe. Deuda arrastrada desde la tanda 12.
+const PANTALLAS_CON_GRUPOS = [
+  'screens/AdopcionFeedScreen.tsx', 'screens/AlertZoneScreen.tsx', 'screens/EncontreScreen.tsx',
+  'screens/EditAdoptionScreen.tsx', 'screens/PublicarAdopcionScreen.tsx',
+  'screens/ProfileScreen.tsx', 'screens/HomeScreen.tsx',
+  'components/SelectorAmbito.tsx', 'components/PlanBusqueda.tsx',
+];
+
+it.each(PANTALLAS_CON_GRUPOS)('%s anuncia sus grupos de elegí-uno como radio', (rel) => {
+  const fuente = readFileSync(join(__dirname, '..', '..', 'src', rel), 'utf8');
+  expect(fuente).toMatch(/accessibilityRole="radiogroup"/);
+});

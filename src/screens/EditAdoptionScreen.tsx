@@ -63,10 +63,11 @@ function OptionRow<T extends string>({
       <AppText weight="semi" muted size={13} style={styles.fieldLabel}>
         {label}
       </AppText>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
         {options.map((o) => (
           <Chip
             key={o.key}
+            rol="opcion"
             label={o.label}
             active={value === o.key}
             onPress={() => onChange(value === o.key ? null : o.key)}

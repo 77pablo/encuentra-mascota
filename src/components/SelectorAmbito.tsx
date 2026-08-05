@@ -38,10 +38,11 @@ export function SelectorAmbito({ valor, onChange }: SelectorAmbitoProps) {
       <AppText muted size={12}>
         Con esto ajustamos hasta dónde conviene buscar. Si no sabés, saltealo.
       </AppText>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
         {AMBITOS.map((a) => (
           <Chip
             key={a.key}
+            rol="opcion"
             label={a.label}
             active={valor === a.key}
             // Volver a tocar el mismo chip lo suelta: si te equivocaste, no

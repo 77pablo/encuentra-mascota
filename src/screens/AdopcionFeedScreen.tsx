@@ -441,29 +441,31 @@ export default function AdopcionFeedScreen({ navigation }: any) {
         icon="search"
       />
 
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
         {especieFiltros.map((f) => (
           <Chip
             key={f.key}
+            rol="opcion"
             label={f.label}
             active={especie === f.key}
             onPress={() => setEspecie(f.key)}
           />
         ))}
       </View>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
         {tamanoFiltros.map((f) => (
-          <Chip key={f.key} label={f.label} active={tamano === f.key} onPress={() => setTamano(f.key)} />
+          <Chip key={f.key} rol="opcion" label={f.label} active={tamano === f.key} onPress={() => setTamano(f.key)} />
         ))}
       </View>
-      <View style={styles.chipsRow}>
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
         {edadFiltros.map((f) => (
-          <Chip key={f.key} label={f.label} active={edad === f.key} onPress={() => setEdad(f.key)} />
+          <Chip key={f.key} rol="opcion" label={f.label} active={edad === f.key} onPress={() => setEdad(f.key)} />
         ))}
       </View>
-      <View style={styles.chipsRow}>
-        <Chip label="Recientes" active={!cerca} onPress={() => cercaDeMi && setCercaDeMi(false)} />
+      <View style={styles.chipsRow} accessibilityRole="radiogroup">
+        <Chip rol="opcion" label="Recientes" active={!cerca} onPress={() => cercaDeMi && setCercaDeMi(false)} />
         <Chip
+          rol="opcion"
           label={location.status === 'loading' ? 'Buscando…' : '📍 Cerca de mí'}
           active={cerca}
           onPress={toggleCercaDeMi}
@@ -471,10 +473,11 @@ export default function AdopcionFeedScreen({ navigation }: any) {
       </View>
       {/* Los radios solo cuando hay centro: ver el comentario de `radioKm`. */}
       {cerca ? (
-        <View style={styles.chipsRow}>
+        <View style={styles.chipsRow} accessibilityRole="radiogroup">
           {radios.map((r) => (
             <Chip
               key={r.label}
+              rol="opcion"
               label={r.label}
               active={radioKm === r.key}
               onPress={() => setRadioKm(r.key)}
