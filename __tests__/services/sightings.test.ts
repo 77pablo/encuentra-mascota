@@ -16,15 +16,27 @@ function makeQueryBuilder(result: { data: any; error: any }) {
 }
 
 const mockFrom = jest.fn();
+// Sin sesion por defecto (mismo valor por defecto que produce `haySesion` si
+// un test no la pisa): la mayoria de los tests de este archivo no le pega a
+// la sesion y `getUser()` degradando a "sin usuario" no les cambia nada.
+// Tipado `jest.Mock` (sin generics) a proposito: distintos tests le hacen
+// `mockResolvedValue`/`mockRejectedValue` con formas de dato distintas
+// (usuario null, usuario con id, rechazo), y un tipo inferido del primer
+// `mockResolvedValue` (como haria `jest.fn(() => Promise.resolve(...))`) deja
+// de aceptar las otras formas.
+const mockGetUser: jest.Mock = jest.fn();
 
 jest.mock('../../src/lib/supabase', () => ({
   supabase: {
     from: (...args: any[]) => mockFrom(...args),
+    auth: { getUser: () => mockGetUser() },
   },
 }));
 
 beforeEach(() => {
   mockFrom.mockReset();
+  mockGetUser.mockReset();
+  mockGetUser.mockResolvedValue({ data: { user: null } });
 });
 
 describe('addSighting', () => {
@@ -137,6 +149,45 @@ describe('listSightings', () => {
     mockFrom.mockReturnValue(builder);
 
     await expect(listSightings('pet-1')).rejects.toEqual({ message: 'boom' });
+  });
+
+  // ── Columnas por sesion (finding de revision, migracion 0066) ───────────
+  // Desde la 0066, `anon` solo tiene privilegio de columna sobre
+  // `id, pet_id, lat, lng, nota, creado_en`. Un `select('*')` en ese camino
+  // da 42501, no una fila con campos de mas: si `listSightings` alguna vez
+  // volviera a pedir `*` sin sesion, este test lo agarra sin necesitar una
+  // base real.
+  it('sin sesion (anon, ej. PublicPetScreen), pide SOLO las columnas concedidas por la 0066', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const builder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await listSightings('pet-1');
+
+    expect(builder.select).toHaveBeenCalledWith('id, pet_id, lat, lng, nota, creado_en');
+    const columnas = builder.select.mock.calls[0][0] as string;
+    expect(columnas).not.toMatch(/\*/);
+    expect(columnas).not.toMatch(/\buser_id\b/);
+    expect(columnas).not.toMatch(/\bfoto\b/);
+  });
+
+  it('con sesion (ej. PetDetailScreen), sigue pidiendo la fila completa', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+    const builder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await listSightings('pet-1');
+
+    expect(builder.select).toHaveBeenCalledWith('*');
+  });
+
+  it('si getUser() lanza (ej. un mock incompleto o la red caida), degrada a sin sesion en vez de propagar', async () => {
+    mockGetUser.mockRejectedValue(new Error('network down'));
+    const builder = makeQueryBuilder({ data: [], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await expect(listSightings('pet-1')).resolves.toEqual([]);
+    expect(builder.select).toHaveBeenCalledWith('id, pet_id, lat, lng, nota, creado_en');
   });
 });
 

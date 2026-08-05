@@ -2658,6 +2658,16 @@ git commit -m "t14-C2: el rastro se ve como recorrido y no como pines sueltos"
 
 - [ ] **Step 1: Escribir el test que falla**
 
+> **CORREGIDO tras revisión (5-ago, fix wave):** el bloque original de abajo tenía dos tests
+> vacuos que la revisión de la tarea C3 marcó como IMPORTANT — `no expone al autor del
+> avistamiento` sólo miraba un `grant ... profiles ... to anon` que esta migración nunca iba a
+> escribir (nunca podía fallar, sin importar qué tan abierto quedara el grant real sobre
+> `sightings`), y `no toca la policy de authenticated` buscaba la palabra inglesa
+> `authenticated` en vez del nombre real de la policy (español, 0007:18). El bloque de abajo
+> queda como registro histórico de lo que se planeó; la versión que de verdad corre —con los
+> guardianes de columna, el guardián de extremo a extremo sobre `src/services/sightings.ts` y las
+> aserciones amplias de solo-lectura— vive en `__tests__/db/migracion0066.test.ts`.
+
 Crear `__tests__/db/migracion0066.test.ts`:
 
 ```ts
@@ -2695,6 +2705,16 @@ Expected: FAIL — ENOENT.
 
 - [ ] **Step 3: Escribir la migración**
 
+> **CORREGIDO tras revisión (5-ago, fix wave, IMPORTANT 1):** el bloque de abajo abre FILAS pero
+> no toca COLUMNAS. `sightings` (0007) nunca tuvo un `revoke`/`grant` de columna propio, así que
+> corre con el grant de tabla completa que Supabase concede por defecto a `anon` — la policy
+> nueva, sin más, deja leer `user_id` y `foto` de cada avistamiento a cualquiera con el link
+> (`user_id` deanonimiza al autor vía el RPC público `perfil_publico`, 0019). El SQL real —con el
+> `revoke select ... from anon` + `grant select (id, pet_id, lat, lng, nota, creado_en) ... to
+> anon` y el razonamiento completo sobre por qué `foto` queda afuera y por qué el revoke no toca
+> a `authenticated`— vive en `supabase/migrations/0066_rastro_publico.sql`. El bloque de abajo
+> queda como registro histórico de la primera pasada.
+
 ```sql
 -- 0066: el rastro de avistamientos para quien llega por el QR (tanda 14, area C).
 --
@@ -2721,14 +2741,33 @@ create policy "el rastro de un reporte vigente es publico"
          and p.oculto = false
     )
   );
+
+-- FALTA AQUÍ el `revoke select ... from anon` + `grant select (columnas) ...
+-- to anon` que la revisión del 5-ago agregó — ver la nota de arriba y el
+-- archivo real.
 ```
 
 - [ ] **Step 4: Correr los tests y verlos pasar**
 
 Run: `npx jest __tests__/db/migracion0066.test.ts`
-Expected: PASS, 4 tests.
+Expected: PASS, 4 tests (versión original del plan). **Tras la corrección del 5-ago la suite real
+tiene 9 tests** — ver el archivo real en `__tests__/db/migracion0066.test.ts`.
 
 - [ ] **Step 5: Ensayar contra la base real, con los tres controles**
+
+> **NOTA tras revisión (5-ago, IMPORTANT 4 e IMPORTANT 5):** el ensayo real
+> (`.superpowers/sdd/t14-C3-ensayo.sql`, uncommitted) reescribió el bloque de abajo con
+> `begin ... rollback` y un CONTROL 0, y en esa reescritura se perdió el `grant all on r to anon,
+> authenticated` que el bloque original SÍ tenía sobre su tabla de resultados — la tabla
+> equivalente de la versión real (`t14_control_pet`) se creaba sin ese grant, así que el CASO 1
+> abortaba con "permission denied" apenas cambiaba a `set local role anon` (`ON_ERROR_STOP` cortaba
+> el script ahí, sin llegar a probar nada). Se agregó `grant select on t14_control_pet to anon,
+> authenticated;` justo después de crearla. Además, ni el bloque de abajo ni la reescritura
+> probaban privilegio de COLUMNA ni que las demás operaciones (insert/update/delete) sigan
+> cerradas para `anon` — se agregó un CASO 1b con esas comprobaciones mientras el pet de control
+> sigue vigente (control positivo real). Ver el archivo real para el detalle completo, incluida la
+> nota sobre la asimetría INSERT (siempre error 42501) vs. UPDATE/DELETE (0 filas en silencio, sin
+> excepción — mismo patrón ya documentado en `deleteSighting`).
 
 ```sql
 create temp table r (n int, caso text, resultado text);

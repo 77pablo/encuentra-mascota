@@ -69,7 +69,7 @@ export async function addSighting(input: NewSighting): Promise<Sighting> {
 //
 // DESDE LA 0066 (tanda 14, area C) esta misma funcion la llama tambien
 // `PublicPetScreen`, SIN SESION: el vecino que escanea el afiche. Dos cosas la
-// hacen segura para ese caso sin tocar una linea:
+// hacen segura para ese caso:
 //   · `idsBloqueados()` devuelve un conjunto vacio si no hay usuario logueado
 //     (ver services/bloqueos.ts) — nunca lanza por falta de sesion — y
 //     `filtrarBloqueados` con un conjunto vacio devuelve la lista tal cual.
@@ -77,23 +77,57 @@ export async function addSighting(input: NewSighting): Promise<Sighting> {
 //     SELECT sobre `sightings`: la RLS no lanza error, devuelve 200 con 0
 //     filas (el mismo silencio de siempre). La pantalla ve una lista vacia,
 //     no un error, y se degrada sola.
-// La fila que devuelve esta funcion SI trae `user_id` (la columna existe,
-// la policy de la 0066 no filtra por columna). El autor del avistamiento
-// nunca debe salir al DOM: quien renderiza esto (PetDetailScreen,
-// PublicPetScreen) solo pinta `nota`/`lat`/`lng`, jamas `user_id` ni un
-// nombre resuelto a partir de el — y no podria aunque quisiera, `profiles`
-// sigue cerrado a `anon`.
+//
+// SIN SESION, EL `select` PIDE SOLO LAS COLUMNAS QUE LA 0066 CONCEDE A
+// `anon`: `id, pet_id, lat, lng, nota, creado_en`. Esto YA NO ES una
+// convencion de "el renderer no lo pinta" — es un control real de Postgres.
+// Desde la 0066, `anon` tiene un `revoke select` de tabla completa y un
+// `grant select` por columna que deliberadamente deja afuera `user_id` y
+// `foto` (ver el comentario de esa migracion: `user_id` deanonimiza al autor
+// via el RPC publico `perfil_publico`, `foto` queda afuera porque
+// `PublicPetScreen` no la renderiza). Un `select('*')` en este camino daria
+// 42501 — no una fila con campos de mas, un error de permiso liso, porque
+// pedir una columna sin privilegio de columna falla la consulta entera (la
+// misma trampa que documenta `0064_vectores_de_foto.sql` para `embedding`).
+// CON SESION, el `select('*')` de siempre sigue andando: el grant de
+// `authenticated` no cambio, sigue siendo la tabla completa (incluido
+// `user_id`, que esta misma funcion usa mas abajo para filtrar bloqueados).
 export async function listSightings(petId: string): Promise<Sighting[]> {
+  const conSesion = await haySesion();
+  // Tipado explicito `string` (no el literal que TS infiere del ternario): sin
+  // esto, postgrest-js intenta parsear el string de columnas A NIVEL DE TIPOS
+  // para inferir la forma de la fila devuelta, y con una UNION de dos
+  // literales (`'*' | 'id, pet_id, ...'`) ese parser falla para una de las dos
+  // ramas (`ParserError`). Con `string` generico el resultado es
+  // `GenericStringError[]` en vez de `Sighting[]` — mismo patron ya resuelto
+  // en `listQuestions` (adoptionQuestions.ts) con un select dinamico: doble
+  // cast `as unknown as Sighting[]`, no un cast directo (que TS rechaza por
+  // "neither type sufficiently overlaps").
+  const columnas: string = conSesion ? '*' : 'id, pet_id, lat, lng, nota, creado_en';
   const [{ data, error }, bloqueados] = await Promise.all([
     supabase
       .from('sightings')
-      .select('*')
+      .select(columnas)
       .eq('pet_id', petId)
       .order('creado_en', { ascending: false }),
     idsBloqueados(),
   ]);
   if (error) throw error;
-  return filtrarBloqueados((data ?? []) as Sighting[], bloqueados, (s) => s.user_id);
+  return filtrarBloqueados((data ?? []) as unknown as Sighting[], bloqueados, (s) => s.user_id);
+}
+
+// ¿Hay una sesion abierta? Mismo patron tolerante que `idsBloqueados`
+// (services/bloqueos.ts): si `getUser()` lanza (red caida, mock incompleto en
+// un test que no le pega a auth) se toma como "sin sesion", nunca se
+// propaga el error — esta funcion solo decide QUE COLUMNAS pedir, no debe
+// poder romper la lectura del rastro.
+async function haySesion(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return Boolean(data?.user?.id);
+  } catch {
+    return false;
+  }
 }
 
 // Borra un avistamiento (autor del avistamiento o dueño del reporte, según la
