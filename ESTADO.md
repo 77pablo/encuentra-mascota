@@ -1,6 +1,47 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (5-ago-2026 — TANDA 14: áreas A, B y C COMPLETAS; D1 a medias SIN commit)
+## 👉 DÓNDE RETOMAR (5-ago-2026, tarde — TANDA 14 COMPLETA EN CÓDIGO, falta SOLO el despliegue)
+
+**Rama `feat/t13`, HEAD `ccfb2d1`, árbol limpio. Suite: tsc 0, jest 219 suites / 3012 tests, exit 0
+real.** Las 17 tareas + INT Steps 1-3 cerrados: revisión adversarial de rama (4 revisores en el
+modelo más capaz, con mandato de contradecir el plan) → 1 Critical (el tablero mostraba
+"Destino/Destino/Destino" en vez de nombres de veterinarias — interacción A1↔A3↔A4 que 2977 tests
+bendecían) + 8 Importants → ola única de fixes (19 ítems, 4 commits `902a1f6`/`62f8bd6`/`556d132`/
+`ccfb2d1`) → re-verificación por los mismos revisores: **LAS 4 ÁREAS LISTAS PARA MERGE, 0
+pendientes de código.** El detalle vive en `.superpowers/sdd/progress.md` (entradas Task INT).
+
+**Decisiones de Pablo del 5-ago (las 3 con recomendación aceptada):** la 0065 documenta el análisis
+honesto del canal del coseno (~6 bits, no "1 bit") sin tocar la fórmula; los chips de acceso de
+HomeScreen pasan a `rol="boton"` (navegan, no marcan); el banner de chip "Casi seguro es tu
+mascota" (preexistente, t12) queda anotado para la tanda 15.
+
+**Lo ÚNICO que falta: el Step 4 de INT (despliegue), en este orden y BLOQUEADO en el punto 0:**
+0. ⚠️ **Login de la CLI de Supabase** — dos intentos de `npx supabase login` quedaron en
+   `Unauthorized`; hay que completar el flujo del navegador entero (autorizar + código si lo pide).
+   Sin esto no se puede aplicar nada.
+1. Desplegar `foto-vector` (EF nueva). Humo: OPTIONS→204, POST sin credenciales→401.
+2. **CONDICIÓN antes de aplicar:** correr los ensayos contra la base real —
+   `.superpowers/sdd/t14-B4-ensayo.sql` (LEYENDO el output: el caso positivo puede dar OMITIDO en
+   verde), `t14-C3-ensayo.sql` (ya con el CASO 4), y `t14-D3-vencidos.sql` (si da >0, escribir la
+   0067). Aplicar `0063`→`0064`→`0065`→`0066` en orden, cada una con begin…rollback + ataques
+   post-aplicar. La 0065 dropea `buscar_coincidencias`: control "sin vector encuentra lo mismo"
+   antes y después, y en ventana tranquila (ACCESS EXCLUSIVE).
+3. Semilla de lugares (`node scripts/semilla-lugares.js CL-RM`), tras la 0063. Conteo esperado
+   ≈332; correrla DOS veces (idempotencia); spot-check de `comuna` (addr:city suele ser "Santiago").
+4. **Decisión de Pablo pendiente:** migración correctiva de la `0012` (expone `pet_tips.user_id` a
+   `anon` en producción HOY — la misma deanonimización que C3 cerró para sightings).
+5. Exportar `dist` NUEVO (el que compiló el revisor C quedó obsoleto: la ola tocó producción en B y
+   C) y que Pablo lo suba a Cloudflare Pages. SIEMPRE después de las migraciones.
+6. Verificar contra el sitio real: bundle servido == exportado; mapa con teselas/pines/atribución
+   como LINK clickeable; rastro público sin sesión Y ficha del dueño CON rastro (el fallo del grant
+   sería silencioso); tablero con nombres de lugares y ODbL; checklist de mouse de C1 (× del popup
+   no navega, cuerpo navega también al reabrir, drag, multi-pin); primera ejecución real de
+   transformers.js en el navegador (CORS del bucket incluido); 0 errores JS.
+
+Las checklists completas por área están al final de las entradas INT del ledger. La deuda de la
+tanda quedó anotada con nombre en las mismas entradas (triages de los 4 revisores).
+
+## (histórico) 👉 DÓNDE RETOMAR (5-ago-2026, mañana — áreas A/B/C completas; D1 a medias SIN commit)
 
 **Rama `feat/t13`, HEAD `f3dedde`. ⚠️ El working tree NO está limpio:** las ediciones de D1
 (accesibilidad radio/radiogroup en 9 pantallas + guardián) están aplicadas pero **sin verificar y
