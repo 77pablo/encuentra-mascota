@@ -87,6 +87,26 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  // `storage.list` devuelve como maximo 100 filas por llamada (D3, tanda 14).
+  // Mismo paginado que `listarTodoElPrefijo` en `src/lib/rutaStorage.ts`: no se
+  // puede importar esa version desde aca porque usa el cliente `supabase`
+  // armado para el navegador (SecureStore / localStorage vía Expo), incompatible
+  // con este runtime Deno. Misma logica caracter por caracter, con `admin` en
+  // vez de `supabase`.
+  async function listarTodoElPrefijo(bucket: string, prefijo: string): Promise<string[]> {
+    const TAM = 100;
+    const todos: string[] = [];
+    for (let pagina = 0; ; pagina++) {
+      const { data, error } = await admin.storage
+        .from(bucket)
+        .list(prefijo, { limit: TAM, offset: pagina * TAM });
+      if (error) throw error;
+      const lote = data ?? [];
+      todos.push(...lote.map((f) => `${prefijo}/${f.name}`));
+      if (lote.length < TAM) return todos;    // pagina incompleta = era la ultima
+    }
+  }
+
   try {
     // 1. Preguntar que fotos hay que borrar. Solo lectura: todavia no se
     //    modifico nada, asi que si algo falla aca no quedo nada a medias.
@@ -173,7 +193,8 @@ Deno.serve(async (req: Request) => {
     //      adversarial final — el mismo patrón list+remove que ya usa
     //      `deletePet` en src/services/pets.ts, acá con `admin` porque una vez
     //      borrada la fila de `pets` la policy de SELECT del dueño ya no tendría
-    //      con qué hacer join). Si algo falla, se avisa y se sigue igual: mismo
+    //      con qué hacer join). PAGINADO (D3, tanda 14) con `listarTodoElPrefijo`
+    //      de más arriba: si algo falla, se avisa y se sigue igual: mismo
     //      criterio que el resto de este archivo, no aborta el borrado de la cuenta.
     const { data: misPets, error: errPets } = await admin
       .from('pets')
@@ -186,17 +207,18 @@ Deno.serve(async (req: Request) => {
       );
     } else {
       for (const { id: petId } of (misPets ?? []) as Array<{ id: string }>) {
-        const { data: anonimas, error: errLista } = await admin.storage
-          .from('avisos-anonimos')
-          .list(petId);
-        if (errLista) {
-          console.warn(`delete-account: no se pudo listar avisos-anonimos/${petId}:`, errLista.message);
+        let anonimas: string[];
+        try {
+          anonimas = await listarTodoElPrefijo('avisos-anonimos', petId);
+        } catch (e) {
+          console.warn(
+            `delete-account: no se pudo listar avisos-anonimos/${petId}:`,
+            (e as { message?: string })?.message ?? e,
+          );
           continue;
         }
-        if (anonimas && anonimas.length > 0) {
-          const { error: errRemove } = await admin.storage
-            .from('avisos-anonimos')
-            .remove(anonimas.map((f) => `${petId}/${f.name}`));
+        if (anonimas.length > 0) {
+          const { error: errRemove } = await admin.storage.from('avisos-anonimos').remove(anonimas);
           if (errRemove) {
             console.warn(`delete-account: no se pudieron borrar las fotos anonimas de ${petId}:`, errRemove.message);
           }

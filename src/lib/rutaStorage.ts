@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 // Las fotos se guardan como URL publica completa (ver services/storage.ts), asi
 // que para borrarlas de Storage hay que recuperar la ruta de adentro del bucket.
 const BUCKET = 'pet-photos';
@@ -37,4 +39,20 @@ export function rutaDeFotoPropia(url: string, userId: string): string | null {
   const resto = ruta.slice(prefijo.length);
   // Un solo segmento: nada de subcarpetas ni de `..` seguido de otra barra.
   return resto.length > 0 && !resto.includes('/') ? ruta : null;
+}
+
+// `storage.list` devuelve como maximo 100 por llamada. Sin paginar, un reporte
+// con mas de 100 fotos de aviso dejaba huerfanos inaccesibles al borrarse.
+export async function listarTodoElPrefijo(bucket: string, prefijo: string): Promise<string[]> {
+  const TAM = 100;
+  const todos: string[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .list(prefijo, { limit: TAM, offset: pagina * TAM });
+    if (error) throw error;
+    const lote = data ?? [];
+    todos.push(...lote.map((f) => `${prefijo}/${f.name}`));
+    if (lote.length < TAM) return todos;    // pagina incompleta = era la ultima
+  }
 }

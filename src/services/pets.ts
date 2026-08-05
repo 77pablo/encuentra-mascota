@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { PetInput } from '../schemas/pet';
 import { ErrorAmigable, esColumnaFaltante } from '../lib/dbErrors';
 import { difuminarUbicacion } from '../lib/difuminarUbicacion';
-import { rutaDeFotoPropia } from '../lib/rutaStorage';
+import { rutaDeFotoPropia, listarTodoElPrefijo } from '../lib/rutaStorage';
 
 export interface Pet {
   id: string;
@@ -330,19 +330,28 @@ export async function deletePet(id: string, userId: string): Promise<void> {
   // porque la policy de SELECT se lo permite (join a `pets` por dueño); si algo
   // falla, se avisa y se sigue igual, mismo criterio que arriba con `pet-photos`.
   //
-  // OJO: Storage no lanza sobre un error de la base, contesta
-  // `{ data: null, error }` como cualquier otra llamada de Supabase — por eso
-  // se mira el campo `error` de cada respuesta en vez de un `try/catch` solo,
-  // que acá no agarraría nada.
-  const { data: anonimas, error: errListaAnonimas } = await supabase.storage
-    .from('avisos-anonimos')
-    .list(id);
-  if (errListaAnonimas) {
-    console.warn('No se pudo listar la carpeta de fotos anónimas:', errListaAnonimas.message);
-  } else if (anonimas && anonimas.length > 0) {
-    const { error: errAnonimas } = await supabase.storage
-      .from('avisos-anonimos')
-      .remove(anonimas.map((f) => `${id}/${f.name}`));
+  // Paginada (D3, tanda 14): `storage.list` devuelve como máximo 100 filas por
+  // llamada, y un reporte con más de 100 fotos de aviso anónimo dejaba
+  // huérfanos inaccesibles al borrarse (deuda anotada en la D5 de la tanda 13).
+  // `listarTodoElPrefijo` gira hasta agotar el prefijo y LANZA si Storage
+  // devuelve error en cualquier vuelta; por eso el `try/catch` de acá hace las
+  // veces del `if (error)` que antes miraba la respuesta directo — Storage no
+  // lanza sobre un error de la base, contesta `{ data: null, error }` como
+  // cualquier otra llamada de Supabase, y es `listarTodoElPrefijo` quien lo
+  // convierte en excepción.
+  let anonimas: string[] = [];
+  try {
+    anonimas = await listarTodoElPrefijo('avisos-anonimos', id);
+  } catch (e) {
+    // El error que lanza `listarTodoElPrefijo` es el mismo objeto que devuelve
+    // Storage (`{ message, ... }`), no necesariamente un `Error` de verdad.
+    console.warn(
+      'No se pudo listar la carpeta de fotos anónimas:',
+      (e as { message?: string })?.message ?? e,
+    );
+  }
+  if (anonimas.length > 0) {
+    const { error: errAnonimas } = await supabase.storage.from('avisos-anonimos').remove(anonimas);
     if (errAnonimas) console.warn('No se pudieron borrar las fotos anónimas:', errAnonimas.message);
   }
 

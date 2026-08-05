@@ -10,6 +10,10 @@ import { join } from 'path';
 // fotos anónimas de los reportes del usuario (bucket privado `avisos-anonimos`,
 // D4/D5, migración 0062): quedaban huérfanas para siempre tras borrar la
 // cuenta, porque Storage no está atado a la base por ninguna FK.
+//
+// D3 (tanda 14) sumó el paginado: `storage.list` devuelve como máximo 100
+// filas por llamada, y sin paginar un reporte con más de 100 fotos de aviso
+// anónimo dejaba huérfanas las que excedían la primera página.
 const codigo = readFileSync(
   join(__dirname, '..', '..', 'supabase', 'functions', 'delete-account', 'index.ts'),
   'utf8',
@@ -19,8 +23,18 @@ describe('F13: delete-account limpia el bucket avisos-anonimos', () => {
   it('lista y borra avisos-anonimos/<pet_id> por cada reporte del usuario, mismo patrón que deletePet', () => {
     expect(codigo).toContain("from('pets')");
     expect(codigo).toContain(".eq('user_id', userId)");
-    expect(codigo).toMatch(/\.storage\s*\n?\s*\.from\('avisos-anonimos'\)\s*\n?\s*\.list\(petId\)/);
+    expect(codigo).toMatch(/listarTodoElPrefijo\('avisos-anonimos',\s*petId\)/);
     expect(codigo).toMatch(/\.storage\s*\n?\s*\.from\('avisos-anonimos'\)\s*\n?\s*\.remove\(/);
+  });
+
+  // D3: el listado no puede ser un `list(prefijo)` pelado — tiene que pedir
+  // `limit`/`offset` y girar hasta que una página venga incompleta. Mismo
+  // guardián de forma que el resto de este archivo (regex sobre texto, no
+  // import: `index.ts` usa `Deno.serve` y especificadores `jsr:`).
+  it('pagina el listado (D3): límite 100 y offset por vuelta, no un list() sin paginar', () => {
+    expect(codigo).toMatch(/async function listarTodoElPrefijo\(/);
+    expect(codigo).toMatch(/list\(prefijo,\s*\{\s*limit:\s*TAM,\s*offset:\s*pagina \* TAM\s*\}\)/);
+    expect(codigo).toMatch(/if \(lote\.length < TAM\) return todos;/);
   });
 
   it('limpia avisos-anonimos ANTES de anonimizar_mi_cuenta (que borra las filas de pets)', () => {

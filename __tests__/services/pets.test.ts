@@ -306,7 +306,9 @@ describe('deletePet — carpeta de fotos anónimas (D4/D5, 0062)', () => {
 
     await deletePet('pet-1', 'user-1');
 
-    expect(mockAnonimasList).toHaveBeenCalledWith('pet-1');
+    // Paginado (D3): pide bucket + prefijo + `{ limit: 100, offset: 0 }` en la
+    // primera vuelta, no un `list(prefijo)` pelado.
+    expect(mockAnonimasList).toHaveBeenCalledWith('pet-1', { limit: 100, offset: 0 });
     expect(mockAnonimasRemove).toHaveBeenCalledWith(['pet-1/a.jpg', 'pet-1/b.jpg']);
   });
 
@@ -318,6 +320,25 @@ describe('deletePet — carpeta de fotos anónimas (D4/D5, 0062)', () => {
     await deletePet('pet-1', 'user-1');
 
     expect(mockAnonimasRemove).not.toHaveBeenCalled();
+  });
+
+  // Integración real del paginado (D3): más de 100 fotos anónimas ya no dejan
+  // huérfanas las que exceden la primera página.
+  it('con más de 100 fotos anónimas, pagina y borra TODAS, no solo las primeras 100', async () => {
+    mockFrom
+      .mockReturnValueOnce(makeQueryBuilder({ data: { fotos: [], final_foto: null }, error: null }))
+      .mockReturnValueOnce(makeQueryBuilder({ data: null, error: null }));
+    const pagina = (n: number) => Array.from({ length: n }, (_, i) => ({ name: `f${i}.jpg` }));
+    mockAnonimasList
+      .mockResolvedValueOnce({ data: pagina(100), error: null })
+      .mockResolvedValueOnce({ data: pagina(30), error: null });
+
+    await deletePet('pet-1', 'user-1');
+
+    expect(mockAnonimasList).toHaveBeenCalledTimes(2);
+    expect(mockAnonimasList).toHaveBeenNthCalledWith(2, 'pet-1', { limit: 100, offset: 100 });
+    const rutasBorradas = mockAnonimasRemove.mock.calls[0][0];
+    expect(rutasBorradas).toHaveLength(130);
   });
 
   it('si listar la carpeta falla (sin excepción, como responde Storage), avisa y borra la fila igual', async () => {
@@ -357,7 +378,7 @@ describe('deletePet — carpeta de fotos anónimas (D4/D5, 0062)', () => {
 
     await deletePet('pet-1', 'user-1');
 
-    expect(mockAnonimasList).toHaveBeenCalledWith('pet-1');
+    expect(mockAnonimasList).toHaveBeenCalledWith('pet-1', { limit: 100, offset: 0 });
   });
 });
 
