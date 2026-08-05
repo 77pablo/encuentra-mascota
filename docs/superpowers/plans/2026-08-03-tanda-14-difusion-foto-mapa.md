@@ -1902,9 +1902,15 @@ git commit -m "t14-B3: el vector se calcula en el navegador (B1 cerro las dos ru
 
 **Interfaces:**
 - Consumes: `pet_fotos_vector` de B2.
-- Produces: `buscar_coincidencias` con **dos columnas nuevas** al final del `returns table`:
-  `foto_similitud double precision` y `porque jsonb`. Las 12 columnas anteriores **no se mueven ni
-  se renombran**: `src/services/busqueda.ts` las lee por nombre y la 0058 es la definición vigente.
+- Produces: `buscar_coincidencias` con **UNA columna nueva** al final del `returns table`:
+  `porque jsonb`. **`foto_similitud` NO sale de la función** (decisión de Pablo, 4-ago, tras el
+  Critical de la revisión de B4): el coseno exacto es un oráculo del embedding — con `insert/update`
+  sobre el propio reporte, ~512 llamadas a la RPC reconstruyen el vector completo de la foto de un
+  tercero, la propiedad que la 0064 existe para impedir. La similitud vive solo como columna
+  **interna** de la CTE y lo único que sale es el booleano `porque.foto` (umbral 0.75) más el
+  puntaje ya sumado. El riesgo residual de 1 bit (sondear el umbral) se documenta en la cabecera
+  de la 0065, como se hizo con el chip. Las 12 columnas anteriores **no se mueven ni se renombran**:
+  `src/services/busqueda.ts` las lee por nombre y la 0058 es la definición vigente.
 
 ⚠️ Cambia el tipo de retorno ⇒ **`drop function` + `create` + re-grant**. `create or replace` no
 puede cambiar el `returns` (trampa documentada en la 0024 y repetida en la 0059).
@@ -1975,7 +1981,8 @@ Run: `sed -n '468,582p' supabase/migrations/0058_insignia_suspendida_y_tope_de_r
 Copiar ese cuerpo **VERBATIM** a la migración nueva y hacerle exactamente estos cambios:
 
 1. `drop function public.buscar_coincidencias(uuid, double precision, int);` arriba.
-2. Al `returns table` se le suman **al final**: `foto_similitud double precision, porque jsonb`.
+2. Al `returns table` se le suma **al final**: `porque jsonb` (y nada más — `foto_similitud` es
+   interna de la CTE, ver Interfaces).
 3. Un `left join lateral` que calcula la mejor similitud entre las fotos de los dos reportes:
 
 ```sql
@@ -2002,7 +2009,10 @@ Copiar ese cuerpo **VERBATIM** a la migración nueva y hacerle exactamente estos
       -- mandando: un chip igual es identidad, un parecido es una pista.
       -- Y NUNCA DESCARTA porque un animal sucio, mojado o de noche no se
       -- parece a su propia foto (misma regla que senas_contradicen).
-      coalesce(greatest(0, round((f.sim - 0.6) / 0.4 * 60))::int, 0)
+      -- nullif(..., 'NaN') porque pgvector devuelve NaN ante un vector de norma 0
+      -- (cualquier authenticated puede plantar uno en SU reporte) y NaN::int revienta
+      -- la RPC entera para todos los vecinos.
+      coalesce(greatest(0, round((nullif(f.sim, 'NaN'::float8) - 0.6) / 0.4 * 60))::int, 0)
       as puntaje
 ```
 
@@ -2014,7 +2024,7 @@ Copiar ese cuerpo **VERBATIM** a la migración nueva y hacerle exactamente estos
         'color', nullif(cand.b_colores && cand.colores, false),
         'tamano', nullif(cand.b_tamano is not null and cand.b_tamano = cand.tamano, false),
         'cerca', nullif(cand.distancia_km < 2, false),
-        'foto', nullif(coalesce(cand.foto_similitud, 0) >= 0.75, false)
+        'foto', nullif(coalesce(nullif(cand.foto_similitud, 'NaN'::float8), 0) >= 0.75, false)
       )) as porque
 ```
 
@@ -2065,7 +2075,8 @@ git commit -m "t14-B4: la foto suma hasta 60 al match y nunca descarta; y el des
 - Modify: `src/services/busqueda.ts`, `src/services/pets.ts`, `src/screens/PetDetailScreen.tsx`
 
 **Interfaces:**
-- Consumes: las columnas `foto_similitud` y `porque` de B4.
+- Consumes: la columna `porque` de B4 (`foto_similitud` **no existe** en el retorno — decisión de
+  Pablo 4-ago, era un oráculo del embedding; el parecido de la foto llega solo como `porque.foto`).
 - Produces: `export function porQueCoincide(porque: Record<string, boolean> | null): string[]`
 
 - [ ] **Step 1: Escribir el test que falla**
@@ -2149,9 +2160,10 @@ En `src/services/busqueda.ts`, agregar al tipo — **opcionales**, igual que `ch
 `puntaje`, porque contra una base sin la 0065 no llegan:
 
 ```ts
-  foto_similitud?: number | null;
   porque?: Record<string, boolean> | null;
 ```
+
+(`foto_similitud` NO se agrega al tipo: la RPC no la devuelve — ver Interfaces.)
 
 - [ ] **Step 6: El botón que calcula el vector, en la ficha del reporte propio**
 
