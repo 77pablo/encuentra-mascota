@@ -225,7 +225,10 @@ export function TableroDifusion({ pet, onAfiche, onDisponible }: TableroDifusion
     }
   };
 
-  const etiquetaDe = (d: Destino) => d.etiqueta ?? 'Destino';
+  // Un destino 'persona' trae etiqueta; uno 'lugar' trae lugarNombre (join
+  // contra `lugares`, migracion 0063 — el CHECK obliga etiqueta null para ese
+  // tipo). 'Destino' es el último recurso, no el camino esperado.
+  const etiquetaDe = (d: Destino) => d.etiqueta ?? d.lugarNombre ?? 'Destino';
 
   const filaDestino = (d: Destino) => {
     const avisado = d.estado === 'avisado';
@@ -335,6 +338,11 @@ export function TableroDifusion({ pet, onAfiche, onDisponible }: TableroDifusion
         />
       </View>
 
+      {/* La atribución ODbL cubre DOS fuentes de nombres de OSM: el recorrido
+          de "Cerca tuyo" (lugares) Y los destinos tipo 'lugar' que ya están
+          en el tablero (lugarNombre, A1). Si solo mirara `lugares.length` el
+          crédito desaparecería en cuanto el dueño agregara todos los lugares
+          al tablero, con sus nombres de OSM seguiendo visibles arriba. */}
       {lugares.length > 0 ? (
         <View style={styles.seccion}>
           <AppText weight="semi" muted size={13}>
@@ -373,10 +381,13 @@ export function TableroDifusion({ pet, onAfiche, onDisponible }: TableroDifusion
               </View>
             );
           })}
-          <AppText muted size={11} style={styles.atribucion}>
-            © colaboradores de OpenStreetMap
-          </AppText>
         </View>
+      ) : null}
+
+      {lugares.length > 0 || destinos.some((d) => d.tipo === 'lugar') ? (
+        <AppText muted size={11} style={styles.atribucion}>
+          © colaboradores de OpenStreetMap
+        </AppText>
       ) : null}
 
       {onAfiche ? (

@@ -131,6 +131,58 @@ it('el radio de los lugares sale de radioSugerido, no de un numero escrito a man
   jest.useRealTimers();
 });
 
+it('A1: un destino tipo lugar muestra su NOMBRE, no "Destino" a secas', async () => {
+  // El CHECK de la 0063 obliga `etiqueta null` para tipo 'lugar': el nombre
+  // solo puede venir del join contra `lugares` (lugarNombre, services/difusion.ts).
+  // Con el código viejo (sin el join ni el fallback en `etiquetaDe`) este test
+  // queda en ROJO: la fila mostraba "Destino" a secas.
+  (listarDestinos as jest.Mock).mockResolvedValue({
+    tipo: 'listo',
+    destinos: [
+      {
+        id: 'd1',
+        petId: 'p1',
+        tipo: 'lugar',
+        etiqueta: null,
+        lugarId: 'l1',
+        lugarNombre: 'Veterinaria Los Robles',
+        institucionId: null,
+        estado: 'pendiente',
+        avisadoEn: null,
+        creadoEn: '2026-08-03T00:00:00.000Z',
+      },
+    ],
+  });
+  const arbol = await montar({ pet });
+  expect(textoDe(arbol)).toMatch(/Veterinaria Los Robles/);
+  expect(textoDe(arbol)).not.toMatch(/^Destino$/m);
+});
+
+it('A1: la atribución OSM sale también cuando el tablero solo tiene destinos tipo lugar (sin "Cerca tuyo")', async () => {
+  (listarDestinos as jest.Mock).mockResolvedValue({
+    tipo: 'listo',
+    destinos: [
+      {
+        id: 'd1',
+        petId: 'p1',
+        tipo: 'lugar',
+        etiqueta: null,
+        lugarId: 'l1',
+        lugarNombre: 'Veterinaria Los Robles',
+        institucionId: null,
+        estado: 'pendiente',
+        avisadoEn: null,
+        creadoEn: '2026-08-03T00:00:00.000Z',
+      },
+    ],
+  });
+  // Sin lugares cerca (lugaresCerca ya mockea [] en el beforeEach): la sección
+  // "Cerca tuyo" no se monta, pero el nombre de OSM sigue en pantalla en la
+  // lista de destinos, así que el crédito tiene que seguir ahí.
+  const arbol = await montar({ pet });
+  expect(textoDe(arbol)).toMatch(/colaboradores de OpenStreetMap/i);
+});
+
 it('el componente NO tiene un radio escrito a mano', () => {
   const fuente = require('fs').readFileSync(
     require('path').join(__dirname, '..', '..', 'src', 'components', 'TableroDifusion.tsx'),

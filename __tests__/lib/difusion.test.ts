@@ -10,7 +10,7 @@ import {
 function destino(over: Partial<Destino> = {}): Destino {
   return {
     id: 'd1', petId: 'p1', tipo: 'persona', etiqueta: 'grupo del edificio',
-    lugarId: null, institucionId: null, estado: 'pendiente',
+    lugarId: null, lugarNombre: null, institucionId: null, estado: 'pendiente',
     avisadoEn: null, creadoEn: '2026-08-03T10:00:00Z', ...over,
   };
 }

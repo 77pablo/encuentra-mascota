@@ -96,6 +96,18 @@ jest.mock('../../src/services/tips', () => ({
   crearTip: jest.fn(),
   borrarTip: jest.fn(),
 }));
+// El tablero de difusión (A4, migración 0063) vive en esta misma ficha. Esta
+// suite prueba que el afiche igual genere con `perfil` null, no el tablero: se
+// lo degrada a "no disponible" para que la ficha quede EXACTAMENTE como antes
+// y el test no salga a la red (mismo mock que petDetailCuadrilla.test.tsx).
+jest.mock('../../src/services/difusion', () => ({
+  listarDestinos: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
+  lugaresCerca: jest.fn(() => Promise.resolve([])),
+  agregarPersona: jest.fn(),
+  agregarLugar: jest.fn(),
+  marcarAvisado: jest.fn(),
+  borrarDestino: jest.fn(),
+}));
 
 import PetDetailScreen from '../../src/screens/PetDetailScreen';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';

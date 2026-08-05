@@ -19,6 +19,11 @@ export type Destino = {
   tipo: TipoDestino;
   etiqueta: string | null;
   lugarId: string | null;
+  // Nombre del lugar de OSM (viene del join contra `lugares`, migracion 0063).
+  // Solo tiene valor cuando `tipo === 'lugar'`; el CHECK de la 0063 obliga
+  // `etiqueta null` para ese tipo, asi que sin esto no habia forma de mostrar
+  // NADA en la fila del tablero.
+  lugarNombre: string | null;
   institucionId: string | null;
   estado: EstadoDestino;
   avisadoEn: string | null;

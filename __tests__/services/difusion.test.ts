@@ -1,7 +1,7 @@
 jest.mock('../../src/lib/supabase', () => ({ supabase: { from: jest.fn(), rpc: jest.fn() } }));
 
 import { supabase } from '../../src/lib/supabase';
-import { listarDestinos, marcarAvisado, agregarPersona } from '../../src/services/difusion';
+import { listarDestinos, marcarAvisado, agregarPersona, agregarLugar } from '../../src/services/difusion';
 
 const mockFrom = supabase.from as jest.Mock;
 
@@ -60,6 +60,61 @@ describe('marcarAvisado - el silencio de la RLS', () => {
     });
     await marcarAvisado('d1', false);
     expect(enviado).toEqual({ estado: 'pendiente', avisado_en: null });
+  });
+});
+
+describe('agregarLugar - el indice unico convierte el duplicado en no-op', () => {
+  // El indice unico `(pet_id, lugar_id)` de la 0063 hace que agregar el mismo
+  // lugar dos veces al mismo tablero choque con 23505 (unique_violation).
+  // `agregarLugar` lo traduce a `null` (no-op silencioso), no a un error que
+  // asuste a quien solo tocó el botón dos veces.
+  it('devuelve null cuando el insert choca con 23505 (lugar ya agregado)', async () => {
+    mockFrom.mockReturnValue({
+      insert: () => ({
+        select: () =>
+          Promise.resolve({
+            data: null,
+            error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+          }),
+      }),
+    });
+    await expect(agregarLugar('p1', 'l1')).resolves.toBeNull();
+  });
+
+  it('otros errores SÍ se propagan (no todo se disfraza de duplicado)', async () => {
+    mockFrom.mockReturnValue({
+      insert: () => ({
+        select: () => Promise.resolve({ data: null, error: { code: '23503', message: 'fk violation' } }),
+      }),
+    });
+    await expect(agregarLugar('p1', 'l1')).rejects.toBeDefined();
+  });
+
+  it('devuelve el destino con el nombre del lugar, tomado del join', async () => {
+    mockFrom.mockReturnValue({
+      insert: () => ({
+        select: () =>
+          Promise.resolve({
+            data: [
+              {
+                id: 'd1',
+                pet_id: 'p1',
+                tipo: 'lugar',
+                etiqueta: null,
+                lugar_id: 'l1',
+                lugar: { nombre: 'Veterinaria Los Robles' },
+                institucion_id: null,
+                estado: 'pendiente',
+                avisado_en: null,
+                creado_en: '2026-08-03T00:00:00.000Z',
+              },
+            ],
+            error: null,
+          }),
+      }),
+    });
+    const destino = await agregarLugar('p1', 'l1');
+    expect(destino?.lugarNombre).toBe('Veterinaria Los Robles');
   });
 });
 

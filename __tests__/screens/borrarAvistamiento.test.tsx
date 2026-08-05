@@ -92,6 +92,18 @@ jest.mock('../../src/services/tips', () => ({
 jest.mock('../../src/services/cuadrilla', () => ({
   estadoDeCuadrilla: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
 }));
+// El tablero de difusión (A4, migración 0063) vive en esta misma ficha. Esta
+// suite prueba borrar un avistamiento falso, no el tablero: se lo degrada a
+// "no disponible" para que la ficha quede EXACTAMENTE como antes y el test no
+// salga a la red (mismo mock que petDetailCuadrilla.test.tsx).
+jest.mock('../../src/services/difusion', () => ({
+  listarDestinos: jest.fn(() => Promise.resolve({ tipo: 'no-disponible' })),
+  lugaresCerca: jest.fn(() => Promise.resolve([])),
+  agregarPersona: jest.fn(),
+  agregarLugar: jest.fn(),
+  marcarAvisado: jest.fn(),
+  borrarDestino: jest.fn(),
+}));
 jest.mock('../../src/services/storage', () => ({ uploadPetPhoto: jest.fn() }));
 jest.mock('../../src/services/profile', () => ({
   getMyProfile: jest.fn(() => Promise.resolve(null)),

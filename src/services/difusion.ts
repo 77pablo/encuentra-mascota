@@ -45,6 +45,9 @@ function aDestino(row: any): Destino {
     tipo: row.tipo as TipoDestino,
     etiqueta: row.etiqueta ?? null,
     lugarId: row.lugar_id ?? null,
+    // El join trae `lugar: { nombre }` solo para tipo 'lugar' (lugar_id no
+    // nulo); para 'persona' e 'institucion' PostgREST devuelve `lugar: null`.
+    lugarNombre: row.lugar?.nombre ?? null,
     institucionId: row.institucion_id ?? null,
     estado: row.estado,
     avisadoEn: row.avisado_en ?? null,
@@ -53,9 +56,13 @@ function aDestino(row: any): Destino {
 }
 
 export async function listarDestinos(petId: string): Promise<EstadoTablero> {
+  // El join trae el nombre del lugar (tabla `lugares`, FK `lugar_id`): sin
+  // esto un destino tipo 'lugar' no tiene NADA que mostrar, porque el CHECK
+  // de la 0063 obliga `etiqueta null` para ese tipo. `lugares` tiene SELECT
+  // para `authenticated` (0063), así que el join no pide ningún grant nuevo.
   const { data, error } = await supabase
     .from('difusion_destinos')
-    .select('*')
+    .select('*, lugar:lugares(nombre)')
     .eq('pet_id', petId)
     .order('creado_en', { ascending: true });
 
