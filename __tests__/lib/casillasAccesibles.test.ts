@@ -102,3 +102,51 @@ it.each(PANTALLAS_CON_GRUPOS)('%s anuncia sus grupos de elegí-uno como radio', 
   const fuente = readFileSync(join(__dirname, '..', '..', 'src', rel), 'utf8');
   expect(fuente).toMatch(/accessibilityRole="radiogroup"/);
 });
+
+// EL CHEQUEO DE ARRIBA SE CONFORMA CON QUE "radiogroup" APAREZCA UNA VEZ EN
+// TODO EL ARCHIVO. Eso es precisamente lo que dejó pasar el bug: ProfileScreen
+// tiene DOS bloques de chips de Apariencia sobre el mismo estado `modo`, uno
+// para invitado (arreglado) y otro para usuario logueado (sin arreglar), y
+// alcanzaba con que UNO de los dos tuviera "radiogroup" para que el test de
+// arriba diera verde con el otro todavía roto. Un archivo a medio convertir
+// pasaba el guardián.
+//
+// Por eso esto no mira el archivo entero: mira CADA `<Chip` que recibe
+// `active` (o sea, cada chip con dos estados) y exige que declare `rol` a
+// mano. `Chip` (ver src/ui/Chip.tsx) cae en 'casilla' por default en cuanto
+// ve `active` sin `rol`, así que un chip de un grupo de "elegí uno" al que se
+// le olvidó `rol="opcion"` se ve exactamente como un chip suelto legítimo: no
+// hay forma de distinguirlos mirando solo si falta el `rol`. La salida es no
+// dejar que falte nunca: todo chip con `active` en estas pantallas declara su
+// `rol` explícito, sea 'opcion', 'casilla' o 'boton'. Así un solo chip sin
+// convertir alcanza para romper el test, no hace falta que el archivo entero
+// esté intacto.
+function chipsConActive(codigo: string): string[] {
+  const bloques: string[] = [];
+  const re = /<Chip\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(codigo)) !== null) {
+    const cierre = codigo.indexOf('/>', m.index);
+    const bloque = codigo.slice(m.index, cierre === -1 ? m.index + 400 : cierre + 2);
+    if (/\bactive=/.test(bloque)) bloques.push(bloque);
+  }
+  return bloques;
+}
+
+const chipsActivos = PANTALLAS_CON_GRUPOS.flatMap((rel) => {
+  const fuente = readFileSync(join(__dirname, '..', '..', 'src', rel), 'utf8');
+  return chipsConActive(fuente).map((bloque, i) => ({ donde: `${rel} (chip activo ${i + 1})`, bloque }));
+});
+
+it('hay chips con active que revisar (si esto falla, el buscador quedó ciego)', () => {
+  // Misma guarda que la de las casillas: sin esto, un cambio que borre todos
+  // los `active` dejaría el test de abajo en verde por vacuidad.
+  expect(chipsActivos.length).toBeGreaterThanOrEqual(5);
+});
+
+it.each(chipsActivos.map((c) => [c.donde, c.bloque]))(
+  '%s declara su rol a mano (no se lo deja adivinar a Chip)',
+  (_donde, bloque) => {
+    expect(bloque).toMatch(/\brol="(opcion|casilla|boton)"/);
+  },
+);

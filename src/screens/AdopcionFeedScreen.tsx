@@ -487,6 +487,12 @@ export default function AdopcionFeedScreen({ navigation }: any) {
       ) : null}
       <View style={styles.chipsRow}>
         <Chip
+          // No es un "elegí uno" ni un on/off: dispara el selector de comuna.
+          // Sin `rol` acá el componente lo tomaba por 'casilla' en cuanto vio
+          // `active` (ver el comentario de Chip.tsx), y quedaba anunciado
+          // "casilla" para algo que no se puede tildar — el mismo caso que
+          // ExplorarScreen ya resuelve con 'boton'.
+          rol="boton"
           label={comunaFiltro ? `🏘 ${comunaFiltro}` : '🏘 Filtrar por comuna'}
           active={!!comunaFiltro}
           onPress={() => setComunaPickerOpen(true)}

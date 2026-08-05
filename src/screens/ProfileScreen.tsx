@@ -906,10 +906,10 @@ export default function ProfileScreen({ navigation }: any) {
         <AppText weight="bold" size={14} style={styles.apparienceLabel}>
           Apariencia
         </AppText>
-        <View style={styles.apparienceRow}>
-          <Chip label="Automático" active={modo === 'auto'} onPress={() => setModo('auto')} />
-          <Chip label="Claro" active={modo === 'claro'} onPress={() => setModo('claro')} />
-          <Chip label="Oscuro" active={modo === 'oscuro'} onPress={() => setModo('oscuro')} />
+        <View style={styles.apparienceRow} accessibilityRole="radiogroup">
+          <Chip rol="opcion" label="Automático" active={modo === 'auto'} onPress={() => setModo('auto')} />
+          <Chip rol="opcion" label="Claro" active={modo === 'claro'} onPress={() => setModo('claro')} />
+          <Chip rol="opcion" label="Oscuro" active={modo === 'oscuro'} onPress={() => setModo('oscuro')} />
         </View>
 
         <Button
