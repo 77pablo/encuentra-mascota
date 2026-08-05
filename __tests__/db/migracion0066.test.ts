@@ -85,12 +85,27 @@ describe('0066: el rastro para quien llega por el QR', () => {
     }
   });
 
-  it('el revoke es SOLO sobre anon: authenticated conserva su select completo', () => {
-    const revokes = codigo.match(/revoke select[^;]*;/g) ?? [];
+  // ── Fix 2 (revision del 5-ago): el test anterior exigia literalmente
+  // `from anon` y por lo tanto se ponia en ROJO por la razon EQUIVOCADA en
+  // cuanto el revoke se corrigio a la forma fail-closed `from public, anon`
+  // (la leccion de la 0018: un `grant select ... to public` colado haria que
+  // un revoke que solo nombra a `anon` fuera un no-op silencioso, porque
+  // `anon` hereda via el pseudo-rol `public`). Ahora se pide: que exista un
+  // revoke sobre `sightings`, que mencione `anon`, que TAMBIEN mencione
+  // `public` (fail-closed) y que NUNCA mencione a `authenticated` — si algun
+  // dia lo hiciera, haria falta un `grant select` que le restituya el select
+  // completo, y eso es una migracion nueva, no un ajuste de este regex.
+  it('el revoke es fail-closed (public + anon) y jamas alcanza a authenticated', () => {
+    const revokes = codigo.match(/revoke\s+(?:all|select)[^;]*on public\.sightings[^;]*;/g) ?? [];
     expect(revokes.length).toBeGreaterThan(0);
     for (const r of revokes) {
-      expect(r).toMatch(/from anon\b/);
-      expect(r).not.toMatch(/\bauthenticated\b/);
+      expect(r).toMatch(/from[^;]*\bpublic\b/);
+      expect(r).toMatch(/from[^;]*\banon\b/);
+      // `authenticated` conserva su select completo: si el revoke alguna vez
+      // lo alcanzara, debe haber un `grant select` (sin lista de columnas
+      // acotada) que se lo restituya — algo que este archivo no tiene hoy, asi
+      // que la forma simple y correcta hoy es que el revoke ni lo mencione.
+      expect(r).not.toMatch(/from[^;]*\bauthenticated\b/);
     }
   });
 
@@ -127,5 +142,24 @@ describe('0066: el rastro para quien llega por el QR', () => {
 
   it('solo lectura: ningun grant de insert/update/delete sobre public.sightings', () => {
     expect(codigo).not.toMatch(/grant\s+(insert|update|delete|all)[^;]*on public\.sightings/);
+  });
+
+  // ── Fix 2 (revision del 5-ago): guardian nuevo para el hallazgo del
+  // reviewer C3 — un futuro `grant select on public.sightings to public;`
+  // (sin lista de columnas) le regalaria la fila completa a `anon` via
+  // herencia del pseudo-rol `public`, sin que ningun regex anterior de este
+  // archivo lo notara (ninguno prohibia un grant `to public`). Dos
+  // aserciones: ningun `grant` sobre esta tabla nombra a `public` como
+  // destinatario, y todo `grant select` sobre esta tabla (a quien sea) trae
+  // una lista explicita de columnas — nunca la fila completa.
+  it('ningun grant sobre public.sightings es a public, y todo grant select trae columnas', () => {
+    const grantsSightings = codigo.match(/grant\s+[^;]*on public\.sightings[^;]*;/g) ?? [];
+    expect(grantsSightings.length).toBeGreaterThan(0);
+    for (const g of grantsSightings) {
+      expect(g).not.toMatch(/\bto\b[^;]*\bpublic\b/);
+      if (/grant\s+select\b/.test(g)) {
+        expect(g).toMatch(/grant\s+select\s*\([^)]+\)/);
+      }
+    }
   });
 });
