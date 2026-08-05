@@ -320,9 +320,21 @@ describe('el espejo de notifyTargets no se desincroniza', () => {
   // migración que define el CHECK vigente.
   it('TODOS_LOS_TIPOS coincide con el CHECK de notification_events', () => {
     const sql = readFileSync(join(DIR, '0061_seguimiento_anonimo.sql'), 'utf8');
-    const enElCheck = [...sql.matchAll(/'([a-z_]+)'/g)]
-      .map((m) => m[1])
-      .filter((t) => TODOS_LOS_TIPOS.includes(t as any));
+    // Recortar SOLO el bloque `check (tipo in (...))`, no el archivo entero:
+    // los tipos también aparecen en comentarios (arriba) y en el INSERT del
+    // trigger `avisar_seguimientos` (abajo), así que barrer todo el archivo
+    // dejaba pasar sacar un tipo del CHECK mientras quedara mencionado en
+    // cualquier otro lado — el test no ataba nada. Si el recorte no encuentra
+    // el bloque (p. ej. la migración cambió de forma), falla explícito en vez
+    // de dejar `enElCheck` vacío y el test vacuamente en verde.
+    const bloqueCheck = sql.match(/check\s*\(\s*tipo\s+in\s*\(([\s\S]*?)\)\)/i);
+    if (!bloqueCheck) {
+      throw new Error(
+        'No se encontró `check (tipo in (...))` en 0061_seguimiento_anonimo.sql: ' +
+          'actualizá este recorte si la migración cambió de forma.',
+      );
+    }
+    const enElCheck = [...bloqueCheck[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
     for (const tipo of TODOS_LOS_TIPOS) {
       expect(enElCheck).toContain(tipo);
     }
