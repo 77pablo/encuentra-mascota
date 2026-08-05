@@ -111,7 +111,7 @@ export default function MapView({ style, region, initialRegion, onPress, childre
     m.fitBounds(regionABounds(r));
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© colaboradores de OpenStreetMap',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">colaboradores de OpenStreetMap</a>',
     }).addTo(m);
     setMapa(m);
   }, []);

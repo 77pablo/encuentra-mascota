@@ -70,10 +70,32 @@ it('Marker en web ya no devuelve null incondicionalmente', () => {
   expect(fuente).not.toMatch(/export function Marker\([^)]*\)\s*\{\s*return null;\s*\}/);
 });
 
-it('la ficha numera el rastro por orden temporal, no deja pines identicos', () => {
+// C3: guardián contra la regresión del XSS almacenado (hallazgo revisión
+// 4-ago) — el popup tiene que seguir armándose con `popupHtml` (que escapa),
+// nunca con un template literal a mano que reintroduzca innerHTML sin escapar.
+it('el popup del mapa web sigue pasando por popupHtml (protege el fix del XSS)', () => {
   const fuente = require('fs').readFileSync(
-    require('path').join(__dirname, '..', '..', 'src', 'screens', 'PetDetailScreen.tsx'), 'utf8');
-  // El mapa tiene que consumir el rastro YA ordenado, no `sightings` crudo.
-  expect(fuente).toMatch(/sortByRecency/);
-  expect(fuente).toMatch(/etiqueta=/);
+    require('path').join(__dirname, '..', '..', 'src', 'components', 'PlatformMap.web.tsx'), 'utf8');
+  expect(fuente).toMatch(/bindPopup\(popupHtml\(/);
 });
+
+// C2 (final fix): el test original solo pedia `/etiqueta=/`, que cualquier
+// prop llamada `etiqueta` en cualquier lugar del archivo satisface -- ni
+// siquiera hace falta que este DENTRO de un .map ni que numere nada. Ahora
+// ata la forma REAL del recorrido (`rastro.map(` y `etiqueta={i + 1}`, el
+// patron exacto que numera 1 = mas reciente) y suma PublicPetScreen.tsx, que
+// dibuja el mismo rastro para quien llega por el QR y hoy no tenia NINGUN
+// guardian.
+for (const [nombre, archivo] of [
+  ['PetDetailScreen.tsx', 'PetDetailScreen.tsx'],
+  ['PublicPetScreen.tsx', 'PublicPetScreen.tsx'],
+] as const) {
+  it(`${nombre} numera el rastro por orden temporal, no deja pines identicos`, () => {
+    const fuente = require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'src', 'screens', archivo), 'utf8');
+    // El mapa tiene que consumir el rastro YA ordenado, no `sightings` crudo.
+    expect(fuente).toMatch(/sortByRecency/);
+    expect(fuente).toMatch(/rastro\.map\(/);
+    expect(fuente).toMatch(/etiqueta=\{i \+ 1\}/);
+  });
+}
