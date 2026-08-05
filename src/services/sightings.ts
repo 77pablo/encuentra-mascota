@@ -66,6 +66,23 @@ export async function addSighting(input: NewSighting): Promise<Sighting> {
 // oculta el avistamiento entero (nota, firma y pin). El filtro es del CLIENTE
 // (lista corta, sin cursor) y degrada a conjunto vacio si no hay sesion o la
 // tabla 0022 todavia no existe.
+//
+// DESDE LA 0066 (tanda 14, area C) esta misma funcion la llama tambien
+// `PublicPetScreen`, SIN SESION: el vecino que escanea el afiche. Dos cosas la
+// hacen segura para ese caso sin tocar una linea:
+//   · `idsBloqueados()` devuelve un conjunto vacio si no hay usuario logueado
+//     (ver services/bloqueos.ts) — nunca lanza por falta de sesion — y
+//     `filtrarBloqueados` con un conjunto vacio devuelve la lista tal cual.
+//   · Contra una base SIN la 0066 aplicada, `anon` no tiene ninguna policy de
+//     SELECT sobre `sightings`: la RLS no lanza error, devuelve 200 con 0
+//     filas (el mismo silencio de siempre). La pantalla ve una lista vacia,
+//     no un error, y se degrada sola.
+// La fila que devuelve esta funcion SI trae `user_id` (la columna existe,
+// la policy de la 0066 no filtra por columna). El autor del avistamiento
+// nunca debe salir al DOM: quien renderiza esto (PetDetailScreen,
+// PublicPetScreen) solo pinta `nota`/`lat`/`lng`, jamas `user_id` ni un
+// nombre resuelto a partir de el — y no podria aunque quisiera, `profiles`
+// sigue cerrado a `anon`.
 export async function listSightings(petId: string): Promise<Sighting[]> {
   const [{ data, error }, bloqueados] = await Promise.all([
     supabase

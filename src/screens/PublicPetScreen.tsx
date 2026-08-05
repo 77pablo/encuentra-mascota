@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { mensajeDeErrorDb } from '../lib/dbErrors';
 import MapView, { Marker } from '../components/PlatformMap';
 import { getPet, Pet } from '../services/pets';
+import { listSightings, Sighting } from '../services/sightings';
+import { sortByRecency } from '../lib/sightings';
 import { avisarConFoto, avisarSinCuenta } from '../services/avisoAnonimo';
 import { pickFromLibrary, takePhoto } from '../lib/pickImage';
 import { useAuth } from '../hooks/useAuth';
@@ -50,6 +52,14 @@ export default function PublicPetScreen({ route, navigation }: any) {
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Rastro de avistamientos (tanda 14, area C, migración 0066): quien llega
+  // por el QR ahora ve el mismo recorrido que antes era solo para la ficha
+  // con sesión. Arranca en `[]` y así se queda si la consulta falla o si la
+  // migración 0066 todavía no está aplicada: contra la base de hoy `anon` no
+  // tiene policy de SELECT sobre `sightings`, así que la RLS devuelve 200
+  // con 0 filas (silencio, no error) y esta pantalla se ve exactamente igual
+  // que antes de esta tarea — solo el pin del reporte, sin rastro.
+  const [sightings, setSightings] = useState<Sighting[]>([]);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -85,6 +95,20 @@ export default function PublicPetScreen({ route, navigation }: any) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Carga el rastro para dibujarlo en el mapa de abajo. Degrada en silencio a
+  // propósito (mismo patrón que PetDetailScreen): si la consulta falla —red
+  // caída, o la migración 0066 todavía no aplicada en esta base— se deja el
+  // rastro vacío y el mapa se ve como siempre, sin pin de más ni error.
+  // `listSightings` ya es seguro sin sesión: `idsBloqueados()` (services/
+  // bloqueos.ts) devuelve un conjunto vacío cuando no hay usuario logueado,
+  // así que `filtrarBloqueados` no tiene nada que filtrar y no lanza.
+  useEffect(() => {
+    if (!id) return;
+    listSightings(id)
+      .then(setSightings)
+      .catch(() => setSightings([]));
+  }, [id]);
 
   const onCarouselLayout = (e: LayoutChangeEvent) => {
     setCarouselWidth(e.nativeEvent.layout.width);
@@ -205,6 +229,11 @@ export default function PublicPetScreen({ route, navigation }: any) {
   // alguien y quien publicó no espera avistamientos, busca a la familia.
   const puedeAvisar = !esMio && pet.estado === 'perdida' && pet.activo !== false;
 
+  // El rastro se numera por orden temporal, el 1 es el más reciente, igual
+  // que en PetDetailScreen: así el mapa se lee como un recorrido y no como
+  // pines sueltos idénticos.
+  const rastro = sortByRecency(sightings);
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -280,6 +309,19 @@ export default function PublicPetScreen({ route, navigation }: any) {
           region={{ latitude: pet.lat, longitude: pet.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
         >
           <Marker coordinate={{ latitude: pet.lat, longitude: pet.lng }} />
+          {/* Rastro público (migración 0066): mismos pines numerados que en la
+              ficha. `nota` es texto libre de otro vecino, nunca el autor: acá
+              nunca se lee ni se muestra `s.user_id`. */}
+          {rastro.map((s, i) => (
+            <Marker
+              key={s.id}
+              coordinate={{ latitude: s.lat, longitude: s.lng }}
+              pinColor={colors.sun}
+              etiqueta={i + 1}
+              title={i === 0 ? 'El más reciente' : 'Visto por acá'}
+              description={s.nota ?? undefined}
+            />
+          ))}
         </MapView>
 
         {/* AVISAR SIN CUENTA. Va ANTES del botón de contacto a propósito: quien
