@@ -854,12 +854,16 @@ export default function PetDetailScreen({ route, navigation }: any) {
           region={{ latitude: pet.lat, longitude: pet.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
         >
           <Marker coordinate={{ latitude: pet.lat, longitude: pet.lng }} />
-          {sightings.map((s) => (
+          {/* `rastro` ya viene de sortByRecency (línea arriba): el rastro se
+              numera por orden temporal, el 1 es el más reciente, así el mapa
+              se lee como un recorrido y no como pines sueltos idénticos. */}
+          {rastro.map((s, i) => (
             <Marker
               key={s.id}
               coordinate={{ latitude: s.lat, longitude: s.lng }}
               pinColor={colors.sun}
-              title="Visto por acá"
+              etiqueta={i + 1}
+              title={i === 0 ? 'El más reciente' : 'Visto por acá'}
               description={s.nota ?? undefined}
             />
           ))}

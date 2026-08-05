@@ -69,3 +69,11 @@ it('Marker en web ya no devuelve null incondicionalmente', () => {
     require('path').join(__dirname, '..', '..', 'src', 'components', 'PlatformMap.web.tsx'), 'utf8');
   expect(fuente).not.toMatch(/export function Marker\([^)]*\)\s*\{\s*return null;\s*\}/);
 });
+
+it('la ficha numera el rastro por orden temporal, no deja pines identicos', () => {
+  const fuente = require('fs').readFileSync(
+    require('path').join(__dirname, '..', '..', 'src', 'screens', 'PetDetailScreen.tsx'), 'utf8');
+  // El mapa tiene que consumir el rastro YA ordenado, no `sightings` crudo.
+  expect(fuente).toMatch(/sortByRecency/);
+  expect(fuente).toMatch(/etiqueta=/);
+});
