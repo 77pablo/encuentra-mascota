@@ -1815,9 +1815,17 @@ Crear `src/services/vectorFoto.ts`. Requisitos, todos obligatorios:
   se lo va a usar. Un import estático arriba del archivo mete ~40 MB en el bundle de todos, incluido
   quien nunca toca la función.
 - **El pipeline se guarda a nivel de módulo y se reusa.** Bajar el modelo dos veces sería absurdo.
-- **La escritura usa `.upsert(..., { onConflict: 'pet_id,foto_url' })` y mira si volvió fila**,
-  porque la RLS rechaza en silencio: 200 con 0 filas, no `42501`. Es la sexta aparición de este
-  silencio en el proyecto, y por lo mismo los tests **no deben mockear `42501`**.
+- **La escritura usa `insert` liso y mira si volvió fila** (`.insert(...).select('id')` y
+  `data.length === 0`), porque la RLS rechaza en silencio: 200 con 0 filas, no `42501`. Es la sexta
+  aparición de este silencio en el proyecto, y por lo mismo los tests **no deben mockear `42501`**.
+  **PROHIBIDO `.upsert()`** contra `pet_fotos_vector`: el ensayo de B2 midió que da `42501` incluso
+  al dueño — plantear el camino `on conflict … do update` exige SELECT sobre `embedding`, y esa
+  columna está recortada a propósito (es el no-oráculo). Decisión de Pablo (4-ago): insert liso;
+  si algún día hace falta recalcular el vector de un `foto_url` existente, es un
+  `.update(...).eq('pet_id', …).eq('foto_url', …).select('id')` aparte — ambos caminos ya medidos
+  contra la base real. **PROHIBIDO también el `.select()` pelado** en esta tabla: sin argumentos es
+  `select=*`, toca `embedding` y da `42501`; siempre columnas explícitas (`.select('id')`). Un
+  `23505` (la fila ya existe, carrera benigna de dos escrituras concurrentes) se trata como éxito.
 - **Valida con `esVectorValido` antes de escribir.** Un `NaN` adentro de pgvector rompe el índice
   entero, no sólo esa fila.
 - **Devuelve `false` en vez de lanzar** cuando el modelo no está disponible o falla la carga. Nada de
@@ -1848,18 +1856,39 @@ it('la escritura mira si volvio fila (la RLS rechaza en silencio)', () => {
   expect(fuente).toMatch(/\.select\(/);
   expect(fuente).toMatch(/length === 0/);
 });
+
+it('nunca upsert contra pet_fotos_vector: exige SELECT sobre embedding y da 42501 (B2 lo midio)', () => {
+  expect(fuenteServicio()).not.toMatch(/\.upsert\(/);
+});
+
+it('nunca .select() pelado contra pet_fotos_vector: select=* toca embedding y da 42501', () => {
+  // Todo .select( de este archivo tiene que llevar columnas explicitas.
+  expect(fuenteServicio()).not.toMatch(/\.select\(\s*\)/);
+});
+```
+
+- [ ] **Step 7b: Extender el comentario de la 0064 con el segundo tropiezo (hallazgo I2 de la re-revisión de B2)**
+
+En `supabase/migrations/0064_vectores_de_foto.sql`, el bloque de comentario que ya advierte del
+`.upsert()` (líneas ~44-58) tiene que advertir también del `.select()` pelado, que falla por la
+misma causa (privilegio de columna). Agregar al final de ese bloque:
+
+```
+-- Ojo también con .select() SIN argumentos contra esta tabla: supabase-js lo traduce a select=*,
+-- que toca embedding y da 42501 aunque la escritura haya funcionado. Siempre columnas explícitas:
+-- .select('id'). El patrón establecido en el resto del proyecto (.select() pelado) acá NO sirve.
 ```
 
 - [ ] **Step 8: Correr los tests y el typecheck**
 
 Run: `npx jest __tests__/lib/vectorFoto.test.ts` y `npx tsc --noEmit`
-Expected: PASS, 11 tests, 0 errores de tipos.
+Expected: PASS, 13 tests, 0 errores de tipos.
 
 - [ ] **Step 9: Commit**
 
 ```bash
 git add package.json package-lock.json src/lib/vectorFoto.ts src/services/vectorFoto.ts \
-        __tests__/lib/vectorFoto.test.ts
+        __tests__/lib/vectorFoto.test.ts supabase/migrations/0064_vectores_de_foto.sql
 git commit -m "t14-B3: el vector se calcula en el navegador (B1 cerro las dos rutas de servidor)"
 ```
 
