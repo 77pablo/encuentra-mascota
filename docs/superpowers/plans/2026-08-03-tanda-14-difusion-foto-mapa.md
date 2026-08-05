@@ -2319,7 +2319,10 @@ export type Region = {
 
 const DELTA_MINIMO = 0.002;
 
-function escapar(s: string): string {
+// FIX (re-revision 4-ago, hallazgo CRITICAL 1): `escapar` se exporta —la usa
+// tambien `popupHtml` de aqui abajo y `PlatformMap.web.tsx`, que ya no arma
+// el HTML del popup el mismo.
+export function escapar(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -2341,6 +2344,22 @@ export function iconoHtml(color: string, etiqueta?: string | number): string {
     texto +
     `</svg>`
   );
+}
+
+// FIX (re-revision 4-ago, hallazgo CRITICAL 1 — XSS almacenado en el popup):
+// el brief original dejaba que `PlatformMap.web.tsx` armara el string del
+// popup interpolando `title`/`description` SIN escapar y se lo pasaba a
+// `L.bindPopup`, que lo asigna como innerHTML. Esos dos campos son texto
+// libre de OTROS usuarios (la nota de un avistamiento, la descripcion de un
+// reporte) y nada aguas arriba los sanitiza, asi que cualquiera podia meter
+// `<img src=x onerror=...>` en un popup ajeno. Se extrae esta funcion pura
+// —testeable con jest, sin depender de Leaflet ni del DOM— para que el
+// escape quede donde vive la logica decidible, y el componente solo la
+// invoque.
+export function popupHtml(title?: string, description?: string): string {
+  const t = title ? escapar(title) : '';
+  const d = description ? `<br/>${escapar(description)}` : '';
+  return `<b>${t}</b>${d}`;
 }
 
 export function regionABounds(r: Region): [[number, number], [number, number]] {
@@ -2381,14 +2400,44 @@ Expected: PASS, 6 tests.
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { iconoHtml, regionABounds, Region } from '../lib/mapaWeb';
+import { iconoHtml, popupHtml, regionABounds, Region } from '../lib/mapaWeb';
 
 const MapaCtx = createContext<L.Map | null>(null);
 
+// FIX (re-revision 4-ago — tres hallazgos sobre este componente, corregidos
+// juntos en `Marker` porque comparten el mismo efecto):
+//
+// CRITICAL 1 (XSS almacenado): el brief original armaba el popup con
+// ``<b>${title}</b>...`` interpolado sin escapar y se lo pasaba a
+// `bindPopup`, que lo asigna como innerHTML. Ahora usa `popupHtml` de
+// `mapaWeb.ts`, que escapa title/description (texto libre de otros
+// usuarios) antes de armar el string.
+//
+// IMPORTANT 2 (`onCalloutPress` se disparaba al cerrar el popup): el brief
+// original escuchaba click en TODO el elemento del popup —incluido el boton
+// `×` de cerrar— y usaba `{ once: true }`, asi que despues del primer click
+// en cualquier parte el handler quedaba muerto. Ahora se filtra el click en
+// `.leaflet-popup-close-button`, no se usa `{ once: true }`, y se saca el
+// listener anterior antes de agregar uno nuevo en cada `popupopen` (Leaflet
+// reutiliza el mismo elemento del popup entre aperturas, asi que sin esto
+// se apilaban listeners duplicados).
+//
+// IMPORTANT 3 (handlers como clausuras viejas): `onDragEnd`/`onCalloutPress`
+// no estan en las dependencias del efecto (recrear el marcador de Leaflet
+// por cada handler nuevo es innecesario), asi que los listeners de Leaflet
+// llamaban siempre a la clausura de cuando se monto el Marker. Ahora viven
+// en un `useRef` que se actualiza en cada render, y los listeners llaman a
+// traves del ref. `draggable` queda fuera de este ref a proposito: ningun
+// consumidor lo alterna hoy, asi que cambiarlo en caliente sin remontar el
+// Marker no esta soportado.
 export function Marker({
   coordinate, pinColor, title, description, draggable, onDragEnd, onCalloutPress, etiqueta,
 }: any) {
   const mapa = useContext(MapaCtx);
+
+  const handlersRef = useRef({ onDragEnd, onCalloutPress });
+  handlersRef.current = { onDragEnd, onCalloutPress };
+
   useEffect(() => {
     if (!mapa) return;
     const icon = L.divIcon({
@@ -2404,20 +2453,28 @@ export function Marker({
     }).addTo(mapa);
 
     if (title || description) {
-      m.bindPopup(`<b>${title ?? ''}</b>${description ? `<br/>${description}` : ''}`);
-      if (onCalloutPress) m.on('popupopen', () => {
+      m.bindPopup(popupHtml(title, description));
+
+      let popupEl: HTMLElement | null = null;
+      const alClicPopup = (ev: MouseEvent) => {
+        if ((ev.target as Element).closest('.leaflet-popup-close-button')) return;
+        handlersRef.current.onCalloutPress?.();
+      };
+      m.on('popupopen', () => {
         const el = m.getPopup()?.getElement();
-        el?.addEventListener('click', onCalloutPress, { once: true });
+        if (!el) return;
+        if (popupEl) popupEl.removeEventListener('click', alClicPopup);
+        popupEl = el;
+        el.addEventListener('click', alClicPopup);
       });
     }
-    if (onDragEnd) {
-      m.on('dragend', () => {
-        const p = m.getLatLng();
-        // Forma de react-native-maps, no de Leaflet: los llamadores ya leen
-        // `e.nativeEvent.coordinate` y no deben enterarse del cambio.
-        onDragEnd({ nativeEvent: { coordinate: { latitude: p.lat, longitude: p.lng } } });
-      });
-    }
+
+    m.on('dragend', () => {
+      const p = m.getLatLng();
+      // Forma de react-native-maps, no de Leaflet: los llamadores ya leen
+      // `e.nativeEvent.coordinate` y no deben enterarse del cambio.
+      handlersRef.current.onDragEnd?.({ nativeEvent: { coordinate: { latitude: p.lat, longitude: p.lng } } });
+    });
     return () => { m.remove(); };
   }, [mapa, coordinate.latitude, coordinate.longitude, pinColor, title, description, etiqueta]);
 

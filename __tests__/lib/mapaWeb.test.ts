@@ -1,4 +1,4 @@
-import { iconoHtml, regionABounds } from '../../src/lib/mapaWeb';
+import { iconoHtml, regionABounds, popupHtml } from '../../src/lib/mapaWeb';
 
 describe('iconoHtml', () => {
   it('usa el color que le pasan', () => {
@@ -15,6 +15,24 @@ describe('iconoHtml', () => {
 
   it('escapa la etiqueta: un titulo no puede inyectar HTML en el pin', () => {
     expect(iconoHtml('#000', '<img src=x onerror=alert(1)>')).not.toContain('<img');
+  });
+});
+
+describe('popupHtml', () => {
+  it('arma el popup con titulo y descripcion', () => {
+    expect(popupHtml('Firulais', 'visto en la plaza')).toBe('<b>Firulais</b><br/>visto en la plaza');
+  });
+
+  it('sin descripcion no deja un <br/> colgando', () => {
+    expect(popupHtml('Firulais')).toBe('<b>Firulais</b>');
+  });
+
+  it('escapa el titulo: texto ajeno no puede inyectar HTML en el popup (XSS almacenado, hallazgo revision 4-ago)', () => {
+    expect(popupHtml('<img src=x onerror=alert(1)>')).not.toContain('<img');
+  });
+
+  it('escapa la descripcion: la nota de un avistamiento no puede inyectar HTML (revision 4-ago)', () => {
+    expect(popupHtml('Firulais', '<img src=x onerror=alert(1)>')).not.toContain('<img');
   });
 });
 

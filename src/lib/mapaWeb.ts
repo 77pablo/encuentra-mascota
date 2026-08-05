@@ -16,12 +16,26 @@ export type Region = {
 
 const DELTA_MINIMO = 0.002;
 
-function escapar(s: string): string {
+// Exportada: la usa tambien PlatformMap.web.tsx a traves de popupHtml (y
+// podria usarla cualquier otro string que Leaflet asigne como innerHTML).
+export function escapar(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// Contenido HTML del popup del pin. `L.bindPopup(string)` lo asigna como
+// innerHTML, y title/description son texto libre de OTROS usuarios (la nota
+// de un avistamiento, la descripcion de un reporte) que nada aguas arriba
+// sanitiza. Sin escapar esto era un XSS almacenado (hallazgo CRITICAL 1 de
+// la revision 4-ago). Logica pura y testeable, por eso vive aca y no en el
+// componente.
+export function popupHtml(title?: string, description?: string): string {
+  const t = title ? escapar(title) : '';
+  const d = description ? `<br/>${escapar(description)}` : '';
+  return `<b>${t}</b>${d}`;
 }
 
 // Pin dibujado como SVG en un divIcon: sin archivos de imagen (los iconos por

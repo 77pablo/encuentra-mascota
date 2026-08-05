@@ -16,7 +16,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { iconoHtml, regionABounds, Region } from '../lib/mapaWeb';
+import { iconoHtml, popupHtml, regionABounds, Region } from '../lib/mapaWeb';
 
 const MapaCtx = createContext<L.Map | null>(null);
 
@@ -24,6 +24,17 @@ export function Marker({
   coordinate, pinColor, title, description, draggable, onDragEnd, onCalloutPress, etiqueta,
 }: any) {
   const mapa = useContext(MapaCtx);
+
+  // Los handlers viven en un ref que se actualiza en CADA render (no en un
+  // efecto con deps: eso disparó de mas, esto no dispara nada, solo deja el
+  // valor al dia). El efecto de abajo NO lleva `onDragEnd`/`onCalloutPress`
+  // en sus dependencias —recrear el marcador de Leaflet por cada handler
+  // nuevo es innecesario—, asi que sin este ref los listeners de Leaflet
+  // llamarian siempre a la clausura de la primera vez que se monto el
+  // Marker (hallazgo IMPORTANT 3, revision 4-ago).
+  const handlersRef = useRef({ onDragEnd, onCalloutPress });
+  handlersRef.current = { onDragEnd, onCalloutPress };
+
   useEffect(() => {
     if (!mapa) return;
     const icon = L.divIcon({
@@ -33,26 +44,48 @@ export function Marker({
       iconAnchor: [12, 34],
       popupAnchor: [0, -30],
     });
+    // `draggable` SI queda fuera del ref: ningun consumidor lo alterna hoy,
+    // asi que cambiarlo en caliente (sin remontar el Marker) no esta
+    // soportado a proposito (hallazgo IMPORTANT 3, revision 4-ago).
     const m = L.marker([coordinate.latitude, coordinate.longitude], {
       icon,
       draggable: !!draggable,
     }).addTo(mapa);
 
     if (title || description) {
-      m.bindPopup(`<b>${title ?? ''}</b>${description ? `<br/>${description}` : ''}`);
-      if (onCalloutPress) m.on('popupopen', () => {
+      // `popupHtml` escapa title/description: son texto libre de OTROS
+      // usuarios (nota de avistamiento, descripcion de reporte) y
+      // `bindPopup(string)` lo asigna como innerHTML — sin escapar era un
+      // XSS almacenado (hallazgo CRITICAL 1, revision 4-ago).
+      m.bindPopup(popupHtml(title, description));
+
+      let popupEl: HTMLElement | null = null;
+      const alClicPopup = (ev: MouseEvent) => {
+        // El boton de cerrar (x) vive DENTRO del DOM del popup: sin este
+        // filtro, cerrar el popup dispara onCalloutPress igual que tocar
+        // el contenido (en ReportesMapa eso navega a PetDetail solo por
+        // cerrar). Hallazgo IMPORTANT 2, revision 4-ago.
+        if ((ev.target as Element).closest('.leaflet-popup-close-button')) return;
+        handlersRef.current.onCalloutPress?.();
+      };
+      m.on('popupopen', () => {
         const el = m.getPopup()?.getElement();
-        el?.addEventListener('click', onCalloutPress, { once: true });
+        if (!el) return;
+        // Leaflet reutiliza el mismo elemento del popup en cada apertura:
+        // sin sacar el listener anterior se apilan uno encima del otro y
+        // un click termina llamando a onCalloutPress varias veces.
+        if (popupEl) popupEl.removeEventListener('click', alClicPopup);
+        popupEl = el;
+        el.addEventListener('click', alClicPopup); // sin `{ once: true }`: debe sobrevivir a mas de un click
       });
     }
-    if (onDragEnd) {
-      m.on('dragend', () => {
-        const p = m.getLatLng();
-        // Forma de react-native-maps, no de Leaflet: los llamadores ya leen
-        // `e.nativeEvent.coordinate` y no deben enterarse del cambio.
-        onDragEnd({ nativeEvent: { coordinate: { latitude: p.lat, longitude: p.lng } } });
-      });
-    }
+
+    m.on('dragend', () => {
+      const p = m.getLatLng();
+      // Forma de react-native-maps, no de Leaflet: los llamadores ya leen
+      // `e.nativeEvent.coordinate` y no deben enterarse del cambio.
+      handlersRef.current.onDragEnd?.({ nativeEvent: { coordinate: { latitude: p.lat, longitude: p.lng } } });
+    });
     return () => { m.remove(); };
   }, [mapa, coordinate.latitude, coordinate.longitude, pinColor, title, description, etiqueta]);
 
