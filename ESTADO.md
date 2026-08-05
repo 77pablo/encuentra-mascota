@@ -1,6 +1,50 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (3-ago-2026, noche — TANDA 14 en curso, área A lista, área B a medias)
+## 👉 DÓNDE RETOMAR (5-ago-2026 — TANDA 14: áreas A, B y C COMPLETAS; D1 a medias SIN commit)
+
+**Rama `feat/t13`, HEAD `f3dedde`. ⚠️ El working tree NO está limpio:** las ediciones de D1
+(accesibilidad radio/radiogroup en 9 pantallas + guardián) están aplicadas pero **sin verificar y
+sin commitear** — la sesión se cerró con el implementador a mitad de la verificación. El paso a
+paso exacto para retomar D1 está en `.superpowers/sdd/progress.md` (entrada "Task D1"). En
+`f3dedde` la suite estaba verde: tsc 0, jest 217 suites / 2930 tests, exit 0.
+
+**Lo que se cerró en esta sesión (4 y 5-ago), todo revisado y aprobado:**
+- **Área B completa.** B2 re-revisada (no-oráculo aguanta). B3: el vector CLIP se calcula en el
+  navegador, con `insert` liso (**decisión de Pablo**: `.upsert()` prohibido — exigía abrir
+  `embedding` a lectura, el oráculo). B4: la foto suma hasta 60 y nunca descarta; **decisión de
+  Pablo**: el coseno exacto NO sale de la RPC (era reconstruible el embedding en ~512 llamadas),
+  sale solo el booleano `porque.foto`; de paso se cerró el DoS del vector cero (NaN). B5: la
+  coincidencia por fin dice POR QUÉ coincide, y el botón del vector vive en la ficha propia
+  (solo web, avisa los ~40 MB).
+- **Área C completa.** C1: la web tiene mapa de verdad (Leaflet + OSM, misma interfaz, las 6
+  pantallas sin tocar) — la revisión cazó un **XSS almacenado** en el popup (nota de avistamiento
+  sin escapar) que venía del código del plan; arreglado con `popupHtml` puro + test con payload
+  real, y verificado en vivo contra el sitio. C2: el rastro se numera (1 = más reciente). C3: el
+  vecino del QR ve el rastro — la revisión cazó **deanonimización** (anon leía `user_id` →
+  `perfil_publico` daba nombre/foto/red social); cerrado con grant por columna de menor privilegio
+  (ni `user_id` ni `foto` salen) y revoke fail-closed (`from public, anon`, lección de la 0018).
+- **Tanda 15 aprobada en diseño:** "Hogar temporal" (la gente se ofrece a cuidar; registro único,
+  pedidos por radio, sin plata jamás, sin catálogo público). Spec commiteado:
+  `docs/superpowers/specs/2026-08-04-hogar-temporal-design.md`. El plan se escribe al cerrar la 14.
+
+**Falta de la tanda 14:** terminar D1 (verificar + commit + revisión) → D2 (minors t13) → D3
+(paginado storage + limpieza) → INT (revisión adversarial de rama + aplicar 0063→0066 + dist +
+verificación real).
+
+**⚠️ Para INT hace falta la base real:** la CLI está desautenticada. Pablo: tipeá `! npx supabase login`
+en el chat cuando lleguemos ahí. Los ensayos de B4 y C3 quedaron como scripts listos
+(`.superpowers/sdd/t14-B4-ensayo.sql` y `t14-C3-ensayo.sql`, no commiteados) y **correrlos es
+CONDICIÓN antes de aplicar la 0064/0065/0066** (verifican el no-oráculo, el NaN y el grant por
+columna contra Postgres de verdad). El ensayo de C3 necesita además el CASO 4 (authenticated sigue
+leyendo `user_id`/`foto`) — anotado en progress.md.
+
+**⚠️ Hallazgo colateral EN PRODUCCIÓN, decidir en INT:** la `0012` (pistas) expone
+`pet_tips.user_id` a `anon` sin filtro — la misma deanonimización que se cerró en C3, pero
+preexistente y viva hoy. Recomendación: migración correctiva en INT.
+
+---
+
+## (histórico) 👉 DÓNDE RETOMAR (3-ago-2026, noche — TANDA 14 en curso, área A lista, área B a medias)
 
 **Rama `feat/t13`, árbol limpio, último commit `cbdb363`. Suite en verde: tsc 0, jest 212 suites /
 2868 tests, exit 0.** Nada de la tanda 14 está desplegado ni tiene que estarlo todavía: **las
