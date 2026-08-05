@@ -373,17 +373,22 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         ) : null}
 
-        {/* Chips de filtro */}
+        {/* Chips de acceso rápido: NO son un grupo de "elegí uno" — cada uno
+            navega a Explorar con sus propios filtros (decisión de Pablo,
+            5-ago). Antes se anunciaban como `radiogroup`/`rol="opcion"`, que
+            promete "elegí uno de estos" cuando en realidad son atajos: tocar
+            cualquiera de ellos NAVEGA, no selecciona una opción que se quede
+            marcada en esta pantalla. Por eso sin `accessibilityRole=
+            "radiogroup"` en el ScrollView y con `rol="boton"` en cada Chip. */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsRow}
-          accessibilityRole="radiogroup"
         >
           {ACCESOS_INICIO.map((acceso, i) => (
             <Chip
               key={acceso.label}
-              rol="opcion"
+              rol="boton"
               label={acceso.label}
               // El activo describe lo que se está viendo abajo; ya no es "el
               // primero" por costumbre. Sin ubicación, la tira NO es cercana a

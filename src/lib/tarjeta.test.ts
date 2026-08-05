@@ -115,6 +115,54 @@ describe('urlDeRespaldo', () => {
   });
 });
 
+// D1 (final fix de la tanda 14): el describe de arriba prueba `urlDeRespaldo`
+// como función PURA (le pasás un id, mirás el string), pero nada probaba que
+// las tres fábricas la tengan de verdad CABLEADA como fallback. El resto del
+// archivo fija `EXPO_PUBLIC_WEB_URL` en el beforeAll de arriba, así que
+// `petUrl`/`adopcionUrl` (src/lib/links.ts) SIEMPRE resuelven algo y la rama
+// `?? urlDeRespaldo(...)` de `datosDeReporte`/`datosDeAdopcion`/
+// `datosDeFinalFeliz` nunca se ejercita en ningún test — un `qrUrl:
+// petUrl(id) ?? RESPALDO_WEB` (sin el `/mascota/<id>`) habría quedado en
+// verde igual. Este describe borra la variable de entorno para forzar la
+// rama de respaldo de verdad.
+describe('el respaldo del QR está CABLEADO en las tres fábricas (D1, guardián del cableado real)', () => {
+  let envSinWebUrl: string | undefined;
+
+  beforeAll(() => {
+    envSinWebUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    delete process.env.EXPO_PUBLIC_WEB_URL;
+  });
+
+  afterAll(() => {
+    if (envSinWebUrl === undefined) delete process.env.EXPO_PUBLIC_WEB_URL;
+    else process.env.EXPO_PUBLIC_WEB_URL = envSinWebUrl;
+  });
+
+  test('datosDeReporte: sin base configurada, el QR igual termina en /mascota/<id>', () => {
+    const pet = {
+      id: 'sin-base-1', estado: 'perdida', especie: 'perro', nombre: 'Luna',
+      raza: null, comuna: null, descripcion: '', fotos: [],
+    } as any;
+    expect(datosDeReporte(pet).qrUrl).toMatch(/\/mascota\/sin-base-1$/);
+  });
+
+  test('datosDeAdopcion: sin base configurada, el QR igual termina en /adopcion/<id>', () => {
+    const adopcion = {
+      id: 'sin-base-2', nombre: 'Pelusa', especie: 'perro' as const,
+      edad: null, tamano: null, comuna: null, fotos: [],
+    };
+    expect(datosDeAdopcion(adopcion).qrUrl).toMatch(/\/adopcion\/sin-base-2$/);
+  });
+
+  test('datosDeFinalFeliz: sin base configurada, el QR igual termina en /mascota/<id>', () => {
+    const pet = {
+      id: 'sin-base-3', nombre: 'Firulais', especie: 'perro' as const, fotos: [],
+      final_foto: null, creado_en: '2026-01-01T00:00:00Z', reunida_en: null,
+    };
+    expect(datosDeFinalFeliz(pet).qrUrl).toMatch(/\/mascota\/sin-base-3$/);
+  });
+});
+
 describe('diasEntre', () => {
   test('mismo dia: null (no cuenta como un dia despues)', () => {
     expect(diasEntre('2026-01-01T09:00:00Z', '2026-01-01T20:00:00Z')).toBeNull();

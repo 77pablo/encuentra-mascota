@@ -91,17 +91,42 @@ describe('las casillas declaran su estado en las dos APIs', () => {
 // un lector de pantalla que anuncia "casilla, Chico" en vez de "radio, Chico,
 // 1 de 3": promete que se puede marcar Chico Y Grande a la vez, que es
 // justo lo que el grupo prohíbe. Deuda arrastrada desde la tanda 12.
-const PANTALLAS_CON_GRUPOS = [
+// D7 (final fix, decisión de Pablo 5-ago): los chips de acceso rápido de
+// HomeScreen (ACCESOS_INICIO) NAVEGAN a Explorar — nunca fueron un grupo de
+// "elegí uno" de verdad, así que pasan a `rol="boton"` y el ScrollView pierde
+// el `accessibilityRole="radiogroup"`. Eso separa las dos listas que antes
+// eran una sola: PANTALLAS_CON_GRUPOS mezclaba "tiene al menos un
+// radiogroup real" con "todo chip con active declara su rol", y HomeScreen
+// necesita SALIR de la primera regla (ya no tiene ningún grupo de elegí-uno)
+// pero SEGUIR en la segunda (sus chips siguen siendo controles con estado,
+// solo que ahora de tipo botón en vez de radio).
+const PANTALLAS_CON_RADIOGROUP = [
   'screens/AdopcionFeedScreen.tsx', 'screens/AlertZoneScreen.tsx', 'screens/EncontreScreen.tsx',
   'screens/EditAdoptionScreen.tsx', 'screens/PublicarAdopcionScreen.tsx',
-  'screens/ProfileScreen.tsx', 'screens/HomeScreen.tsx',
+  'screens/ProfileScreen.tsx',
   'components/SelectorAmbito.tsx', 'components/PlanBusqueda.tsx',
 ];
 
-it.each(PANTALLAS_CON_GRUPOS)('%s anuncia sus grupos de elegí-uno como radio', (rel) => {
+it.each(PANTALLAS_CON_RADIOGROUP)('%s anuncia sus grupos de elegí-uno como radio', (rel) => {
   const fuente = readFileSync(join(__dirname, '..', '..', 'src', rel), 'utf8');
   expect(fuente).toMatch(/accessibilityRole="radiogroup"/);
 });
+
+// La regla per-chip de más abajo (chipsConActive) mira una lista MÁS ANCHA
+// que la de arriba: cubre toda pantalla/componente con chips de dos estados,
+// tengan o no un radiogroup real. HomeScreen quedó SOLO acá (D7); ExplorarScreen
+// y SelectorSenas se suman acá por primera vez (D6): son correctos desde la
+// tanda 12 (declaran `rol` a mano en cada Chip) pero nunca tuvieron ningún
+// guardián que lo atara — un chip nuevo sin `rol` ahí adentro habría pasado
+// desapercibido. (Ninguno de los dos entra en PANTALLAS_CON_RADIOGROUP: sus
+// grupos usan `role="radiogroup"`, no `accessibilityRole="radiogroup"` — otro
+// chequeo, fuera del alcance de este fix.)
+const PANTALLAS_CON_CHIPS = [
+  ...PANTALLAS_CON_RADIOGROUP,
+  'screens/HomeScreen.tsx',
+  'screens/ExplorarScreen.tsx',
+  'components/SelectorSenas.tsx',
+];
 
 // EL CHEQUEO DE ARRIBA SE CONFORMA CON QUE "radiogroup" APAREZCA UNA VEZ EN
 // TODO EL ARCHIVO. Eso es precisamente lo que dejó pasar el bug: ProfileScreen
@@ -133,7 +158,7 @@ function chipsConActive(codigo: string): string[] {
   return bloques;
 }
 
-const chipsActivos = PANTALLAS_CON_GRUPOS.flatMap((rel) => {
+const chipsActivos = PANTALLAS_CON_CHIPS.flatMap((rel) => {
   const fuente = readFileSync(join(__dirname, '..', '..', 'src', rel), 'utf8');
   return chipsConActive(fuente).map((bloque, i) => ({ donde: `${rel} (chip activo ${i + 1})`, bloque }));
 });

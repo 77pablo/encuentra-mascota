@@ -25,8 +25,10 @@ const MARCA = `/storage/v1/object/public/${BUCKET}/`;
 // `1111x1111`. Hoy no es explotable porque el userId viene siempre de la
 // sesion (un UUID), pero la comparacion de strings de abajo elimina la clase
 // de problema entera en vez de confiar en el formato del dato — la misma
-// forma, a proposito, que usa `delete-account/index.ts:117-124`
-// (`startsWith` + `slice` + `!includes('/')`).
+// forma, a proposito, que usa `delete-account/index.ts` al armar `misRutas`
+// (`startsWith` + `slice` + `!includes('/')`) — referenciado por NOMBRE, no
+// por numero de linea: un numero se corre con el primer diff ajeno al
+// archivo, que es justo lo que dejo desactualizada esta misma nota antes.
 export function rutaDeFotoPropia(url: string, userId: string): string | null {
   if (!url || !userId) return null;
   const i = url.indexOf(MARCA);

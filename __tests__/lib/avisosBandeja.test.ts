@@ -206,9 +206,12 @@ describe('el título de la denuncia sale de una sola constante', () => {
       require('path').join(__dirname, '..', '..', 'src', 'lib', 'avisosBandeja.ts'), 'utf8');
     const push = require('fs').readFileSync(
       require('path').join(__dirname, '..', '..', 'src', 'lib', 'notifyTargets.ts'), 'utf8');
-    // Ninguno de los dos puede tener el texto escrito a mano.
-    expect(bandeja).not.toMatch(/'Entró una denuncia/);
-    expect(push).not.toMatch(/'Entró una denuncia/);
+    // Ninguno de los dos puede tener el texto escrito a mano. `['"]` en vez de
+    // sólo `'`: el regex viejo sólo miraba comilla simple y una cadena con
+    // comillas dobles ("Entró una denuncia") lo esquivaba en verde, sin que
+    // ningún test lo notara (demostrado y revertido al arreglar este test).
+    expect(bandeja).not.toMatch(/['"]Entró una denuncia/);
+    expect(push).not.toMatch(/['"]Entró una denuncia/);
     expect(TITULO_DENUNCIA_NUEVA.length).toBeGreaterThan(0);
   });
 });

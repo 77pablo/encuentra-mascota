@@ -2,12 +2,38 @@
 // y `supabase/functions/send-notifications/notifyTargets.ts` la usa la Edge Function
 // (el runtime de Deno solo empaqueta la carpeta de la función). Sin esta prueba, las
 // dos copias pueden separarse en silencio y la app diría una cosa y el correo otra.
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as app from '../../src/lib/notifyTargets';
 import * as edge from '../../supabase/functions/send-notifications/notifyTargets';
 
 const DIR = join(__dirname, '..', '..', 'supabase', 'migrations');
+
+// D4 (final fix de la tanda 14): el ancla al CHECK vigente era el nombre de
+// migración `0061_seguimiento_anonimo.sql`, escrito a mano. `notification_
+// events_tipo_check` es un `check` con nombre EXPLÍCITO en la 0026 y se
+// redefine (mismo nombre, `create or replace` no aplica a un CHECK: cada
+// migración que le agrega un tipo lo dropea y lo recrea) en 0027, 0031, 0050,
+// 0060 y 0061 — la migración que lo define de verdad se mueve con cada tanda
+// que suma un tipo de evento, y un nombre a mano queda desactualizado en
+// silencio (exactamente el mismo patrón que ya resuelve
+// `__tests__/db/ultimaMigracion.test.ts` para "cuál es la última migración").
+// Se escanea `supabase/migrations/` en orden NUMÉRICO y se toma la ÚLTIMA que
+// menciona el CHECK por nombre, en vez de fijar el archivo a mano.
+function ultimaMigracionConCheckDeTipo(): string {
+  const archivos = readdirSync(DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort((a, b) => parseInt(a.slice(0, 4), 10) - parseInt(b.slice(0, 4), 10));
+  const conCheck = archivos.filter((f) =>
+    readFileSync(join(DIR, f), 'utf8').includes('notification_events_tipo_check'),
+  );
+  if (conCheck.length === 0) {
+    throw new Error(
+      'Ninguna migración menciona notification_events_tipo_check: actualizá este escaneo si el CHECK cambió de nombre.',
+    );
+  }
+  return conCheck[conCheck.length - 1];
+}
 
 const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = [
   {
@@ -319,7 +345,8 @@ describe('el espejo de notifyTargets no se desincroniza', () => {
   // en archivos separados, y pueden divergir en silencio. Esto lo ata a la
   // migración que define el CHECK vigente.
   it('TODOS_LOS_TIPOS coincide con el CHECK de notification_events', () => {
-    const sql = readFileSync(join(DIR, '0061_seguimiento_anonimo.sql'), 'utf8');
+    const archivo = ultimaMigracionConCheckDeTipo();
+    const sql = readFileSync(join(DIR, archivo), 'utf8');
     // Recortar SOLO el bloque `check (tipo in (...))`, no el archivo entero:
     // los tipos también aparecen en comentarios (arriba) y en el INSERT del
     // trigger `avisar_seguimientos` (abajo), así que barrer todo el archivo
@@ -330,14 +357,15 @@ describe('el espejo de notifyTargets no se desincroniza', () => {
     const bloqueCheck = sql.match(/check\s*\(\s*tipo\s+in\s*\(([\s\S]*?)\)\)/i);
     if (!bloqueCheck) {
       throw new Error(
-        'No se encontró `check (tipo in (...))` en 0061_seguimiento_anonimo.sql: ' +
-          'actualizá este recorte si la migración cambió de forma.',
+        `No se encontró \`check (tipo in (...))\` en ${archivo}: actualizá este recorte si la migración cambió de forma.`,
       );
     }
     const enElCheck = [...bloqueCheck[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
-    for (const tipo of TODOS_LOS_TIPOS) {
-      expect(enElCheck).toContain(tipo);
-    }
+    // D5: igualdad de CONJUNTOS, no sólo que TODOS_LOS_TIPOS esté incluido en
+    // el CHECK (⊆). Un `toContain` por tipo no detecta que el CHECK tenga un
+    // tipo DE MÁS que TODOS_LOS_TIPOS no conoce — exactamente el sentido
+    // inverso de la desincronización que este test existe para atrapar.
+    expect([...new Set(enElCheck)].sort()).toEqual([...new Set(TODOS_LOS_TIPOS)].sort());
     expect(TODOS_LOS_TIPOS).toContain('denuncia_nueva');
     expect(TODOS_LOS_TIPOS).toContain('reencuentro_seguimiento');
   });

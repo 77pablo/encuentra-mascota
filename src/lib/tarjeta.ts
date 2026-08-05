@@ -15,6 +15,13 @@ export function urlDeRespaldo(petId: string): string {
   return `${RESPALDO_WEB}/mascota/${petId}`;
 }
 
+// Espejo de `urlDeRespaldo`, para `/adopcion/<id>` (D1, final fix de la tanda
+// 14: antes vivía como template literal inline dentro de `datosDeAdopcion`,
+// sin nombre propio ni test que lo atara por separado).
+export function urlDeRespaldoAdopcion(adoptionId: string): string {
+  return `${RESPALDO_WEB}/adopcion/${adoptionId}`;
+}
+
 export interface TarjetaTextos {
   banda: string; // "PERDIDA EN MAIPÚ" / "ENCONTRADA" (sin comuna: solo el estado)
   titulo: string; // nombre del reporte, o una pregunta si no tiene
@@ -109,7 +116,7 @@ export function datosDeAdopcion(
     fotoUrl: adopcion.fotos?.[0] ?? null,
     // Mismo criterio que `urlDeRespaldo`, pero a `/adopcion/<id>`: sin base
     // configurada tampoco puede caer al dominio pelado.
-    qrUrl: adopcionUrl(adopcion.id) ?? `${RESPALDO_WEB}/adopcion/${adopcion.id}`,
+    qrUrl: adopcionUrl(adopcion.id) ?? urlDeRespaldoAdopcion(adopcion.id),
     nombreArchivo: `adopcion-${adopcion.id}.png`,
   };
 }
