@@ -1,10 +1,36 @@
 -- 0065: la foto entra al motor de coincidencias (tanda 14, area B).
 --
--- `buscar_coincidencias` gana DOS COLUMNAS AL FINAL del `returns table`:
--- `foto_similitud` (el mejor parecido entre las fotos de los dos reportes,
--- 0 a 1) y `porque` (el desglose legible de por que salio la coincidencia).
--- Las 12 columnas de la 0058 NO se mueven ni se renombran: `src/services/
+-- `buscar_coincidencias` gana UNA COLUMNA AL FINAL del `returns table`:
+-- `porque` (el desglose legible de por que salio la coincidencia), con
+-- `porque.foto` como UNICO rastro de la foto que sale de la funcion. Las 12
+-- columnas de la 0058 NO se mueven ni se renombran: `src/services/
 -- busqueda.ts` las lee por nombre.
+--
+-- POR QUE `foto_similitud` (el coseno exacto) NO SALE DE LA FUNCION. Decision
+-- de Pablo (4-ago), tras el hallazgo critico de la revision de esta tarea: el
+-- primer borrador la devolvia como columna del `returns table`. Esta funcion
+-- es `security definer`, concedida a `anon`, y cualquiera puede pedirle las
+-- coincidencias de CUALQUIER reporte (no hace falta ser su dueño). Si el
+-- coseno exacto saliera, alguien que controla su PROPIO reporte —puede
+-- escribir su propio vector via `insert`/`update`, la RLS de la 0064 se lo
+-- permite— reconstruye el embedding de 512 dimensiones de la foto de UN
+-- TERCERO en unas ~512 llamadas a la RPC: planta, una a la vez, un vector de
+-- una base ortonormal y el coseno que la RPC devuelve en cada llamada es
+-- exactamente la proyeccion del embedding ajeno sobre esa coordenada. Es la
+-- propiedad no-oraculo que la 0064 existe para proteger (ver su cabecera) —
+-- no es un problema nuevo, es esta misma funcion reabriendo la puerta que la
+-- 0064 cerro.
+--
+-- RIESGO RESIDUAL ACEPTADO: `porque.foto` (booleano, umbral 0.75) SI sale, y
+-- es en si mismo un oraculo de 1 bit — sondeo adaptativo del umbral (una
+-- busqueda binaria por coordenada sobre el vector plantado) reconstruye la
+-- misma informacion, pero necesita del orden de 10x mas llamadas por
+-- coordenada que leer el flotante directo. Se acepta explicitamente, con la
+-- misma disciplina que el chip (`chip_coincide` es booleano por la misma
+-- razon exacta: ver el comentario de `es_mio`/`chip_norm` mas abajo). Subir
+-- el costo de ~512 a ~5000+ llamadas HTTP no lo vuelve imposible, pero lo
+-- saca del rango de "un script de una tarde", que es la misma frontera que
+-- el resto del proyecto acepta para otros oraculos de 1 bit.
 --
 -- CAMBIA EL TIPO DE RETORNO ⇒ `create or replace` no alcanza (trampa
 -- documentada en la 0024 y repetida en la 0059: un `create or replace` no
@@ -17,9 +43,14 @@
 -- '468,582p' supabase/migrations/0058_insignia_suspendida_y_tope_de_radio.sql)
 -- con estos cambios y nada mas:
 --   1. el `left join lateral` nuevo que calcula la mejor similitud de fotos;
---   2. el termino de la foto sumado al `puntaje`;
---   3. las columnas `foto_similitud` y `porque` en el `returns table` y en el
---      `select` final;
+--   2. el termino de la foto sumado al `puntaje`, con guarda contra NaN (ver
+--      el comentario junto a la formula: un vector de norma cero —que
+--      cualquier `authenticated` puede plantar en SU PROPIO reporte— hace que
+--      pgvector devuelva NaN, y `NaN::int` revienta la funcion entera para
+--      TODOS los vecinos si no se lo intercepta antes);
+--   3. `foto_similitud` como columna INTERNA de la CTE `cand` —nunca en el
+--      `returns table` ni en el `select` final, ver el bloque de arriba— y la
+--      columna `porque` en el `returns table` y en el `select` final;
 --   4. el `porque`, el desglose legible que hoy no existe.
 -- El filtro final (`where cand.chip_coincide or not senas_contradicen(...)`)
 -- y el `order by` quedan IDENTICOS a la 0058: la foto no aparece en ninguno
@@ -46,7 +77,6 @@ returns table (
   distancia_km double precision,
   chip_coincide boolean,
   puntaje int,
-  foto_similitud double precision,
   porque jsonb
 )
 language sql
@@ -115,7 +145,12 @@ as $$
       -- un parecido es una pista.
       -- Y NUNCA DESCARTA porque un animal sucio, mojado o de noche no se
       -- parece a su propia foto (misma regla que senas_contradicen).
-      coalesce(greatest(0, round((f.sim - 0.6) / 0.4 * 60))::int, 0)
+      -- nullif(..., 'NaN') porque pgvector devuelve NaN ante un vector de
+      -- norma 0 (cualquier authenticated puede plantar uno en SU reporte) y
+      -- NaN::int revienta la RPC entera para todos los vecinos. En Postgres
+      -- NaN::float8 = NaN::float8 da true (no es el IEEE 754 estricto), asi
+      -- que nullif SI atrapa el caso.
+      coalesce(greatest(0, round((nullif(f.sim, 'NaN'::float8) - 0.6) / 0.4 * 60))::int, 0)
       as puntaje
     from public.pets p
     cross join base b
@@ -152,18 +187,20 @@ as $$
     cand.id, cand.estado, cand.especie, cand.nombre, cand.descripcion, cand.fotos,
     cand.lat, cand.lng, cand.creado_en, cand.distancia_km, cand.chip_coincide,
     cand.puntaje,
-    cand.foto_similitud,
     -- EL DESGLOSE LEGIBLE. `jsonb_strip_nulls` saca las claves en `false`: la
     -- pantalla solo tiene que listar lo que SI aporto, no armar un cartel de
     -- "no" por cada seña. El umbral de la foto (0.75) es mas alto que el de
     -- `senas_contradicen`-style checks porque acá no hay margen de contradiccion
     -- que perdonar: es solo "se parece bastante, mostralo".
+    -- `foto_similitud` (el coseno crudo) NUNCA sale de aca: ver la cabecera
+    -- del archivo. `porque.foto` es a proposito el UNICO rastro de la foto en
+    -- todo el retorno de la funcion — un booleano, no el numero.
     jsonb_strip_nulls(jsonb_build_object(
       'chip', nullif(cand.chip_coincide, false),
       'color', nullif(cand.b_colores && cand.colores, false),
       'tamano', nullif(cand.b_tamano is not null and cand.b_tamano = cand.tamano, false),
       'cerca', nullif(cand.distancia_km < 2, false),
-      'foto', nullif(coalesce(cand.foto_similitud, 0) >= 0.75, false)
+      'foto', nullif(coalesce(nullif(cand.foto_similitud, 'NaN'::float8), 0) >= 0.75, false)
     )) as porque
   from cand
   -- Un chip igual gana sobre cualquier contradicción: alguien pudo describir mal
@@ -174,9 +211,15 @@ as $$
   limit least(coalesce(p_limite, 10), 50);
 $$;
 
--- Se repiten explícitos aunque `create or replace` los conserve: quien lea este
--- archivo tiene que poder ver de un vistazo quién puede llamar a una función
--- `security definer` que lee `pet_chips` y `pet_fotos_vector.embedding`.
+-- OBLIGATORIOS, no repetición defensiva: esta migración hace `drop function`
+-- + `create` (ver "CAMBIA EL TIPO DE RETORNO" en la cabecera), y un `drop`
+-- se lleva los grants puestos junto con la función — no son un `create or
+-- replace` que los conserva solo. Si estas tres líneas faltaran, la función
+-- recreada quedaría sin `execute` para nadie hasta la próxima migración.
+-- Quien lea este archivo tiene que poder ver de un vistazo quién puede
+-- llamar a una función `security definer` que lee `pet_chips` y
+-- `pet_fotos_vector.embedding` internamente (nunca los devuelve — ver la
+-- cabecera del archivo).
 revoke all on function public.buscar_coincidencias(uuid, double precision, int) from public;
 grant execute on function public.buscar_coincidencias(uuid, double precision, int) to anon;
 grant execute on function public.buscar_coincidencias(uuid, double precision, int) to authenticated;
