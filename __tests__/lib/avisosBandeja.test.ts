@@ -146,7 +146,7 @@ describe('textoDeAviso: cada tipo se lee como algo que le pasa a TU mascota', ()
         creado_en: '2026-08-01T10:00:00Z',
       }),
     );
-    expect(t.titulo).toBe('Entró una denuncia');
+    expect(t.titulo).toBe('Entró una denuncia nueva');
     expect(t.detalle).toContain('spam');
     expect(t.icono).toBe('shield-checkmark-outline');
   });
@@ -191,5 +191,24 @@ describe('contarSinLeer: el numero del badge', () => {
 
   it('sin avisos, cero', () => {
     expect(contarSinLeer([], null)).toBe(0);
+  });
+});
+
+// Deuda tanda 13 (D2 · Step 2): el aviso in-app y el push de 'denuncia_nueva'
+// decían "Entró una denuncia" y "Entró una denuncia nueva" — dos cadenas a
+// mano que casualmente se parecían. Una sola constante evita que se separen
+// de nuevo la próxima vez que alguien toque uno de los dos sin acordarse del
+// otro.
+describe('el título de la denuncia sale de una sola constante', () => {
+  it('la bandeja y el push dicen exactamente lo mismo de una denuncia', () => {
+    const { TITULO_DENUNCIA_NUEVA } = require('../../src/lib/textosAviso');
+    const bandeja = require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'src', 'lib', 'avisosBandeja.ts'), 'utf8');
+    const push = require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'src', 'lib', 'notifyTargets.ts'), 'utf8');
+    // Ninguno de los dos puede tener el texto escrito a mano.
+    expect(bandeja).not.toMatch(/'Entró una denuncia/);
+    expect(push).not.toMatch(/'Entró una denuncia/);
+    expect(TITULO_DENUNCIA_NUEVA.length).toBeGreaterThan(0);
   });
 });

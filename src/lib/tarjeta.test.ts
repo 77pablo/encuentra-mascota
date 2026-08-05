@@ -1,4 +1,11 @@
-import { tarjetaTextos, datosDeReporte, datosDeAdopcion, datosDeFinalFeliz, diasEntre } from './tarjeta';
+import {
+  tarjetaTextos,
+  datosDeReporte,
+  datosDeAdopcion,
+  datosDeFinalFeliz,
+  diasEntre,
+  urlDeRespaldo,
+} from './tarjeta';
 
 // `petUrl`/`adopcionUrl` (src/lib/links.ts) resuelven la URL desde
 // `EXPO_PUBLIC_WEB_URL` fuera de web (acá `Platform.OS` es 'ios', el default
@@ -93,6 +100,18 @@ describe('datosDeReporte', () => {
 
   test('sin fotos: fotoUrl null', () => {
     expect(datosDeReporte({ ...pet, fotos: [] }).fotoUrl).toBeNull();
+  });
+});
+
+// Deuda tanda 13 (D2 · Step 4): TarjetaCompartir.tsx armaba el respaldo del
+// QR en el COMPONENTE, donde ya no queda el id para construir `/mascota/<id>`
+// — caía al dominio pelado y el QR de respaldo llevaba a la home. Ahora se
+// arma acá, donde el id todavía está a mano.
+describe('urlDeRespaldo', () => {
+  it('el respaldo del QR lleva a la ficha, no al dominio pelado', () => {
+    const url = urlDeRespaldo('abc-123');
+    expect(url).toMatch(/\/mascota\/abc-123$/);
+    expect(url).not.toMatch(/pages\.dev\/?$/);
   });
 });
 

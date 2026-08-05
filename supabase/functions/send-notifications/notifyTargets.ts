@@ -115,6 +115,9 @@ export type Contexto = {
 
 export type Destinatario = { userId: string; canales: ('email' | 'push')[] };
 
+// Copia de `TITULO_DENUNCIA_NUEVA` de src/lib/textosAviso.ts.
+const TITULO_DENUNCIA_NUEVA = 'Entró una denuncia nueva';
+
 // Copia de `distanceKm` de src/lib/geo.ts (Haversine).
 function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -312,7 +315,7 @@ export function componerAviso(
   // tiene ruta web pública, y un deep link roto es peor que ir al inicio.
   if (evento.tipo === 'denuncia_nueva') {
     return {
-      titulo: 'Entró una denuncia nueva',
+      titulo: TITULO_DENUNCIA_NUEVA,
       cuerpo:
         'Hay contenido esperando revisión. Los Términos prometen plazos: ' +
         'entrá a Perfil → Moderación para verla.',

@@ -2,8 +2,12 @@
 // y `supabase/functions/send-notifications/notifyTargets.ts` la usa la Edge Function
 // (el runtime de Deno solo empaqueta la carpeta de la función). Sin esta prueba, las
 // dos copias pueden separarse en silencio y la app diría una cosa y el correo otra.
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import * as app from '../../src/lib/notifyTargets';
 import * as edge from '../../supabase/functions/send-notifications/notifyTargets';
+
+const DIR = join(__dirname, '..', '..', 'supabase', 'migrations');
 
 const CASOS: { nombre: string; evento: app.EventoAviso; ctx: app.Contexto }[] = [
   {
@@ -306,6 +310,24 @@ describe('el espejo de notifyTargets no se desincroniza', () => {
         app.elBloqueoApagaElAviso(tipo),
       ]);
     }
+  });
+
+  // Deuda tanda 13 (D2 · Step 6): `Record<TipoEvento, true>` garantiza que
+  // TODOS_LOS_TIPOS quede exhaustivo respecto del UNION de TypeScript, pero
+  // no dice nada de si ese union sigue coincidiendo con el CHECK real de
+  // `notification_events.tipo` en la base — las dos listas se editan a mano,
+  // en archivos separados, y pueden divergir en silencio. Esto lo ata a la
+  // migración que define el CHECK vigente.
+  it('TODOS_LOS_TIPOS coincide con el CHECK de notification_events', () => {
+    const sql = readFileSync(join(DIR, '0061_seguimiento_anonimo.sql'), 'utf8');
+    const enElCheck = [...sql.matchAll(/'([a-z_]+)'/g)]
+      .map((m) => m[1])
+      .filter((t) => TODOS_LOS_TIPOS.includes(t as any));
+    for (const tipo of TODOS_LOS_TIPOS) {
+      expect(enElCheck).toContain(tipo);
+    }
+    expect(TODOS_LOS_TIPOS).toContain('denuncia_nueva');
+    expect(TODOS_LOS_TIPOS).toContain('reencuentro_seguimiento');
   });
 
   CASOS.forEach(({ nombre, evento, ctx }) => {

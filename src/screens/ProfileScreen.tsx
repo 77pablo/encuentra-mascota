@@ -63,7 +63,7 @@ export default function ProfileScreen({ navigation }: any) {
   // Lo pendiente de Moderación (tarea C3, tanda 13). Solo pregunta si
   // `profile.es_admin`, así que hasta que el perfil no cargue esto vale 0 —
   // eso es lo correcto: no hay fila que mostrar todavía.
-  const denunciasPendientes = useDenunciasPendientes(profile?.es_admin === true);
+  const { cantidad: denunciasPendientes } = useDenunciasPendientes(profile?.es_admin === true);
   const [mis, setMis] = useState<Pet[]>([]);
   // Todos los reportes cerrados. Se parten en pantalla entre los que tienen
   // reencuentro registrado y los que se cerraron por otro motivo: la lista

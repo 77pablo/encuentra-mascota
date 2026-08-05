@@ -1,4 +1,5 @@
 import { distanceKm } from './geo';
+import { TITULO_DENUNCIA_NUEVA } from './textosAviso';
 
 // Lógica de targeting de los avisos que salen de la app (correo y push).
 //
@@ -320,7 +321,7 @@ export function componerAviso(
   // tiene ruta web pública, y un deep link roto es peor que ir al inicio.
   if (evento.tipo === 'denuncia_nueva') {
     return {
-      titulo: 'Entró una denuncia nueva',
+      titulo: TITULO_DENUNCIA_NUEVA,
       cuerpo:
         'Hay contenido esperando revisión. Los Términos prometen plazos: ' +
         'entrá a Perfil → Moderación para verla.',

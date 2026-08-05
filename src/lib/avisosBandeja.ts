@@ -9,6 +9,8 @@
 // ni de celebrar antes de tiempo; una coincidencia es una posibilidad, no una
 // buena noticia confirmada.
 
+import { TITULO_DENUNCIA_NUEVA } from './textosAviso';
+
 export interface Aviso {
   id: string;
   // `string` y no una unión cerrada a propósito: el CHECK de
@@ -168,7 +170,7 @@ export function textoDeAviso(a: Aviso): AvisoPresentado {
     case 'denuncia_nueva': {
       const motivo = texto(d, 'motivo');
       return {
-        titulo: 'Entró una denuncia',
+        titulo: TITULO_DENUNCIA_NUEVA,
         detalle: motivo ? `Motivo: ${motivo} · Revisala en Perfil → Moderación.` : 'Revisala en Perfil → Moderación.',
         icono: 'shield-checkmark-outline',
       };

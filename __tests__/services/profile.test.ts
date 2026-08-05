@@ -128,13 +128,18 @@ describe('camposDeContactoParaGuardar', () => {
     });
   });
 
-  it('camposDeContactoParaGuardar lleva el interruptor, salvo perfil degradado', () => {
+  // El caso "perfil degradado" NO se repite acá: ya lo cubre el test de abajo
+  // ("perfil degradado (contactoNoDisponible)..."), y con más detalle (chequea
+  // cada propiedad, no solo el objeto entero). Este test se queda solo con el
+  // caso que le da su nombre: el interruptor viaja tal cual cuando el perfil
+  // SÍ está disponible (deuda tanda 13, D2 · Step 5 — antes repetía esa
+  // aserción con `toEqual({})`, duplicando el test de abajo).
+  it('camposDeContactoParaGuardar lleva el interruptor cuando el perfil no está degradado', () => {
     expect(camposDeContactoParaGuardar({ ...base }, '+569', 'url', false)).toEqual({
       telefono: '+569',
       red_social: 'url',
       mostrar_red_social: false,
     });
-    expect(camposDeContactoParaGuardar({ ...base, contactoNoDisponible: true }, '+569', 'url', false)).toEqual({});
   });
 
   it('perfil degradado (contactoNoDisponible): no manda ni telefono ni red_social, aunque haya texto en los drafts', () => {

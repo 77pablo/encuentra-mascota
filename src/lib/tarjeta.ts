@@ -1,8 +1,19 @@
 import { Pet } from '../services/pets';
 import { Adoption } from '../services/adoptions';
-import { armarSubtitulo } from './afiche';
+import { armarSubtitulo, RESPALDO_WEB } from './afiche';
 import { petUrl, adopcionUrl } from './links';
 import { lightColors } from '../theme';
+
+// Respaldo del QR de una ficha cuando no hay base web configurada (móvil sin
+// EXPO_PUBLIC_WEB_URL). Deuda tanda 13 (D2 · Step 4): esto se armaba antes
+// DENTRO de `TarjetaCompartir`, que para cuando renderiza ya perdió el id del
+// reporte (`DatosTarjeta` es genérico a propósito) y caía al dominio pelado
+// (RESPALDO_WEB solo) — el QR de respaldo llevaba a la home en vez de a la
+// ficha. Armándolo acá, donde el id todavía está a mano, `qrUrl` sale siempre
+// resuelto y el componente sólo consume.
+export function urlDeRespaldo(petId: string): string {
+  return `${RESPALDO_WEB}/mascota/${petId}`;
+}
 
 export interface TarjetaTextos {
   banda: string; // "PERDIDA EN MAIPÚ" / "ENCONTRADA" (sin comuna: solo el estado)
@@ -35,7 +46,7 @@ export interface DatosTarjeta {
   titulo: string;
   subtitulo: string | null;
   fotoUrl: string | null;
-  qrUrl: string | null;
+  qrUrl: string;
   nombreArchivo: string;
 }
 
@@ -55,7 +66,7 @@ export function datosDeReporte(pet: Pet): DatosTarjeta {
     titulo,
     subtitulo,
     fotoUrl: pet.fotos?.[0] ?? null,
-    qrUrl: petUrl(pet.id),
+    qrUrl: petUrl(pet.id) ?? urlDeRespaldo(pet.id),
     nombreArchivo: `mascota-${pet.id}.png`,
   };
 }
@@ -96,7 +107,9 @@ export function datosDeAdopcion(
     titulo,
     subtitulo: partes.join(' · '),
     fotoUrl: adopcion.fotos?.[0] ?? null,
-    qrUrl: adopcionUrl(adopcion.id),
+    // Mismo criterio que `urlDeRespaldo`, pero a `/adopcion/<id>`: sin base
+    // configurada tampoco puede caer al dominio pelado.
+    qrUrl: adopcionUrl(adopcion.id) ?? `${RESPALDO_WEB}/adopcion/${adopcion.id}`,
     nombreArchivo: `adopcion-${adopcion.id}.png`,
   };
 }
@@ -134,7 +147,7 @@ export function datosDeFinalFeliz(
     titulo,
     subtitulo,
     fotoUrl: pet.final_foto ?? pet.fotos?.[0] ?? null,
-    qrUrl: petUrl(pet.id),
+    qrUrl: petUrl(pet.id) ?? urlDeRespaldo(pet.id),
     nombreArchivo: `final-feliz-${pet.id}.png`,
   };
 }
