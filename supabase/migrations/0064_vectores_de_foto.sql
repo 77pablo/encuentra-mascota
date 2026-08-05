@@ -56,6 +56,10 @@
 -- foto existente — exactamente el patron "escribir, mirar si volvio fila"
 -- que el resto del proyecto ya usa para la RLS silenciosa. Quien escriba el
 -- cliente (Task B3) NO puede usar `.upsert()` contra esta tabla.
+--
+-- Ojo también con .select() SIN argumentos contra esta tabla: supabase-js lo traduce a select=*,
+-- que toca embedding y da 42501 aunque la escritura haya funcionado. Siempre columnas explícitas:
+-- .select('id'). El patrón establecido en el resto del proyecto (.select() pelado) acá NO sirve.
 
 create extension if not exists vector;
 
