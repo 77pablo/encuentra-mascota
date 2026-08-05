@@ -7,6 +7,7 @@ import { archivarReporte, getPet, Pet, renovarReporte } from '../services/pets';
 import { buscarCoincidencias, Coincidencia } from '../services/busqueda';
 import { porQueCoincide } from '../lib/porQueCoincide';
 import { calcularYGuardar, hayModeloDisponible } from '../services/vectorFoto';
+import { resumenSumarVector } from '../lib/vectorFoto';
 import { NudgeVigencia } from '../components/NudgeVigencia';
 import { PreguntaSiAparecio, seVaAPreguntar } from '../components/PreguntaSiAparecio';
 import { RespuestaCierre } from '../lib/cierreCasos';
@@ -571,6 +572,14 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // perro perdido sería el peor momento para hacerlo sin permiso.
   const sumarVectorDeFoto = async () => {
     if (!pet) return;
+    // `fotos` legado: el tipo dice `string[]` y la columna es `not null
+    // default '{}'` desde la 0001, pero una fila vieja escrita por afuera del
+    // camino normal (o un cache stale) podría traerla en `null` igual — sin
+    // este `?? []` el `.map` de abajo tira un TypeError que ninguna de las
+    // dos ramas de abajo atrapaba (el `try` no tenía `catch`, sólo `finally`:
+    // el error se propagaba sin avisar nada en pantalla).
+    const fotos = pet.fotos ?? [];
+    if (fotos.length === 0) return; // El botón ya no se dibuja sin fotos (ver el render), pero doble candado.
     const quiere = await confirmAction(
       'Sumar tus fotos al matching',
       'Esto descarga un modelo de reconocimiento de fotos en tu navegador (~40 MB la primera vez) y puede tardar unos segundos. Sirve para que, si alguien publica un animal parecido, la coincidencia lo tenga en cuenta. No es un buscador de fotos: no te asegura que la vayas a encontrar.',
@@ -578,14 +587,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
     if (!quiere) return;
     setCalculandoVector(true);
     try {
-      const resultados = await Promise.all(
-        pet.fotos.map((foto) => calcularYGuardar(pet.id, foto)),
-      );
-      if (resultados.some((ok) => ok)) {
-        notify('Listo', 'Tus fotos ya suman al matching.');
-      } else {
-        notify('No se pudo calcular', 'Probá de nuevo en un rato.');
-      }
+      const resultados = await Promise.all(fotos.map((foto) => calcularYGuardar(pet.id, foto)));
+      const exitos = resultados.filter((ok) => ok).length;
+      // `resumenSumarVector` (src/lib/vectorFoto.ts) es pura: dice la verdad
+      // sobre el éxito parcial (3 de 5 fotos) en vez de las dos únicas ramas
+      // de antes ("Listo" a secas u "No se pudo") que mentían en ese caso.
+      const { titulo, mensaje } = resumenSumarVector(exitos, resultados.length);
+      notify(titulo, mensaje);
+    } catch {
+      // Mismo criterio best-effort que `calcularYGuardar`: un tropiezo acá
+      // (por ejemplo, `fotos` null legado antes del guard de arriba, o
+      // cualquier otra excepción que escape a Promise.all) no puede romper la
+      // ficha. Antes de este fix no había `catch`, sólo `finally`.
+      notify('No se pudo calcular', 'Probá de nuevo en un rato.');
     } finally {
       setCalculandoVector(false);
     }
@@ -1412,8 +1426,13 @@ export default function PetDetailScreen({ route, navigation }: any) {
             No va en el camino de publicar (B1 lo cambió): bajar el modelo son
             ~40 MB la primera vez, así que es un botón explícito que avisa lo
             que va a pasar ANTES de hacerlo (ver `sumarVectorDeFoto`), nunca
-            algo automático ni un spinner misterioso. */}
-        {esMio && !reunida && hayModeloDisponible() ? (
+            algo automático ni un spinner misterioso.
+
+            `pet.fotos?.length > 0` (final fix B6): sin fotos, `Promise.all([])`
+            resuelve vacío al toque y el botón terminaba diciendo "Probá de
+            nuevo en un rato" sobre algo que reintentar jamás iba a arreglar —
+            no hay fotos que vectorizar. Sin fotos, la sección no se dibuja. */}
+        {esMio && !reunida && hayModeloDisponible() && (pet.fotos?.length ?? 0) > 0 ? (
           <Card style={styles.vectorCard}>
             <View style={styles.matchesHeader}>
               <Ionicons name="camera-outline" size={18} color={colors.brand} />

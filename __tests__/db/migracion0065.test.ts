@@ -130,6 +130,18 @@ describe('0065: la foto suma al motor de coincidencias', () => {
     expect(sql).toMatch(/f\.sim as foto_similitud/);
   });
 
+  it('B4: porque.foto sigue siendo booleano por umbral, no el coseno crudo (expresion completa)', () => {
+    // Guardián contra que alguien "simplifique" la expresión y termine
+    // proyectando `cand.foto_similitud` (el coseno exacto) en vez del
+    // booleano — exactamente el Critical que la cabecera de este archivo
+    // documenta como cerrado. `toContain` de la expresión COMPLETA, no un
+    // fragmento: un cambio en el umbral, en el guardián de NaN o en el nombre
+    // de la columna interna tiene que tumbar este test.
+    expect(sql).toContain(
+      "'foto', nullif(coalesce(nullif(cand.foto_similitud, 'NaN'::float8), 0) >= 0.75, false)",
+    );
+  });
+
   it('las 12 columnas de la 0058 siguen estando y en el mismo orden', () => {
     for (const col of ['id uuid', 'estado pet_estado', 'especie pet_especie', 'nombre text',
                        'descripcion text', 'fotos text[]', 'lat double precision',

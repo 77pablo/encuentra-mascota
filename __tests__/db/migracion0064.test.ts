@@ -124,4 +124,27 @@ describe('0064: vectores de foto', () => {
   it('no hay grant de delete para nadie', () => {
     expect(sql).not.toMatch(/grant[^;]*delete[^;]*on public\.pet_fotos_vector/);
   });
+
+  // ── B2 (final fix): tope y validación que la primera pasada no tenía ────
+  // `foto_url` no tenía tope de largo (una URL absurda podía colarse) y la
+  // tabla no tenía tope de filas por pet (las fotos POR REPORTE ya están
+  // acotadas en la app, pero nada impedía que `pet_fotos_vector` creciera sin
+  // límite si el cliente insertaba de más).
+
+  it('foto_url tiene tope de largo (CHECK)', () => {
+    expect(sql).toMatch(/check\s*\(\s*char_length\(foto_url\)\s*<=\s*500\s*\)/);
+  });
+
+  it('hay un trigger que limita las filas por pet', () => {
+    expect(sql).toMatch(/create trigger .*pet_fotos_vector/i);
+    expect(sql).toMatch(/before insert on public\.pet_fotos_vector/);
+  });
+
+  it('el trigger rechaza con una excepcion clara al superar el tope, no en silencio', () => {
+    const inicioFn = sql.indexOf('create or replace function public.pet_fotos_vector_tope');
+    expect(inicioFn).toBeGreaterThan(-1);
+    const cuerpoFn = sql.slice(inicioFn, sql.indexOf('$$;', inicioFn) + 3);
+    expect(cuerpoFn).toMatch(/raise exception/);
+    expect(cuerpoFn).toMatch(/12/);
+  });
 });

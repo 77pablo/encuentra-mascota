@@ -1908,8 +1908,16 @@ git commit -m "t14-B3: el vector se calcula en el navegador (B1 cerro las dos ru
   sobre el propio reporte, ~512 llamadas a la RPC reconstruyen el vector completo de la foto de un
   tercero, la propiedad que la 0064 existe para impedir. La similitud vive solo como columna
   **interna** de la CTE y lo único que sale es el booleano `porque.foto` (umbral 0.75) más el
-  puntaje ya sumado. El riesgo residual de 1 bit (sondear el umbral) se documenta en la cabecera
-  de la 0065, como se hizo con el chip. Las 12 columnas anteriores **no se mueven ni se renombran**:
+  puntaje ya sumado. ⚠️ **Corrección (Pablo, 5-ago):** el `puntaje` ya sumado NO es un riesgo de "1
+  bit" — es peor y hay que decirlo así. Restando de `puntaje` los términos que el llamador ya puede
+  calcular solo (sus propias señas, `distancia_km` que la misma RPC devuelve, y las señas públicas
+  de la víctima) queda `round((sim - 0.6) / 0.4 * 60)`: el coseno cuantizado a 61 niveles (~6 bits)
+  **por llamada**, incluso para `anon`. El atenuante que hace el impacto casi nulo: explotarlo pide
+  un ancla con `sim ≥ 0.6`, que solo se consigue con la foto pública de la víctima — y con esa foto
+  en la mano ya se puede calcular el embedding localmente (el mismo modelo CLIP que corre en el
+  navegador, `src/services/vectorFoto.ts`), sin pedirle nada a la RPC. Se acepta conscientemente por
+  eso, no porque el número sea chico. Análisis completo en la cabecera de la 0065.
+  Las 12 columnas anteriores **no se mueven ni se renombran**:
   `src/services/busqueda.ts` las lee por nombre y la 0058 es la definición vigente.
 
 ⚠️ Cambia el tipo de retorno ⇒ **`drop function` + `create` + re-grant**. `create or replace` no

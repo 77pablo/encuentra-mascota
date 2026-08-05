@@ -35,3 +35,25 @@ export function esVectorValido(v: unknown): v is number[] {
   if (!Array.isArray(v) || v.length !== DIMENSIONES) return false;
   return v.every((x) => typeof x === 'number' && Number.isFinite(x));
 }
+
+// EL MENSAJE DEL BOTÓN "Sumar mis fotos" (PetDetailScreen), final fix B6.
+// `calcularYGuardar` es best-effort por foto: con varias fotos, algunas
+// pueden sumar y otras no (una caída de red a mitad de camino, por ejemplo).
+// Antes sólo existían "todas" ("Listo") o "ninguna" ("No se pudo calcular,
+// probá de nuevo") — el caso de en medio (3 de 5) caía en la rama de éxito
+// total y mentía sobre las 2 que fallaron.
+export function resumenSumarVector(
+  exitos: number,
+  total: number,
+): { titulo: string; mensaje: string } {
+  if (total === 0 || exitos === total) {
+    return { titulo: 'Listo', mensaje: 'Tus fotos ya suman al matching.' };
+  }
+  if (exitos === 0) {
+    return { titulo: 'No se pudo calcular', mensaje: 'Probá de nuevo en un rato.' };
+  }
+  return {
+    titulo: 'Listo a medias',
+    mensaje: `Sumamos ${exitos} de ${total} fotos. Probá de nuevo más tarde con el resto.`,
+  };
+}

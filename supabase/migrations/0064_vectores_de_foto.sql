@@ -66,13 +66,46 @@ create extension if not exists vector;
 create table public.pet_fotos_vector (
   id uuid primary key default gen_random_uuid(),
   pet_id uuid not null references public.pets(id) on delete cascade,
-  foto_url text not null,
+  -- Tope de largo (final fix de la tanda 14, B2): sin él, una URL absurda
+  -- podía colarse — la tabla no tiene ningún otro filtro sobre `foto_url`,
+  -- que llega tal cual del cliente.
+  foto_url text not null check (char_length(foto_url) <= 500),
   embedding vector(512) not null,
   creado_en timestamptz not null default now(),
   unique (pet_id, foto_url)
 );
 
 create index pet_fotos_vector_pet_idx on public.pet_fotos_vector (pet_id);
+
+-- Tope de FILAS por pet (final fix de la tanda 14, B2). Las fotos POR REPORTE
+-- ya están acotadas en la app (`pets.fotos`, tope de 5 en el formulario), pero
+-- esta tabla no tenía ningún tope propio: cada `foto_url` distinta es una fila
+-- nueva (no hay upsert, ver la cabecera de arriba), así que un reporte con
+-- fotos reemplazadas muchas veces podía acumular filas sin límite. 12 deja
+-- margen de sobra sobre las 5 fotos que un reporte puede tener a la vez,
+-- para cubrir reemplazos legítimos, y rechaza con una excepción clara — no en
+-- silencio — cuando alguien insiste más allá de eso.
+create or replace function public.pet_fotos_vector_tope()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  n int;
+begin
+  select count(*) into n from public.pet_fotos_vector where pet_id = new.pet_id;
+  if n >= 12 then
+    raise exception 'Este reporte ya tiene 12 fotos vectorizadas: es el tope.'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pet_fotos_vector_tope_trigger
+  before insert on public.pet_fotos_vector
+  for each row execute function public.pet_fotos_vector_tope();
 
 alter table public.pet_fotos_vector enable row level security;
 

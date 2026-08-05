@@ -30,7 +30,20 @@ async function crearPipeline(): Promise<any> {
 }
 
 function cargarPipeline(): Promise<any> {
-  if (!pipelinePromise) pipelinePromise = crearPipeline();
+  if (!pipelinePromise) {
+    // Si `crearPipeline()` rechaza (red caída, WASM que no inicializa), NO
+    // hay que cachear la promesa RECHAZADA para siempre: sin este `.catch`,
+    // `pipelinePromise` queda apuntando a una promesa ya resuelta (en
+    // rechazo), y CUALQUIER llamada futura -- aunque la red ya haya vuelto --
+    // hereda ese mismo rechazo sin volver a intentar la descarga. Se limpia
+    // el slot a `null` para que el próximo `cargarPipeline()` dispare una
+    // carga de verdad, y se relanza el error para que ESTA llamada siga
+    // fallando como corresponde.
+    pipelinePromise = crearPipeline().catch((e) => {
+      pipelinePromise = null;
+      throw e;
+    });
+  }
   return pipelinePromise;
 }
 

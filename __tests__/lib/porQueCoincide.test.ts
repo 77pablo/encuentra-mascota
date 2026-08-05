@@ -42,4 +42,14 @@ describe('vector de foto — no automático (B5, guardián del pivot de B1)', ()
       require('path').join(__dirname, '..', '..', 'src', 'services', 'pets.ts'), 'utf8');
     expect(pets).not.toMatch(/calcularYGuardar/);
   });
+
+  // Mismo guardián, sumado a PublishScreen.tsx (final fix de la tanda 14,
+  // B5): es la pantalla que arma el `insert` de un reporte nuevo, así que es
+  // el otro lugar obvio donde alguien podría "optimizar" el disparo
+  // automático sin tocar pets.ts y esquivar el test de arriba.
+  it('tampoco se calcula solo desde PublishScreen (el otro lugar obvio para colarlo)', () => {
+    const publishScreen = require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'src', 'screens', 'PublishScreen.tsx'), 'utf8');
+    expect(publishScreen).not.toMatch(/calcularYGuardar/);
+  });
 });

@@ -21,16 +21,41 @@
 -- no es un problema nuevo, es esta misma funcion reabriendo la puerta que la
 -- 0064 cerro.
 --
--- RIESGO RESIDUAL ACEPTADO: `porque.foto` (booleano, umbral 0.75) SI sale, y
--- es en si mismo un oraculo de 1 bit — sondeo adaptativo del umbral (una
--- busqueda binaria por coordenada sobre el vector plantado) reconstruye la
--- misma informacion, pero necesita del orden de 10x mas llamadas por
--- coordenada que leer el flotante directo. Se acepta explicitamente, con la
--- misma disciplina que el chip (`chip_coincide` es booleano por la misma
--- razon exacta: ver el comentario de `es_mio`/`chip_norm` mas abajo). Subir
--- el costo de ~512 a ~5000+ llamadas HTTP no lo vuelve imposible, pero lo
--- saca del rango de "un script de una tarde", que es la misma frontera que
--- el resto del proyecto acepta para otros oraculos de 1 bit.
+-- RIESGO RESIDUAL ACEPTADO, version honesta (decision de Pablo, 5-ago, tras
+-- una revision que encontro que la version anterior de este parrafo estaba
+-- MAL medida — decia "1 bit" y no lo es).
+--
+-- `puntaje` SI sale de la funcion (columna del `returns table`, siempre
+-- salio, no es nuevo de esta migracion), y es la suma de `senas_puntaje(...)`
+-- mas el termino de la foto. Todos los argumentos de `senas_puntaje` para el
+-- llamador son COMPUTABLES desde afuera sin pedirle nada a la base: las
+-- propias señas de `b` (su reporte, las eligio el mismo), `distancia_km`
+-- (columna que esta MISMA funcion ya devuelve) y las señas de `p` (el
+-- candidato), que son publicas — se muestran en la ficha del reporte, igual
+-- que color y tamaño en cualquier publicacion de "encontre" o "perdi". Restar
+-- `senas_puntaje` de `puntaje` deja exactamente:
+--   round((sim - 0.6) / 0.4 * 60)
+-- El coseno CRUDO cuantizado a 61 niveles (0..60, ~6 bits) POR LLAMADA, y sin
+-- necesitar sesion: `anon` puede llamar esta funcion igual que cualquiera.
+-- Eso NO es un oraculo de 1 bit: es un oraculo de ~6 bits por llamada, unas
+-- 85 veces mas rapido para reconstruir el embedding ajeno que sondear
+-- `porque.foto` con busqueda binaria (que si daria 1 bit por llamada).
+--
+-- EL ATENUANTE QUE HACE EL IMPACTO CASI NULO, y por que se acepta de todos
+-- modos: explotar esto pide un ANCLA con `sim >= 0.6` para arrancar el
+-- sondeo adaptativo del vector plantado (con `sim` fuera de ese rango
+-- `puntaje` ya no se mueve: `greatest(0, ...)` lo clava en cero). La UNICA
+-- forma de conseguir esa ancla contra el reporte de una victima concreta es
+-- tener SU foto publica — la misma foto que cualquiera ve en la ficha del
+-- reporte. Y con la foto publica en la mano, quien atacaria ya puede correr
+-- el mismo modelo CLIP en su navegador (exactamente lo que hace esta app,
+-- ver `src/services/vectorFoto.ts`) y calcular el embedding LOCALMENTE, sin
+-- pedirle nada a la RPC. El oraculo no le da a un atacante ninguna
+-- informacion que no pudiera sacar ya, mas rapido, sin dejar 512 llamadas en
+-- ningun log. Por eso se acepta conscientemente: el numero es peor de lo que
+-- decia esta cabecera antes, pero el camino de explotacion real no se abre
+-- con el, sino con la foto publica misma — que es el dato que la app siempre
+-- mostro.
 --
 -- CAMBIA EL TIPO DE RETORNO ⇒ `create or replace` no alcanza (trampa
 -- documentada en la 0024 y repetida en la 0059: un `create or replace` no

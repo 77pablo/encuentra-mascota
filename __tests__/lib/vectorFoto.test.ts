@@ -1,4 +1,4 @@
-import { coseno, DIMENSIONES, esVectorValido, normalizar } from '../../src/lib/vectorFoto';
+import { coseno, DIMENSIONES, esVectorValido, normalizar, resumenSumarVector } from '../../src/lib/vectorFoto';
 
 describe('normalizar', () => {
   it('deja el vector con norma 1', () => {
@@ -74,4 +74,53 @@ it('nunca upsert contra pet_fotos_vector: exige SELECT sobre embedding y da 4250
 it('nunca .select() pelado contra pet_fotos_vector: select=* toca embedding y da 42501', () => {
   // Todo .select( de este archivo tiene que llevar columnas explicitas.
   expect(fuenteServicio()).not.toMatch(/\.select\(\s*\)/);
+});
+
+// B3 (final fix de la tanda 14): un fallo al cargar el pipeline no puede
+// quedar cacheado para siempre. NO se pudo probar el comportamiento real de
+// principio a fin (ver __tests__/lib/compartirTarjeta.test.ts, comentario
+// idéntico para `import('expo-sharing')`): este entorno de test (jest-expo
+// sin --experimental-vm-modules) no puede invocar un `await import(...)`
+// dinámico en absoluto, así que CUALQUIER llamada a `cargarPipeline` explota
+// en el import mismo, antes de llegar al bug — no hay forma de armar un caso
+// "falla y despues funciona" contra el código real. Este test ata la FORMA
+// del arreglo en el código fuente en su lugar.
+it('cargarPipeline limpia el slot cacheado si la carga falla, para poder reintentar', () => {
+  const fuente = fuenteServicio();
+  const inicio = fuente.indexOf('function cargarPipeline');
+  const fin = fuente.indexOf('\n}', inicio);
+  expect(inicio).toBeGreaterThan(-1);
+  const cuerpo = fuente.slice(inicio, fin);
+  expect(cuerpo).toMatch(/\.catch\(/);
+  expect(cuerpo).toMatch(/pipelinePromise\s*=\s*null/);
+});
+
+describe('resumenSumarVector', () => {
+  it('todas las fotos sumaron: mensaje de éxito llano', () => {
+    expect(resumenSumarVector(5, 5)).toEqual({
+      titulo: 'Listo',
+      mensaje: 'Tus fotos ya suman al matching.',
+    });
+  });
+
+  it('ninguna sumó: invita a reintentar', () => {
+    expect(resumenSumarVector(0, 5)).toEqual({
+      titulo: 'No se pudo calcular',
+      mensaje: 'Probá de nuevo en un rato.',
+    });
+  });
+
+  it('éxito parcial: lo dice tal cual, ni "Listo" ni "No se pudo" mentirían', () => {
+    const r = resumenSumarVector(3, 5);
+    expect(r.titulo).not.toBe('Listo');
+    expect(r.titulo).not.toBe('No se pudo calcular');
+    expect(r.mensaje).toMatch(/3/);
+    expect(r.mensaje).toMatch(/5/);
+  });
+
+  it('total 0 (sin fotos) no dice "no se pudo": no hay nada que reintentar', () => {
+    // El botón ya no se dibuja sin fotos (PetDetailScreen), pero la función
+    // pura igual queda bien definida ante ese caso límite.
+    expect(resumenSumarVector(0, 0).titulo).toBe('Listo');
+  });
 });
