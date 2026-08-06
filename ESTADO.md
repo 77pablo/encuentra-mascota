@@ -1,30 +1,40 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (5-ago-2026, noche — TANDA 14 DESPLEGADA; falta aplicar la 0067 y resubir el dist)
+## 👉 DÓNDE RETOMAR (6-ago-2026 — checklist con sesión CORRIDA; el botón de la foto estaba ROTO y ya está arreglado; falta el token para la 0067 y resubir el dist)
 
-**Rama `feat/t13`, HEAD `fa4405c`. Suite: tsc 0, jest 220 suites / 3019 tests, exit 0 real.**
-La tanda 14 está **en producción y verificada**. Lo que queda son tres cosas concretas, abajo.
+**Rama `feat/t13`. Suite: tsc 0, jest 220 suites / 3021 tests, exit 0 real (PIPESTATUS).**
 
-### ⚠️ LO PRIMERO AL RETOMAR — dos cosas que necesitan a Pablo
+### ⚠️ LO QUE QUEDA — dos cosas que necesitan a Pablo
 
 1. **Token nuevo de Supabase** (<https://supabase.com/dashboard/account/tokens>), **pegado en el
    chat, NO guardado en OneDrive** (ya pasó tres veces: el archivo se sincroniza a la nube). El
    anterior quedó revocado, que es lo correcto. Se necesita para aplicar la `0067`.
    → Con el token: ensayar la `0067` en `begin…rollback`, aplicarla, correr los ataques.
-2. **Resubir el `dist`** DESPUÉS de aplicar la 0067: esa migración **toca el cliente**
-   (`src/services/tips.ts`), así que el bundle que está arriba hoy quedaría desincronizado.
-   Re-exportar con `npx expo export --platform web` y arrastrar `dist` a Cloudflare Pages.
+2. **Resubir el `dist`** DESPUÉS de aplicar la 0067. El `dist/` que está en el disco **ya está
+   re-exportado con todo** (cliente de la 0067 + arreglo del vector de foto): solo arrastrarlo a
+   Cloudflare Pages cuando la 0067 esté aplicada.
 
-### 🔍 LO TERCERO — la checklist CON SESIÓN (nadie la corrió todavía)
+### ✅ Checklist CON SESIÓN — CORRIDA el 6-ago (Playwright contra producción, cuenta de prueba)
 
-Entrar a <https://encuentras-mascota.pages.dev> con cuenta propia y probar:
-- **Tablero de difusión** en la ficha de un reporte propio: agregar una veterinaria y confirmar que
-  aparece **con su NOMBRE**, no como "Destino" (era el Critical de la revisión final; hay 301
-  veterinarias cargadas en la RM). Marcar una como avisada. Ver la atribución OSM abajo.
-- **Botón de la foto** (solo web, avisa ~40 MB): es la PRIMERA ejecución real de transformers.js en
-  un navegador, y también prueba el CORS del bucket público hacia el origin del sitio.
-- **Mapa**: clic en la **×** del globito NO debe navegar; clic en el cuerpo SÍ (y también al
-  reabrirlo); arrastrar el pin en "agregar avistamiento" debe mover las coordenadas.
+- **Tablero de difusión: TODO PASA.** La veterinaria sugerida se agregó **con su nombre real**
+  ("Clínica Veterinaria Vida Sana", no "Destino"), marcar como avisada la pasa a "Ya avisados"
+  con `aria-checked=true`, y la atribución "© colaboradores de OpenStreetMap" está visible.
+- **Mapa: TODO PASA.** La × del globito cierra SIN navegar; el cuerpo del popup (también
+  reabierto) SÍ navega a la ficha; el pin de "Lo vi por acá" arrastrado movió las coordenadas
+  del POST real (~3,2 km del punto original). 0 errores JS en todo el recorrido.
+- **Botón de la foto: FALLABA EN PRODUCCIÓN → arreglado (6-ago).** La primera ejecución real
+  de transformers.js moría al instante con "No se pudo calcular". Causa (cazada con CDP
+  pause-on-exceptions, el `catch {}` best-effort la tragaba): el runtime webpack del paquete
+  exige `import.meta.url` al EVALUAR el módulo y Metro no lo provee → "Automatic publicPath is
+  not supported in this browser" antes de pedir un byte del modelo. Arreglo: el build ESM
+  oficial vendoreado en `public/vendor/transformers.min.js` (test compara los bytes contra
+  node_modules) y `crearPipeline` lo carga con el **import() nativo del navegador** vía
+  `new Function` (fuera del alcance de Metro). Verificado E2E contra el `dist` compilado:
+  import nativo 200 → modelo desde HuggingFace → wasm desde jsdelivr → foto del bucket con
+  CORS OK → **insert 201 en `pet_fotos_vector`** → "Listo. Tus fotos ya suman al matching."
+  en 15 s, 0 errores JS. (De paso quedó probado el CORS del bucket, el otro objetivo.)
+- Datos de prueba borrados (reporte "Prueba Técnica" + avistamientos + tablero + vector, por
+  el borrado en cascada desde Perfil). Queda a propósito el reporte viejo "Perro" de Pablo.
 
 ### ✅ Lo que YA se desplegó y se verificó ejecutándolo (5-ago)
 

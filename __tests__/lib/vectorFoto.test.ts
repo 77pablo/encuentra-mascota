@@ -54,7 +54,32 @@ it('el modelo se importa dinamico: no entra al bundle de quien nunca lo usa', ()
   const fuente = fuenteServicio();
   // Un import estatico de la libreria mete ~40 MB en el bundle de TODOS.
   expect(fuente).not.toMatch(/^import [^\n]*@huggingface\/transformers/m);
-  expect(fuente).toMatch(/await import\(/);
+});
+
+// 6-ago-2026, primera ejecucion real en un navegador: `import('@huggingface/
+// transformers')` compilado por Metro LANZA al evaluar el modulo ("Automatic
+// publicPath is not supported in this browser") porque el runtime webpack del
+// paquete exige `import.meta.url` y Metro no lo provee. La carga tiene que ser
+// el import() NATIVO del navegador (via new Function, fuera del alcance de
+// Metro) sobre el build ESM oficial servido desde nuestro origen.
+it('la libreria se carga con import() nativo del navegador, no via Metro', () => {
+  const fuente = fuenteServicio();
+  expect(fuente).not.toMatch(/import\(\s*['"]@huggingface\/transformers['"]\s*\)/);
+  expect(fuente).toMatch(/new Function\([^)]*import\(/);
+  expect(fuente).toMatch(/\/vendor\/transformers\.min\.js/);
+});
+
+// El archivo vendoreado tiene que SER el build oficial instalado: si alguien
+// actualiza el paquete y no re-copia el archivo, este test lo dice.
+it('public/vendor/transformers.min.js es identico al build de node_modules', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const raiz = path.join(__dirname, '..', '..');
+  const vendoreado = fs.readFileSync(path.join(raiz, 'public', 'vendor', 'transformers.min.js'));
+  const oficial = fs.readFileSync(
+    path.join(raiz, 'node_modules', '@huggingface', 'transformers', 'dist', 'transformers.min.js'),
+  );
+  expect(vendoreado.equals(oficial)).toBe(true);
 });
 
 it('en nativo dice que no hay modelo, en vez de fallar al usarse', () => {

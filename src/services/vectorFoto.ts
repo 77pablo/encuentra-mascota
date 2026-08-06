@@ -22,10 +22,27 @@ let pipelinePromise: Promise<any> | null = null;
 
 const MODELO = 'Xenova/clip-vit-base-patch32';
 
+// Build ESM oficial de la libreria, copiado VERBATIM de node_modules a
+// public/vendor (hay un test que compara los bytes). Se sirve desde nuestro
+// origen y se carga con el import() NATIVO del navegador, nunca via Metro.
+const URL_LIBRERIA = '/vendor/transformers.min.js';
+
 async function crearPipeline(): Promise<any> {
-  // Import DINAMICO: un `import` estatico arriba del archivo mete ~40 MB en
-  // el bundle de TODOS, incluida la persona que jamas publica una foto.
-  const { pipeline } = await import('@huggingface/transformers');
+  // POR QUE NO un import dinamico del paquete a secas: probado en produccion
+  // (6-ago-2026), el modulo compilado por Metro LANZA al evaluarse — el
+  // runtime webpack del paquete exige `import.meta.url` para deducir desde
+  // donde cargar sus .wasm, Metro no lo provee, y el paquete tira "Automatic
+  // publicPath is not supported in this browser" antes de pedir un solo byte
+  // del modelo. En un import() nativo `import.meta.url` existe de verdad, el
+  // publicPath queda apuntando a /vendor/ y los .wasm salen del CDN que la
+  // libreria trae por defecto. `new Function` esquiva la reescritura de
+  // Metro (un import() literal aca se compila a require del bundle, que es
+  // justo el camino roto). Esto solo corre en web (ver hayModeloDisponible),
+  // asi que el eval-like no toca nativo ni los tests.
+  const importNativo = new Function('url', 'return import(url)') as (
+    url: string,
+  ) => Promise<any>;
+  const { pipeline } = await importNativo(URL_LIBRERIA);
   return pipeline('image-feature-extraction', MODELO);
 }
 
