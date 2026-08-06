@@ -23,6 +23,19 @@ describe('porQueCoincide', () => {
     expect(r.join(' ')).not.toMatch(/es tu mascota|es la tuya|seguro que/i);
   });
 
+  // La regla del tono alcanza tambien al banner PREEXISTENTE del chip (t12),
+  // que decia "Casi seguro es tu mascota": el numero de chip lo TIPEAN los
+  // usuarios de los dos lados, y un dedo cambiado le afirmaria identidad a la
+  // familia equivocada. Decision de Pablo (6-ago, tanda 15): el banner dice el
+  // hecho y que hacer, sin afirmar. Este test mira la PANTALLA porque el texto
+  // del banner no pasa por porQueCoincide.
+  it('el banner del chip en PetDetailScreen tampoco afirma identidad', () => {
+    const pantalla = require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'src', 'screens', 'PetDetailScreen.tsx'), 'utf8');
+    expect(pantalla).not.toMatch(/[Cc]asi seguro|es tu mascota/);
+    expect(pantalla).toMatch(/chip coincide con el tuyo/i);
+  });
+
   it('ignora las claves en false y las desconocidas', () => {
     expect(porQueCoincide({ color: false, inventada: true } as any)).toEqual([]);
   });

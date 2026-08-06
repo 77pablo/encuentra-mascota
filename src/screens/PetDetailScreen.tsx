@@ -1382,9 +1382,15 @@ export default function PetDetailScreen({ route, navigation }: any) {
                   <View key={m.id}>
                     {/* EL CHIP COINCIDE (0054). La RPC ya los pone primero. Acá
                         se dice, porque si no esta tarjeta se ve idéntica a las
-                        otras diez y la persona la puede pasar de largo — y de
-                        todas las coincidencias que produce el motor, esta es la
-                        única que es casi una certeza.
+                        otras diez y la persona la puede pasar de largo — es la
+                        señal más fuerte que produce el motor.
+
+                        SIN afirmar identidad (decisión de Pablo, 6-ago): el
+                        número de chip lo TIPEAN los usuarios de los dos lados,
+                        y un dedo cambiado le afirmaría identidad a la familia
+                        equivocada. El banner dice el hecho y qué hacer; la
+                        certeza la pone la persona mirando las fotos. La guarda
+                        de tono vive en porQueCoincide.test.ts.
 
                         Lo que llega es SOLO el booleano: el número de chip no
                         sale de la base, por nadie. */}
@@ -1392,7 +1398,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
                       <View style={styles.chipMatchAviso}>
                         <Ionicons name="shield-checkmark" size={16} color={colors.found} />
                         <AppText size={13} weight="bold" color={colors.found} style={styles.chipMatchTexto}>
-                          El chip coincide con el tuyo. Casi seguro es tu mascota.
+                          El número de chip coincide con el tuyo. Miralo primero y confirmalo con las fotos.
                         </AppText>
                       </View>
                     ) : null}

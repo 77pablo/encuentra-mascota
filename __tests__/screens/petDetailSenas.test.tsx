@@ -218,7 +218,7 @@ describe('la coincidencia por chip se distingue de las demás', () => {
   it('lo dice cuando el chip coincide', async () => {
     mockMatches = [match({ chip_coincide: true, puntaje: 1019 })];
     const arbol = await montar();
-    expect(textoDe(arbol)).toContain('El chip coincide');
+    expect(textoDe(arbol)).toContain('chip coincide con el tuyo');
   });
 
   it('NO lo dice cuando no coincide', async () => {
@@ -227,13 +227,13 @@ describe('la coincidencia por chip se distingue de las demás', () => {
     // exactamente el daño que esta función viene a reducir.
     mockMatches = [match({ chip_coincide: false, puntaje: 19 })];
     const arbol = await montar();
-    expect(textoDe(arbol)).not.toContain('El chip coincide');
+    expect(textoDe(arbol)).not.toContain('chip coincide con el tuyo');
   });
 
   it('tampoco cuando la RPC vieja ni siquiera devuelve el campo', async () => {
     mockMatches = [match({})];
     const arbol = await montar();
-    expect(textoDe(arbol)).not.toContain('El chip coincide');
+    expect(textoDe(arbol)).not.toContain('chip coincide con el tuyo');
   });
 
   it('nunca aparece un número de chip en pantalla', async () => {
