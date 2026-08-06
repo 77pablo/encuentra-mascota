@@ -1,18 +1,26 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (6-ago-2026 — checklist con sesión CORRIDA; el botón de la foto estaba ROTO y ya está arreglado; falta el token para la 0067 y resubir el dist)
+## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067 APLICADA; falta SOLO subir el dist y revocar el token)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 220 suites / 3021 tests, exit 0 real (PIPESTATUS).**
+**Rama `feat/t13`. Suite: tsc 0, jest 221 suites / 3039 tests, exit 0 real (PIPESTATUS).**
 
-### ⚠️ LO QUE QUEDA — dos cosas que necesitan a Pablo
+### ⚠️ LO QUE QUEDA — dos cosas de Pablo, en este orden
 
-1. **Token nuevo de Supabase** (<https://supabase.com/dashboard/account/tokens>), **pegado en el
-   chat, NO guardado en OneDrive** (ya pasó tres veces: el archivo se sincroniza a la nube). El
-   anterior quedó revocado, que es lo correcto. Se necesita para aplicar la `0067`.
-   → Con el token: ensayar la `0067` en `begin…rollback`, aplicarla, correr los ataques.
-2. **Resubir el `dist`** DESPUÉS de aplicar la 0067. El `dist/` que está en el disco **ya está
-   re-exportado con todo** (cliente de la 0067 + arreglo del vector de foto): solo arrastrarlo a
-   Cloudflare Pages cuando la 0067 esté aplicada.
+1. **Arrastrar el `dist` a Cloudflare Pages YA** — la 0067 está aplicada y el bundle online
+   viejo pide `user_id` sin sesión: hasta subir, la ficha pública muestra las pistas vacías.
+   El `dist/` del disco trae todo: cliente de la 0067 + arreglo del vector + salteo de onboarding.
+2. **Revocar el token** `sbp_9fc…f390` en <https://supabase.com/dashboard/account/tokens>
+   (quedó pegado en el chat, que era el protocolo — pero un token usado se revoca igual).
+
+### ✅ Migración `0067` APLICADA y verificada (6-ago)
+
+Ensayo previo en `begin…rollback` contra la base real (asserts de catálogo: anon 0 privilegios
+de tabla, exactamente 4 columnas de select sin `user_id`/`oculto`, authenticated intacto,
+public limpio) y **rollback comprobado sin residuo** (anon volvía a tener los 7 privilegios).
+Aplicada con los mismos asserts después del commit. Ataques por HTTP como `anon` (el camino
+real): `select=user_id` → **42501**, `select=*` → **42501**; controles: las 4 columnas
+públicas → 200, `user_id` CON sesión → 200 (el filtro de bloqueos y la firma siguen vivos),
+`perfil_publico` con sesión → 200. La cadena de deanonimización de la 0012 quedó cortada.
 
 ### ✅ Checklist CON SESIÓN — CORRIDA el 6-ago (Playwright contra producción, cuenta de prueba)
 
