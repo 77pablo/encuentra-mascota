@@ -8,7 +8,7 @@
 
 1. **Arrastrar el `dist` a Cloudflare Pages YA** — la 0067 está aplicada y el bundle online
    viejo pide `user_id` sin sesión: hasta subir, la ficha pública muestra las pistas vacías.
-   El `dist/` del disco trae todo: cliente de la 0067 + arreglo del vector + salteo de onboarding.
+   El `dist/` del disco trae todo: cliente de la 0067 + arreglo del vector + salteo de onboarding + banner del chip sin afirmar identidad (re-exportado, bundle `index-87609b87…`).
 2. **Revocar el token** `sbp_9fc…f390` en <https://supabase.com/dashboard/account/tokens>
    (quedó pegado en el chat, que era el protocolo — pero un token usado se revoca igual).
 
