@@ -16,6 +16,12 @@ export interface Pet {
   lat: number;
   lng: number;
   recompensa: string | null;
+  // Tipo "robada" (migración 0068): marca, NO estado. Una robada tiene
+  // `estado='perdida'` + `robada=true`. OPCIONAL como los demás campos que
+  // dependen de una migración (renovado_en, reunida_en): getPet lee con
+  // select('*'), así que sin la 0068 la clave no llega. Los consumidores usan
+  // `if (pet.robada)`, que trata ausente/false igual.
+  robada?: boolean;
   activo: boolean;
   oculto: boolean;
   creado_en: string;
@@ -76,6 +82,7 @@ export interface Pet {
 const GRUPOS_OPCIONALES: readonly (readonly string[])[] = [
   ['ambito'], // migración 0046
   ['colores', 'tamano', 'sexo', 'esterilizado'], // migración 0054
+  ['robada'], // migración 0068
 ];
 
 /**
@@ -103,6 +110,10 @@ function opcionalesDe(input: PetInput): Record<string, unknown> {
   if (input.tamano) extras.tamano = input.tamano;
   if (input.sexo) extras.sexo = input.sexo;
   if (input.esterilizado) extras.esterilizado = input.esterilizado;
+  // Solo se manda cuando es true: la columna es `not null default false`, así
+  // que omitirla guarda false. Va en el grupo opcional (GRUPOS_OPCIONALES) para
+  // que un base sin la 0068 no rebote el insert entero.
+  if (input.robada) extras.robada = true;
   return extras;
 }
 
@@ -128,7 +139,7 @@ export async function createPet(
   // Los campos que pueden no existir en la base salen del resto a propósito:
   // `ambito` (0046) y las cuatro señas estructuradas (0054). Todo lo demás va
   // siempre. Ver GRUPOS_OPCIONALES.
-  const { ambito, colores, tamano, sexo, esterilizado, ...resto } = input;
+  const { ambito, colores, tamano, sexo, esterilizado, robada, ...resto } = input;
   const fila = { ...resto, lat, lng, fotos, user_id: userId, origen_my_pet: origenMyPet ?? null };
   const insertar = (datos: Record<string, unknown>) =>
     supabase.from('pets').insert(datos).select().single();
@@ -248,6 +259,7 @@ export async function updatePet(
       | 'tamano'
       | 'sexo'
       | 'esterilizado'
+      | 'robada'
     >
   >,
 ): Promise<void> {

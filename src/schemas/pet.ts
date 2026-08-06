@@ -32,6 +32,11 @@ export const petSchema = z.object({
   tamano: z.enum(TAMANOS).optional(),
   sexo: z.enum(SEXOS).optional(),
   esterilizado: z.enum(ESTERILIZADOS).optional(),
+  // Tipo "robada" (migración 0068): una mascota robada sigue siendo
+  // `estado='perdida'` (no un tercer estado); esto solo cambia la etiqueta y la
+  // guía. Opcional como las señas: si la 0068 no está aplicada, `createPet`
+  // reintenta sin ella y el reporte se publica igual (como no-robada).
+  robada: z.boolean().optional(),
 });
 
 export type PetInput = z.infer<typeof petSchema>;
