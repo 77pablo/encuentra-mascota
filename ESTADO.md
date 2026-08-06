@@ -36,6 +36,19 @@
 - Datos de prueba borrados (reporte "Prueba Técnica" + avistamientos + tablero + vector, por
   el borrado en cascada desde Perfil). Queda a propósito el reporte viejo "Perro" de Pablo.
 
+### ✅ Deep links saltean el onboarding (6-ago, aprobado por Pablo, spec `2026-08-06-deep-links-sin-onboarding-design.md`)
+
+El QR del collar (y todo link público: `/mascota`, `/collar`, `/adopcion`, `/cuadrilla`) ya NO
+aterriza en el tutorial de 4 pantallas: el contenido va primero y la bienvenida queda pendiente
+para la próxima visita normal (el flag no se marca). Las rutas se derivan del MISMO objeto que
+usa el `NavigationContainer` (`src/navigation/linkingConfig.ts`, nuevo) vía
+`src/lib/deepLinks.ts` (puro) — sin lista paralela. Verificado E2E contra el `dist` compilado
+con localStorage virgen: deep link → mensaje del reporte (sin onboarding, flag sin marcar),
+portada después del link → onboarding, portada virgen (control) → onboarding; 0 errores JS.
+**Suite: 220+1 suites / 3039 tests, tsc 0.** ⚠️ Dato de entorno: `wrangler pages dev` HOY
+CUELGA todas las requests en esta máquina (workerd ni las loguea; antes funcionaba) — el E2E
+se hizo con un servidor estático con fallback SPA; el `_worker.js` no cambió en esta tanda.
+
 ### ✅ Lo que YA se desplegó y se verificó ejecutándolo (5-ago)
 
 - **Migraciones `0063`→`0064`→`0065`→`0066` APLICADAS**, cada una precedida por su ensayo en

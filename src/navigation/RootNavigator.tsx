@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { NavigationContainer, LinkingOptions, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -23,30 +23,24 @@ import MicrochipScreen from '../screens/MicrochipScreen';
 import LegalScreen from '../screens/LegalScreen';
 import { getOnboardingVisto } from '../lib/onboarding';
 import { navigationRef, consumirDestinoPendiente } from '../lib/navigationRef';
+import { linkingScreens } from './linkingConfig';
+import { esRutaDeLinkPublico, rutasDeLinkPublico } from '../lib/deepLinks';
 
 const Stack = createNativeStackNavigator();
 
 // Habilita abrir "<origen>/mascota/:id" (link compartido de un reporte) sin
 // depender de que haya sesión iniciada: MascotaPublica se registra siempre en
 // el stack raíz, independientemente de la rama de sesión/recuperación.
+// Las rutas viven en ./linkingConfig: también las consume el salteo del
+// onboarding de abajo, y derivar de un único objeto evita la lista paralela.
 const linking: LinkingOptions<any> = {
   prefixes: [Linking.createURL('/'), ...(typeof window !== 'undefined' ? [window.location.origin] : [])],
   config: {
-    screens: {
-      MascotaPublica: 'mascota/:id',
-      // Página pública del collar (Función 2). Se abre por el QR de la placa,
-      // en modo invitado, igual que MascotaPublica.
-      Collar: 'collar/:token',
-      // Detalle público de una publicación de adopción, mismo trato que
-      // MascotaPublica/Collar: alcanzable por link compartido sin sesión.
-      AdopcionDetail: 'adopcion/:id',
-      // Invitación a la cuadrilla (Tanda 10). El link llega por WhatsApp y se
-      // abre en modo invitado: la vista previa es anónima a propósito (grant a
-      // `anon` en la 0048). Sumarse sí pide cuenta.
-      Cuadrilla: 'cuadrilla/:token',
-    },
+    screens: linkingScreens,
   },
 };
+
+const RUTAS_PUBLICAS = rutasDeLinkPublico(linkingScreens);
 
 export default function RootNavigator() {
   const { loading, recovering } = useAuth();
@@ -58,7 +52,35 @@ export default function RootNavigator() {
     getOnboardingVisto().then(setOnboardingVistoState);
   }, []);
 
-  if (loading || onboardingVisto === null) {
+  // ¿La URL inicial es una ruta pública de link (QR del collar, reporte
+  // compartido, adopción, cuadrilla)? Entonces el contenido va PRIMERO y el
+  // onboarding se saltea SIN marcarse visto (decisión de Pablo, spec
+  // 2026-08-06): la bienvenida queda pendiente para la próxima visita normal.
+  // En web se sabe sincrónico; en nativo se resuelve async y mientras tanto
+  // vale el mismo spinner del arranque. Ante cualquier fallo, `false` = el
+  // comportamiento de siempre (onboarding), nunca romper.
+  const [llegoPorLink, setLlegoPorLink] = useState<boolean | null>(() => {
+    if (Platform.OS !== 'web') return null;
+    try {
+      return esRutaDeLinkPublico(window.location.pathname, RUTAS_PUBLICAS);
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (llegoPorLink !== null) return;
+    Linking.getInitialURL()
+      .then((url) => {
+        // `Linking.parse` entiende esquemas nativos (misapp://mascota/x) que
+        // `new URL` interpreta distinto; `path` llega sin la barra inicial.
+        const path = url ? Linking.parse(url).path : null;
+        setLlegoPorLink(path ? esRutaDeLinkPublico(`/${path}`, RUTAS_PUBLICAS) : false);
+      })
+      .catch(() => setLlegoPorLink(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading || onboardingVisto === null || llegoPorLink === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator />
@@ -66,10 +88,10 @@ export default function RootNavigator() {
     );
   }
 
-  // Primer arranque (y no estamos recuperando contraseña): bienvenida a pantalla
-  // completa. Al terminar/saltar, el Onboarding marca el flag y `onListo` lo
-  // desmonta para seguir a la app.
-  if (!onboardingVisto && !recovering) {
+  // Primer arranque (y no estamos recuperando contraseña ni llegando por un
+  // link público): bienvenida a pantalla completa. Al terminar/saltar, el
+  // Onboarding marca el flag y `onListo` lo desmonta para seguir a la app.
+  if (!onboardingVisto && !recovering && !llegoPorLink) {
     return <OnboardingScreen onListo={() => setOnboardingVistoState(true)} />;
   }
 
