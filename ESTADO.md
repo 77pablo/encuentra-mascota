@@ -1,8 +1,21 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067 APLICADA; falta SOLO subir el dist y revocar el token)
+## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067 APLICADA + Tanda 15 "Difundir en redes" lista; falta SOLO subir el dist y revocar el token)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 221 suites / 3039 tests, exit 0 real (PIPESTATUS).**
+**Rama `feat/t13`. Suite: tsc 0, jest 224 suites / 3057 tests, exit 0 real (PIPESTATUS).**
+
+### ✅ Tanda 15 — "Difundir en redes" (nuevo, en la rama, en el dist re-exportado)
+Botón "Difundir en redes" en la ficha del reporte propio (junto a Compartir) que abre una hoja:
+texto listo para pegar (`lib/difusionRedes.ts`, sin monto ni teléfono), copiar al portapapeles,
+compartir la tarjeta con foto, y la lista de grupos de Facebook/WhatsApp (`data/gruposDifusion.ts`)
+con un toque para abrir cada uno (`Linking.openURL`). Ataca el arranque en frío: los casos en
+Chile se mueven en grupos de barrio. Sin migración (todo cliente). Commits en `feat/t13`.
+**⚠️ ANÁLISIS DE BRECHA (importante): de las 4 áreas del menú "vamos con todo", 3 YA ESTABAN
+construidas y aplicadas** — cierre "¿apareció?" (0049), bandeja de avisos (0051, `AvisosScreen`),
+recompensa sin monto (`lib/recompensa.ts`); y foto anónima (0061) también. Solo el puente FB/WA
+era nuevo. Verificado E2E contra el dist: botón, hoja arma el texto con link SIN monto, grupos
+listados, copiar al portapapeles OK, 0 errores JS. Base sin residuo (solo el reporte "Perro" de
+Pablo, intencional). El `dist` del disco ahora incluye ESTO además de 0067+vector+onboarding+chip.
 
 ### ⚠️ LO QUE QUEDA — dos cosas de Pablo, en este orden
 
