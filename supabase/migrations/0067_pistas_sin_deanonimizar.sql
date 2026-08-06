@@ -1,0 +1,64 @@
+-- 0067: las pistas dejan de deanonimizar a quien las escribe.
+--
+-- QUE ESTABA MAL, Y DESDE CUANDO. La 0012 (16-jul-2026) le dio a `anon` una
+-- policy de SELECT sobre `pet_tips` (`"pistas visibles para todos"`, `using
+-- (oculto = false)`) y nunca toco los grants de columna. Como toda tabla nueva
+-- de este proyecto, `pet_tips` nacio con el grant de tabla COMPLETA que Supabase
+-- concede por defecto a `anon` y `authenticated` (la misma `alter default
+-- privileges` que documentan la 0058, la 0063 y la 0066). Policy de fila +
+-- grant de tabla completa = `anon` lee LAS SEIS COLUMNAS, incluida `user_id`.
+--
+-- LA CADENA DE DEANONIMIZACION es identica, caracter por caracter, a la que la
+-- 0066 acaba de cerrar para `sightings`: `pet_tips.user_id` sale a `anon` →
+-- `anon` (sin cuenta, sin login) llama al RPC `perfil_publico(uuid)` (0019,
+-- `security definer`, con `grant execute ... to anon`) pasandole ese `user_id`
+-- → el RPC devuelve `nombre`, `foto_perfil` y `red_social` de quien escribio la
+-- pista. Quien solo queria leer "lo vi cerca de la plaza" termina pudiendo
+-- ponerle nombre, cara y red social a cada vecino que ayudo.
+--
+-- POR QUE ES PEOR ACA QUE EN `sightings`. Un avistamiento es un pin y una nota
+-- corta; una pista es TEXTO LIBRE dirigido a personas, escrito por vecinos que
+-- se estan involucrando en un caso ajeno. Y a diferencia de la 0066 —donde el
+-- agujero se abria recien al aplicar la policy nueva— este esta VIVO EN
+-- PRODUCCION desde hace tres semanas.
+--
+-- LO ENCONTRO la revision de la tarea C3 de la tanda 14, mientras cerraba el
+-- mismo patron en `sightings`: se anoto como hallazgo colateral preexistente y
+-- se decidio (Pablo, 5-ago-2026) corregirlo de inmediato en vez de arrastrarlo.
+--
+-- EL REVOKE NOMBRA `public` ADEMAS DE `anon`, Y REVOCA `all`. Las dos cosas son
+-- la leccion de la 0018 repetida por la 0064 y la 0066: (1) en Postgres el
+-- chequeo de privilegio pasa si CUALQUIERA de los roles lo tiene, incluido el
+-- pseudo-rol `public` del que todos heredan, asi que un `revoke ... from anon`
+-- a secas seria un NO-OP SILENCIOSO si alguna vez existio un `grant ... to
+-- public` sobre esta tabla; (2) `revoke all` cierra tambien INSERT/UPDATE/
+-- DELETE, que hoy son letra muerta para `anon` (no hay policy de escritura que
+-- lo habilite) pero quedarian ahi esperando a que alguien agregue una por
+-- error: sin el privilegio de tabla, esa policy futura ni siquiera llega a
+-- evaluarse.
+--
+-- `authenticated` NO SE TOCA, y es seguro porque su grant es DIRECTO, no via
+-- `public` (Supabase concede los defaults a `anon` y `authenticated` como dos
+-- GRANT explicitos y separados — verificado ejecutando el CASO 4 del ensayo de
+-- la 0066 contra la base real el 5-ago). La ficha CON sesion necesita `user_id`
+-- para que `bloqueos` filtre las pistas de gente bloqueada (`listarTips` en
+-- `src/services/tips.ts`), y el embed a `profiles(nombre)` que firma cada pista
+-- se resuelve por esa misma FK. Si esta migracion tocara `authenticated`, el
+-- sintoma seria silencioso: las pistas de gente bloqueada volverian a aparecer
+-- y las firmas se caerian a "Un vecino", sin ningun error a la vista.
+--
+-- QUE COLUMNAS QUEDAN PARA `anon`: las cuatro que la pantalla publica muestra
+-- de verdad — el texto, de que reporte es, cuando se escribio, y el id para
+-- poder listarlas. `user_id` afuera (es el agujero) y `oculto` afuera tambien:
+-- la policy ya filtra por `oculto = false`, asi que nadie sin sesion necesita
+-- leer esa columna para nada. Privilegio minimo: se concede lo que se usa.
+--
+-- EL CLIENTE SE AJUSTA EN EL MISMO COMMIT (`src/services/tips.ts`): sin sesion
+-- pide columnas explicitas sin `user_id`, mismo patron que `listSightings` tras
+-- la 0066. Sin ese ajuste, los tres `select` que pedian `user_id` empezarian a
+-- dar 42501 para `anon` y `listarTips` degradaria a lista vacia — las pistas
+-- desaparecerian de la ficha publica en silencio, que es exactamente la clase
+-- de fallo mudo que este proyecto ya se comio dos veces.
+revoke all on public.pet_tips from public, anon;
+grant  select (id, pet_id, texto, creado_en)
+       on public.pet_tips to anon;

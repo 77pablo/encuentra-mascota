@@ -13,7 +13,9 @@ import { filtrarBloqueados, idsBloqueados } from './bloqueos';
 type FilaTip = {
   id: string;
   pet_id: string;
-  user_id: string;
+  // Opcional desde la 0067: sin sesión la columna no se concede (deanonimizaba
+  // al autor vía `perfil_publico`), así que el escalón público no la trae.
+  user_id?: string;
   texto: string;
   creado_en: string;
   profiles?:
@@ -31,13 +33,25 @@ const SELECT_CON_AUTOR = 'id, pet_id, user_id, texto, creado_en, profiles(nombre
 // puede sacar.
 const SELECT_SOLO_NOMBRE = 'id, pet_id, user_id, texto, creado_en, profiles(nombre)';
 const SELECT_SIN_AUTOR = 'id, pet_id, user_id, texto, creado_en';
+// SIN SESION: las cuatro columnas que la 0067 le concede a `anon`. `user_id`
+// quedo afuera del grant porque alimentaba `perfil_publico(uuid)` y
+// deanonimizaba a quien escribio la pista (la misma cadena que la 0066 cerro
+// para `sightings`). Pedirlo igual daria 42501 y `listarTips` degradaria a
+// lista vacia: las pistas desaparecerian de la ficha publica en silencio.
+// Sin sesion `idsBloqueados()` ya devuelve vacio, asi que no perder `user_id`
+// aca no cambia el filtrado — no habia a quien filtrar.
+const SELECT_PUBLICO = 'id, pet_id, texto, creado_en';
 
 function aTip(fila: FilaTip): Tip {
   const perfil = Array.isArray(fila.profiles) ? fila.profiles[0] ?? null : fila.profiles ?? null;
   return {
     id: fila.id,
     petId: fila.pet_id,
-    userId: fila.user_id,
+    // `''` y no `undefined` cuando la fila viene del escalón público (0067):
+    // `Tip.userId` es `string` y nadie sin sesión tiene bloqueados que filtrar
+    // (`idsBloqueados()` ya devuelve vacío), así que el valor no se compara
+    // contra nada. Un `undefined` acá solo serviría para mentirle al tipo.
+    userId: fila.user_id ?? '',
     texto: fila.texto,
     creadoEn: fila.creado_en,
     autorNombre: perfil?.nombre ?? null,
@@ -80,8 +94,15 @@ export async function listarTips(petId: string): Promise<Tip[]> {
     // reintentamos sin él, porque el texto de la pista importa más que la
     // firma.
     const sinAutor = await consulta(SELECT_SIN_AUTOR);
-    if (sinAutor.error) return [];
-    return ocultarBloqueados(ordenarTips(((sinAutor.data ?? []) as unknown as FilaTip[]).map(aTip)));
+    if (!sinAutor.error) {
+      return ocultarBloqueados(ordenarTips(((sinAutor.data ?? []) as unknown as FilaTip[]).map(aTip)));
+    }
+    // Último escalón (0067): sin sesión, `user_id` tampoco se puede leer —
+    // quedó fuera del grant de columna a propósito, porque deanonimizaba al
+    // autor vía `perfil_publico`. Se piden solo las cuatro columnas públicas.
+    const publico = await consulta(SELECT_PUBLICO);
+    if (publico.error) return [];
+    return ocultarBloqueados(ordenarTips(((publico.data ?? []) as unknown as FilaTip[]).map(aTip)));
   } catch {
     return [];
   }
