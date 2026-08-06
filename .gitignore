@@ -40,3 +40,6 @@ yarn-error.*
 /ios
 /android
 .wrangler
+
+# Estado local de la CLI de Supabase (lo genera `supabase link`, es de esta maquina).
+supabase/.temp/

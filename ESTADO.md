@@ -1,45 +1,66 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (5-ago-2026, tarde — TANDA 14 COMPLETA EN CÓDIGO, falta SOLO el despliegue)
+## 👉 DÓNDE RETOMAR (5-ago-2026, noche — TANDA 14 DESPLEGADA; falta aplicar la 0067 y resubir el dist)
 
-**Rama `feat/t13`, HEAD `ccfb2d1`, árbol limpio. Suite: tsc 0, jest 219 suites / 3012 tests, exit 0
-real.** Las 17 tareas + INT Steps 1-3 cerrados: revisión adversarial de rama (4 revisores en el
-modelo más capaz, con mandato de contradecir el plan) → 1 Critical (el tablero mostraba
-"Destino/Destino/Destino" en vez de nombres de veterinarias — interacción A1↔A3↔A4 que 2977 tests
-bendecían) + 8 Importants → ola única de fixes (19 ítems, 4 commits `902a1f6`/`62f8bd6`/`556d132`/
-`ccfb2d1`) → re-verificación por los mismos revisores: **LAS 4 ÁREAS LISTAS PARA MERGE, 0
-pendientes de código.** El detalle vive en `.superpowers/sdd/progress.md` (entradas Task INT).
+**Rama `feat/t13`, HEAD `fa4405c`. Suite: tsc 0, jest 220 suites / 3019 tests, exit 0 real.**
+La tanda 14 está **en producción y verificada**. Lo que queda son tres cosas concretas, abajo.
 
-**Decisiones de Pablo del 5-ago (las 3 con recomendación aceptada):** la 0065 documenta el análisis
-honesto del canal del coseno (~6 bits, no "1 bit") sin tocar la fórmula; los chips de acceso de
-HomeScreen pasan a `rol="boton"` (navegan, no marcan); el banner de chip "Casi seguro es tu
-mascota" (preexistente, t12) queda anotado para la tanda 15.
+### ⚠️ LO PRIMERO AL RETOMAR — dos cosas que necesitan a Pablo
 
-**Lo ÚNICO que falta: el Step 4 de INT (despliegue), en este orden y BLOQUEADO en el punto 0:**
-0. ⚠️ **Login de la CLI de Supabase** — dos intentos de `npx supabase login` quedaron en
-   `Unauthorized`; hay que completar el flujo del navegador entero (autorizar + código si lo pide).
-   Sin esto no se puede aplicar nada.
-1. Desplegar `foto-vector` (EF nueva). Humo: OPTIONS→204, POST sin credenciales→401.
-2. **CONDICIÓN antes de aplicar:** correr los ensayos contra la base real —
-   `.superpowers/sdd/t14-B4-ensayo.sql` (LEYENDO el output: el caso positivo puede dar OMITIDO en
-   verde), `t14-C3-ensayo.sql` (ya con el CASO 4), y `t14-D3-vencidos.sql` (si da >0, escribir la
-   0067). Aplicar `0063`→`0064`→`0065`→`0066` en orden, cada una con begin…rollback + ataques
-   post-aplicar. La 0065 dropea `buscar_coincidencias`: control "sin vector encuentra lo mismo"
-   antes y después, y en ventana tranquila (ACCESS EXCLUSIVE).
-3. Semilla de lugares (`node scripts/semilla-lugares.js CL-RM`), tras la 0063. Conteo esperado
-   ≈332; correrla DOS veces (idempotencia); spot-check de `comuna` (addr:city suele ser "Santiago").
-4. **Decisión de Pablo pendiente:** migración correctiva de la `0012` (expone `pet_tips.user_id` a
-   `anon` en producción HOY — la misma deanonimización que C3 cerró para sightings).
-5. Exportar `dist` NUEVO (el que compiló el revisor C quedó obsoleto: la ola tocó producción en B y
-   C) y que Pablo lo suba a Cloudflare Pages. SIEMPRE después de las migraciones.
-6. Verificar contra el sitio real: bundle servido == exportado; mapa con teselas/pines/atribución
-   como LINK clickeable; rastro público sin sesión Y ficha del dueño CON rastro (el fallo del grant
-   sería silencioso); tablero con nombres de lugares y ODbL; checklist de mouse de C1 (× del popup
-   no navega, cuerpo navega también al reabrir, drag, multi-pin); primera ejecución real de
-   transformers.js en el navegador (CORS del bucket incluido); 0 errores JS.
+1. **Token nuevo de Supabase** (<https://supabase.com/dashboard/account/tokens>), **pegado en el
+   chat, NO guardado en OneDrive** (ya pasó tres veces: el archivo se sincroniza a la nube). El
+   anterior quedó revocado, que es lo correcto. Se necesita para aplicar la `0067`.
+   → Con el token: ensayar la `0067` en `begin…rollback`, aplicarla, correr los ataques.
+2. **Resubir el `dist`** DESPUÉS de aplicar la 0067: esa migración **toca el cliente**
+   (`src/services/tips.ts`), así que el bundle que está arriba hoy quedaría desincronizado.
+   Re-exportar con `npx expo export --platform web` y arrastrar `dist` a Cloudflare Pages.
 
-Las checklists completas por área están al final de las entradas INT del ledger. La deuda de la
-tanda quedó anotada con nombre en las mismas entradas (triages de los 4 revisores).
+### 🔍 LO TERCERO — la checklist CON SESIÓN (nadie la corrió todavía)
+
+Entrar a <https://encuentras-mascota.pages.dev> con cuenta propia y probar:
+- **Tablero de difusión** en la ficha de un reporte propio: agregar una veterinaria y confirmar que
+  aparece **con su NOMBRE**, no como "Destino" (era el Critical de la revisión final; hay 301
+  veterinarias cargadas en la RM). Marcar una como avisada. Ver la atribución OSM abajo.
+- **Botón de la foto** (solo web, avisa ~40 MB): es la PRIMERA ejecución real de transformers.js en
+  un navegador, y también prueba el CORS del bucket público hacia el origin del sitio.
+- **Mapa**: clic en la **×** del globito NO debe navegar; clic en el cuerpo SÍ (y también al
+  reabrirlo); arrastrar el pin en "agregar avistamiento" debe mover las coordenadas.
+
+### ✅ Lo que YA se desplegó y se verificó ejecutándolo (5-ago)
+
+- **Migraciones `0063`→`0064`→`0065`→`0066` APLICADAS**, cada una precedida por su ensayo en
+  `begin…rollback` contra la base real y seguida de ataques. Los cierres aguantan en producción:
+  cero grants de lectura sobre `embedding`, `anon` sin `user_id`/`foto` de sightings pero con las 6
+  columnas del rastro, `lugares_cerca` inejecutable por `anon`, tablero ajeno invisible. **Nada se
+  desandó**: oráculo de chip cerrado, `perfil_publico` vivo, escalada de `profiles` tapada.
+  **9/9 por HTTP como `anon`** (el camino real del cliente, no solo el catálogo). Sin residuo.
+- **Semilla CL-RM**: 301 veterinarias, idempotente (0 duplicados tras dos corridas).
+- **Web subida y verificada con navegador**: bundle servido == exportado, **0 errores JS**, mapa de
+  Leaflet con 12 teselas y pin sobre calles reales, y la **atribución ODbL como link clickeable**.
+- **Edge Functions** `delete-account` y `send-notifications` redesplegadas (humo 204/401).
+  `foto-vector` **no existe**: B1 cerró la ruta de servidor con medición y el vector se calcula en
+  el navegador. El plan la nombraba por herencia; no hay nada que desplegar.
+
+### 🐛 Tres bugs que sólo aparecieron al ejecutar de verdad
+
+1. **La semilla estaba rota**: sin `User-Agent`, Overpass responde **406** y el script moría antes
+   de traer una fila. Sus tests son unitarios y no tocan la red. Arreglado (`c6d54e4`).
+2. **Dos bugs en el ensayo de B4** (no en las migraciones): `if d = d` nunca detecta NaN —en
+   Postgres `NaN = NaN` es TRUE, al revés que IEEE 754— y el chequeo de privilegios no filtraba
+   `SELECT`, dando falso positivo. Corregidos en el archivo del repo.
+3. **UX, para la tanda 15**: el QR del collar aterriza en el **onboarding de 4 pantallas**. El deep
+   link SE RESPETA al tocar "Saltar" (verificado), pero el vecino que encuentra una mascota ve un
+   tutorial antes que al animal.
+
+### 📋 Decisiones de Pablo del 5-ago (las 4)
+
+1. La `0065` documenta el análisis honesto del canal del coseno (~6 bits, no "1 bit") **sin tocar la
+   fórmula**. 2. Los chips de acceso de HomeScreen pasan a `rol="boton"` (navegan, no marcan).
+3. El banner "Casi seguro es tu mascota" (preexistente t12) **queda para la tanda 15**.
+4. **La `0012` se corrige ahora** → de ahí salió la `0067`, ya escrita y commiteada.
+
+La historia completa, los triages de los 4 revisores y las checklists por área están en
+`.superpowers/sdd/progress.md` (entradas Task INT).
 
 ## (histórico) 👉 DÓNDE RETOMAR (5-ago-2026, mañana — áreas A/B/C completas; D1 a medias SIN commit)
 
