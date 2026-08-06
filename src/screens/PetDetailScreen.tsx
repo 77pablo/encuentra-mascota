@@ -55,6 +55,7 @@ import PetCard from '../components/PetCard';
 import { GraciasVecinos } from '../components/GraciasVecinos';
 import AficheGenerator from '../components/AficheGenerator';
 import AficheOpciones from '../components/AficheOpciones';
+import DifundirEnRedes from '../components/DifundirEnRedes';
 import TarjetaGenerador from '../components/TarjetaGenerador';
 import { datosDeReporte, datosDeFinalFeliz } from '../lib/tarjeta';
 import { ETIQUETA_RECOMPENSA, tieneRecompensa } from '../lib/recompensa';
@@ -148,6 +149,7 @@ export default function PetDetailScreen({ route, navigation }: any) {
   // Hoja de opciones del afiche (A3): se abre siempre al crear, con o sin
   // WhatsApp cargado. `incluirNumero` es la decisión que ahí se toma.
   const [opcionesAfiche, setOpcionesAfiche] = useState(false);
+  const [mostrarDifundir, setMostrarDifundir] = useState(false);
   const [incluirNumero, setIncluirNumero] = useState(true);
   // F11 (revisión adversarial final): quien entra por "Plan de búsqueda"
   // toca `onAfiche` con el plan arriba de la pantalla, pero la hoja se monta
@@ -1039,6 +1041,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
           style={styles.shareButton}
         />
 
+        {/* Difundir en redes (Tanda 15): lleva el reporte a los grupos de
+            Facebook/WhatsApp del barrio, que es donde se mueven los casos en
+            Chile. Solo en el reporte propio: es una acción del dueño. */}
+        {esMio && (
+          <Button
+            title="Difundir en redes"
+            variant="secondary"
+            icon="megaphone-outline"
+            onPress={() => setMostrarDifundir(true)}
+            style={styles.shareButton}
+          />
+        )}
+
         {esMio && (
           <Button
             title="Crear afiche"
@@ -1068,6 +1083,23 @@ export default function PetDetailScreen({ route, navigation }: any) {
                 setGenerandoAfiche(true);
               }}
               onCerrar={() => setOpcionesAfiche(false)}
+            />
+          </View>
+        ) : null}
+
+        {mostrarDifundir && esMio ? (
+          <View
+            onLayout={(e: LayoutChangeEvent) => {
+              scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: true });
+            }}
+          >
+            <DifundirEnRedes
+              pet={pet}
+              onCompartirTarjeta={() => {
+                setMostrarDifundir(false);
+                setCompartiendoTarjeta(true);
+              }}
+              onCerrar={() => setMostrarDifundir(false)}
             />
           </View>
         ) : null}
