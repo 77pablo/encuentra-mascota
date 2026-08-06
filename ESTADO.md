@@ -53,9 +53,12 @@ usa el `NavigationContainer` (`src/navigation/linkingConfig.ts`, nuevo) vía
 `src/lib/deepLinks.ts` (puro) — sin lista paralela. Verificado E2E contra el `dist` compilado
 con localStorage virgen: deep link → mensaje del reporte (sin onboarding, flag sin marcar),
 portada después del link → onboarding, portada virgen (control) → onboarding; 0 errores JS.
-**Suite: 220+1 suites / 3039 tests, tsc 0.** ⚠️ Dato de entorno: `wrangler pages dev` HOY
-CUELGA todas las requests en esta máquina (workerd ni las loguea; antes funcionaba) — el E2E
-se hizo con un servidor estático con fallback SPA; el `_worker.js` no cambió en esta tanda.
+**Suite: 220+1 suites / 3039 tests, tsc 0.** ⚠️ Dato de entorno RESUELTO: el que cuelga todas
+las requests en esta máquina es **wrangler 4** (workerd "Ready" pero ni loguea los hits);
+**`npx wrangler@3 pages dev dist` FUNCIONA** — usarlo para verificar el worker. Con la v3 se
+re-verificó el `dist` pendiente A TRAVÉS DEL WORKER REAL: estáticos 200, `/vendor/…` como
+`application/javascript`, manifest `application/manifest+json`, `/mascota/x` cae al SPA, y el
+E2E del onboarding 6/6. El `dist` está validado entero; solo falta arrastrarlo.
 
 ### ✅ Lo que YA se desplegó y se verificó ejecutándolo (5-ago)
 
