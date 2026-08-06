@@ -1,64 +1,70 @@
-# Tanda 15 — Difusión y cierre
+# Tanda 15 — Puente de difusión a redes (corregida tras análisis de brecha)
 
-**Fecha:** 6-ago-2026 · **Aprobación:** Pablo aprobó el paquete completo en el chat ("vamos con
-todo") sobre el menú presentado; las decisiones finas de abajo quedan a criterio documentado.
-**Contexto:** `docs/competencia-y-oportunidades.md` + búsqueda del 6-ago: los casos en Chile se
-mueven en grupos de Facebook/WhatsApp de barrio; nuestro problema n°1 es arranque en frío.
+**Fecha:** 6-ago-2026 · **Aprobación:** Pablo aprobó "vamos con todo" sobre el menú de mejoras.
+**⚠️ CORRECCIÓN (6-ago):** al verificar contra el código y la BASE REAL, **3 de las 4 áreas del
+menú YA ESTABAN CONSTRUIDAS Y APLICADAS.** Esta spec se recortó a lo genuinamente nuevo. Es la
+lección repetida del proyecto: verificar contra el código antes de planificar una tanda.
 
-## Roadmap acordado (para las próximas tandas)
-- **T15 (esta):** puente FB/WA · cierre empático + métrica · bandeja de avisos · recompensa sin monto
-- **T16:** spec 2026-08-02 (contacto oculto, afiche 2 toques, moderación avisa, círculo, foto anónima)
-  con las 3 decisiones finas propuestas: purga del correo de seguimiento al cierre o 60 días;
-  foto anónima máx 5 MB JPEG/PNG/WebP; botón de afiche junto a Compartir y paso 3 de la guía.
-- **T17:** tipo "robada" · sugerencia de intersecciones para carteles · modo emergencia/catástrofe
-- **T18:** panel institucional (lote + widget embebible)
+## Lo que YA existe (no reconstruir — verificado en código + base)
+- **Cierre "¿apareció?" (3/7/21 días):** `PreguntaSiAparecio.tsx` cableado en PetDetailScreen;
+  `lib/cierreCasos.ts`; migración `0049` APLICADA (`pets.preguntado_en`, `pets.cierre_motivo`).
+- **Bandeja de avisos in-app:** `AvisosScreen.tsx`, `lib/avisosBandeja.ts`, `lib/visitaAvisos.ts`,
+  `services/avisos.ts` (`misAvisos()`), badge en Perfil → `navigate('MisAvisos')`; se lee por la
+  RPC `mis_avisos` (0 policies directas sobre `notification_events` a propósito, `security
+  definer`); migración `0051` APLICADA.
+- **Recompensa sin monto:** `lib/recompensa.ts` (`ETIQUETA_RECOMPENSA='Hay recompensa'`,
+  `RECOMPENSA_SI='sí'`, `tieneRecompensa()` devuelve booleano); casilla en PublishScreen.
+- **Foto anónima + cerrar el círculo con quien avisó** (funciones 3/4 de la spec 2026-08-02):
+  `FotoAvisoAnonimo.tsx`, migración `0061` APLICADA. Esa spec está más hecha de lo que decía.
 
-## Área 1 — Puente a Facebook/WhatsApp ("Difundir")
-Botón **"Difundir en redes"** en la ficha del reporte propio (junto a Compartir) y ofrecido tras
-publicar. Genera: (a) **texto listo** para pegar (nombre/especie/comuna/señas + link público, tono
-vendedor-humano, sin monto de recompensa), (b) la **tarjeta 1080×1080** que ya existe, (c) lista de
-**grupos sugeridos** donde pegarlo — data file `src/data/gruposDifusion.ts` con los grupos grandes
-verificados (nacionales + Santiago; por comuna cuando los tengamos), cada uno con link directo.
-Sin migración. Lib pura `armarTextoDifusion()` testeable. Web Share con fallback a copiar.
+## Roadmap corregido
+- **T15 (esta):** Puente de difusión a Facebook/WhatsApp (lo único nuevo de aquel menú).
+- **T16:** revisar qué queda REALMENTE de la spec 2026-08-02 (buena parte ya está) — análisis de
+  brecha primero, como acá.
+- **T17:** tipo "robada" · sugerencia de intersecciones para carteles · modo emergencia/catástrofe.
+- **T18:** panel institucional (lote + widget embebible).
+- **Pulido diferido (opcional):** `impacto_comunidad` hoy devuelve `reencuentros` (el número que
+  nadie tiene, ya cubierto) pero no una TASA ni la mediana de días. Añadirlas es una migración
+  chica; no bloquea nada.
 
-## Área 2 — Cierre empático + métrica de reencuentros
-- Check-in **in-app** (banner en la ficha propia + Inicio) a los **3, 7 y 21 días** de publicada una
-  perdida activa, complementario del NudgeVigencia (14/30/45) que es de VIGENCIA, no de cierre.
-  Tono cuidado (regla: nunca "¿apareció?" pelado — «¿Cómo va la búsqueda?» con 3 salidas: "¡Volvió!"
-  (flujo reencuentro existente) / "Sigo buscando" (registra y calla hasta el próximo hito) /
-  "Ya no busco" (archiva sin culpa)). Perezoso como el auto-archivado: sin cron, se computa al abrir.
-- **Métrica**: extender `impacto_comunidad()` (migración, próxima libre) con `tasa_reencuentro`
-  (reunidas / cerradas) y `dias_mediana_reencuentro`. Es el dato que nadie tiene en Chile.
-- Regla de despliegue heredada: redesplegar `send-notifications` si se toca la unión de tipos (esta
-  área NO la toca: todo in-app).
+---
 
-## Área 3 — Bandeja de avisos in-app
-Hoy NADA en la app lee `notification_events`; con Brevo muerto, los avisos dependen del push.
-- Migración: policy de **SELECT solo de las filas propias** sobre `notification_events`
-  (`target_user_id = auth.uid()` o el destinatario que resuelva la fila; verificar contra el esquema
-  real de la 0011/0027 antes de escribirla) + grant de columnas mínimas a `authenticated`
-  (tipo, datos, creado_en, estado — NUNCA columnas de otros). `anon` sigue sin nada.
-- Pantalla "Avisos" (campanita con badge en el encabezado, junto a Mensajes): lista los eventos
-  propios de los últimos 30 días, cada uno navegable vía `rutaANavegacion` existente. Leído/no
-  leído: columna nueva o localStorage — decidir en el plan mirando el esquema (preferencia: columna
-  `visto_en` para que sobreviva multi-dispositivo, si la RLS de UPDATE se puede acotar a esa columna).
-- La purga de 90 días existente convive: la bandeja muestra ≤30 días.
+## Qué construye la T15: "Difundir en redes"
 
-## Área 4 — Recompensa sin monto visible
-El monto publicado es imán de estafas (alertas FBI/BBB; ya lo dice el doc de competencia).
-- Publicar/editar: deja de pedir monto; queda **casilla "ofrece recompensa"**.
-- Fichas/tarjetas/afiche/filtros: muestran "Ofrece recompensa" a secas. Los reportes viejos CON
-  monto guardado se renderizan igual (sin el monto) — el dato no se borra, deja de mostrarse.
-- Sin migración obligatoria (validación cliente + render); si hay CHECK del servidor que exija
-  formato del campo, se revisa en el plan. El aviso antiestafa existente se mantiene.
+Los casos en Chile se mueven en grupos de Facebook y WhatsApp de barrio (búsqueda 6-ago); nuestro
+problema n°1 es arranque en frío. Hoy la app comparte la **tarjeta 1080** (`compartirTarjeta`) y el
+**link** (`petUrl`), pero no ayuda a llevarlos ADONDE está la gente ni arma el texto. Eso es el hueco.
 
-## Reglas transversales (heredadas, obligatorias)
+### Componentes (archivos)
+- **`src/lib/difusionRedes.ts`** (NUEVO, puro, testeable): `armarTextoDifusion(pet, url)` arma el
+  texto listo para pegar — nombre/especie/comuna/última zona/señas + link público. **Sin monto de
+  recompensa** (solo "Hay recompensa" vía `tieneRecompensa`, reutilizado). Tono humano, sin
+  gamificar, sin afirmar. Sin `new Date()` adentro. Devuelve string plano (los grupos de FB/WA no
+  renderizan markdown). NO incluye teléfono (privacidad; el contacto va por la ficha).
+- **`src/data/gruposDifusion.ts`** (NUEVO, data file): lista curada de grupos públicos grandes con
+  su `url`, `nombre`, `alcance` ('nacional' | comuna) y `red` ('facebook' | 'whatsapp'). Arranca con
+  los nacionales verificados (SOS Perritos, Perros Perdidos Santiago, Animales Perdidos/Encontrados
+  Chile) — links reales, sin inventar. `gruposSugeridos(comuna)` ordena: los de la comuna primero,
+  después nacionales. Comentario que exige verificar cada link antes de sumarlo (un grupo muerto
+  frustra al que más lo necesita).
+- **`src/components/DifundirEnRedes.tsx`** (NUEVO): hoja/tarjeta que (1) muestra el texto con un
+  botón **Copiar** (Clipboard) y otro **Compartir** (Web Share con fallback a copiar), (2) botón
+  **Compartir la tarjeta** que reusa el `TarjetaGenerador` existente, (3) lista de grupos sugeridos,
+  cada uno con "Abrir grupo" (`Linking.openURL`). Una línea honesta: "Pegá el texto en el grupo; la
+  foto se comparte aparte con el botón de arriba" (FB no acepta texto+imagen por URL).
+- **`src/screens/PetDetailScreen.tsx`** (MODIFICAR): botón **"Difundir en redes"** junto a
+  "Compartir" (solo en el reporte propio, `esMio`), que abre `DifundirEnRedes`. Y ofrecerlo tras
+  publicar una perdida (en el flujo de PublishScreen o su confirmación).
+
+### Reglas transversales (heredadas, obligatorias)
 Tono sin afirmar identidad ni culpar; navegación anidada absoluta desde el stack raíz; `.select()`
-con columnas explícitas; deletes con `.select()` para ver filas; nada de `new Date()` en libs puras
-(reloj por parámetro); guardas de forma comprobadas contra mutación; migraciones ensayadas en
-`begin…rollback` con ataques y controles; verificación final contra el dist compilado.
+con columnas explícitas; nada de `new Date()` en libs puras (reloj/valores por parámetro); guardas de
+forma comprobadas contra mutación; verificación final contra el dist compilado con Playwright.
 
-## Orden y paralelización
-4 áreas con archivos mayormente disjuntos; solapes conocidos: PetDetailScreen (1, 2 y 4) y
-PublishScreen (4). Plan: áreas 1+4 juntas (mismos archivos), 2 y 3 independientes. Migraciones:
-una para el área 2 y una para el área 3, numeradas al escribirlas mirando la base.
+### Sin migración
+Todo cliente. No toca la base, la cola de avisos ni las Edge Functions.
+
+### Riesgo y mitigación
+El riesgo es una lista de grupos que envejece o un link muerto. Mitigación: data file chico y
+explícito, con test que valida forma (todos con `https://`, `nombre` no vacío, `red` válida) y un
+comentario que obliga a verificar el link a mano antes de agregarlo. Nada de scraping ni auto-descubrimiento.
