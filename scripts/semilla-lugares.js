@@ -54,9 +54,17 @@ async function main() {
     `(node["amenity"~"veterinary|animal_shelter"](area.a);` +
     `way["amenity"~"veterinary|animal_shelter"](area.a););out tags center;`;
 
+  // EL `User-Agent` NO ES OPCIONAL. Medido el 5-ago-2026 al correr la semilla
+  // por primera vez de verdad: sin este header Overpass responde 406 (Not
+  // Acceptable) y el script muere antes de traer una sola fila. Su politica de
+  // uso aceptable pide identificar la aplicacion, y rechaza el User-Agent que
+  // manda el fetch de Node (undici) por defecto. Con curl "sin User-Agent"
+  // devuelve 200, asi que el 406 no es "falta el header" sino "ese header no
+  // me gusta" — por eso hay que mandar uno propio, no borrarlo.
   const res = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
     body: new URLSearchParams({ data: query }),
+    headers: { 'User-Agent': 'encuentra-mascota/1.0 (semilla de lugares para reportes de mascotas perdidas)' },
   });
   if (!res.ok) throw new Error(`Overpass respondió ${res.status}`);
   const filas = aFilas((await res.json()).elements || []);
