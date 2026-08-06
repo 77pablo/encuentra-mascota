@@ -95,6 +95,10 @@ export default function PublishScreen({ navigation, route }: any) {
   // viejos conservan lo suyo; lo nuevo guarda un centinela.
   const [ofreceRecompensa, setOfreceRecompensa] = useState(false);
   const recompensa = ofreceRecompensa ? RECOMPENSA_SI : '';
+  // Tipo "robada" (Tanda 17): una marca sobre un reporte PERDIDO, no un estado
+  // nuevo. Solo aplica a "perdida"; al publicar solo viaja si el estado es
+  // perdida (ver el payload). Default false, no se arrastra en el lote.
+  const [robada, setRobada] = useState(false);
   // Seña secreta de verificación (migración 0047). NO se publica en ningún lado.
   const [sena1, setSena1] = useState('');
   const [sena2, setSena2] = useState('');
@@ -232,6 +236,7 @@ export default function PublishScreen({ navigation, route }: any) {
     setSena2('');
     setAmbito(null);
     setOfreceRecompensa(false);
+    setRobada(false);
     setConfirmado(false);
 
     // --- EL CHIP QUE LA APP YA TIENE ---
@@ -424,6 +429,10 @@ export default function PublishScreen({ navigation, route }: any) {
       tamano: senas.tamano ?? undefined,
       sexo: senas.sexo ?? undefined,
       esterilizado: senas.esterilizado ?? undefined,
+      // "Robada" es una marca sobre un reporte perdido: solo viaja si el estado
+      // es perdida. `undefined` (no `false`) para que createPet ni arme la
+      // clave si no aplica (ver opcionalesDe). Cambiar a "encontrada" la anula.
+      robada: estado === 'perdida' && robada ? true : undefined,
       ...coords,
     });
     if (!parsed.success) {
@@ -643,6 +652,25 @@ export default function PublishScreen({ navigation, route }: any) {
               );
             })}
           </View>
+
+          {/* "Me la robaron" (Tanda 17): solo para perdida. No es un tercer
+              estado — el reporte se guarda como perdida con robada=true, y solo
+              cambian la etiqueta y la guía. */}
+          {estado === 'perdida' ? (
+            <View style={styles.recompensaRow}>
+              <Chip
+                label={robada ? 'Me la robaron' : '¿Te la robaron?'}
+                active={robada}
+                onPress={() => setRobada((v) => !v)}
+              />
+            </View>
+          ) : null}
+          {estado === 'perdida' && robada ? (
+            <AppText muted size={12} style={styles.ayuda}>
+              Se publica como perdida, con la marca «Robada». Al terminar te mostramos qué hacer:
+              denunciar, no negociar ni pagar por adelantado, y reunir pruebas de que es tuya.
+            </AppText>
+          ) : null}
         </Card>
 
         <Card style={styles.section}>
