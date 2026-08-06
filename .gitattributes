@@ -1,0 +1,6 @@
+# public/vendor/ son builds de terceros copiados VERBATIM: hay un test que
+# compara los bytes contra node_modules, y con core.autocrlf=true un clon
+# nuevo los materializaria con CRLF y romperia la comparacion (la trampa de
+# CRLF ya engaño a este repo tres veces — ver ESTADO.md). -text = git no
+# los toca en ninguna direccion.
+public/vendor/** -text
