@@ -1,8 +1,21 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067 APLICADA + Tanda 15 "Difundir en redes" lista; falta SOLO subir el dist y revocar el token)
+## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067+0068 APLICADAS + Tandas 15 y 17 listas; falta SOLO subir el dist y revocar el token)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 224 suites / 3057 tests, exit 0 real (PIPESTATUS).**
+**Rama `feat/t13`. Suite: tsc 0, jest 228 suites / 3083 tests, exit 0 real (PIPESTATUS).**
+
+### ✅ Tanda 17 — Tipo "robada" (nuevo, en la rama, migración 0068 APLICADA, en el dist)
+Una mascota robada es una MARCA (`pets.robada`) sobre un reporte perdido, NO un tercer estado (que
+rompería ~25 ternarios `perdida?lost:found`). Casilla "Me la robaron" en Publicar (solo perdida),
+badge "ROBADA" en ficha/feed/afiche/mapa/textos de compartir, y guía propia `GuiaRobada`
+(Carabineros, no negociar, pruebas de propiedad). **Migración `0068` APLICADA y verificada:**
+recreada `buscar_reportes` desde su CUERPO VIVO (16 params con `p_color`/`p_tamano` de señas — la
+0028 los perdería), solo +columna `robada`, WHERE/cursor verbatim; ensayo `begin…rollback` con
+asserts+controles (paginación y filtro de señas intactos), aplicada, anon lee `robada`. E2E contra
+el dist 7/7 funcional (badge en feed+ficha, guía, difusión con ROBADA sin monto), base sin residuo.
+Bundle `index-b20f131…` re-exportado con TODO (0067+0068, vector, onboarding, chip, difundir, robada).
+
+### ✅ Tanda 15 — "Difundir en redes" (nuevo, en la rama, en el dist re-exportado)
 
 ### ✅ Tanda 15 — "Difundir en redes" (nuevo, en la rama, en el dist re-exportado)
 Botón "Difundir en redes" en la ficha del reporte propio (junto a Compartir) que abre una hoja:
