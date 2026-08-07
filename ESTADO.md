@@ -1,8 +1,21 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067+0068 APLICADAS + Tandas 15 y 17 listas; falta SOLO subir el dist y revocar el token)
+## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067+0068 APLICADAS + Tandas 15, 17 y 18 listas; falta SOLO subir el dist y revocar el token)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 228 suites / 3083 tests, exit 0 real (PIPESTATUS).**
+**Rama `feat/t13`. Suite: tsc 0, jest 231 suites / 3098 tests, exit 0 real (PIPESTATUS).**
+
+### ✅ Tanda 18 — "¿Dónde pego los carteles?" (nuevo, en la rama, en el dist, SIN migración)
+Sección en la ficha del reporte propio (gate del plan: dueño, perdida, no reunida) que sugiere
+**semáforos cercanos** —esquinas donde el auto para y ve el cartel— consultando OpenStreetMap
+(Overpass) EN VIVO, bajo demanda. Ataca la búsqueda física del barrio (30-49% de los casos, donde
+la app es más floja). `lib/puntosCartel.ts` (query+parse puros), `services/puntosCartel.ts` (fetch
+con timeout 15s + AbortController), `components/PuntosCartel.tsx`. **Overpass es lento/inestable
+(vi 504)**, así que degrada al consejo genérico ante fallo, nunca rompe. CORS verificado
+(`Access-Control-Allow-Origin: *`). Atribución ODbL mostrada. E2E contra el dist 6/6 en las DOS
+ramas (éxito con semáforos + degradación 504→consejo+Reintentar). Bundle `index-d186e6e…`.
+Sin costo (Overpass gratis, sin backend). Base sin residuo.
+
+### ✅ Tanda 17 — Tipo "robada" (nuevo, en la rama, migración 0068 APLICADA, en el dist)
 
 ### ✅ Tanda 17 — Tipo "robada" (nuevo, en la rama, migración 0068 APLICADA, en el dist)
 Una mascota robada es una MARCA (`pets.robada`) sobre un reporte perdido, NO un tercer estado (que
