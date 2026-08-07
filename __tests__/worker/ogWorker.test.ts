@@ -295,6 +295,35 @@ describe('worker fetch handler', () => {
     },
   );
 
+  // Widget institucional (Tanda 20): /widget/ tiene que servir el HTML estático
+  // (public/widget/index.html), no el SPA — un tercero lo embebe por iframe.
+  it.each(['/widget', '/widget/'])(
+    '%s pasa a env.ASSETS.fetch, no al fallback SPA',
+    async (ruta) => {
+      const env = {
+        ASSETS: {
+          fetch: jest.fn(async (req: Request) => {
+            const u = new URL(req.url);
+            if (u.pathname.startsWith('/widget')) {
+              return new Response('<html>widget estático</html>', {
+                headers: { 'content-type': 'text/html; charset=utf-8' },
+              });
+            }
+            return new Response(INDEX_HTML, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+          }),
+        },
+      };
+      const res = await worker.fetch(new Request('https://x.cl' + ruta + '?comuna=Nunoa'), env);
+      expect(await res.text()).toBe('<html>widget estático</html>');
+    },
+  );
+
+  it('/widgets-x NO se toma como estático (no se escapa del SPA)', async () => {
+    const env = envAssetsFalso();
+    const res = await worker.fetch(new Request('https://x.cl/widgets-x'), env);
+    expect(await res.text()).toContain('<div id="root">');
+  });
+
   it('las respuestas HTML llevan Cache-Control: no-cache (que un intermediario no retenga OG viejas)', async () => {
     const env = envAssetsFalso();
     const req = new Request('https://x.cl/alguna-ruta');
