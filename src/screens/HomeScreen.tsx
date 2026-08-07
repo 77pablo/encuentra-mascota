@@ -8,6 +8,7 @@ import { buscarReportes, contarReportesEnComuna, type FiltrosBusqueda } from '..
 import { listFinalesFelices } from '../services/reunions';
 import { getMyProfile } from '../services/profile';
 import { getImpacto, Impacto } from '../services/impacto';
+import { fraseImpacto } from '../lib/impactoFrase';
 import { comunaDeCoords } from '../lib/comunas';
 import { useMyLocation } from '../hooks/useMyLocation';
 import { useAuth } from '../hooks/useAuth';
@@ -216,6 +217,7 @@ export default function HomeScreen({ navigation }: any) {
   const hasImpacto =
     !!impacto &&
     (impacto.reencuentros > 0 || impacto.buscando > 0 || impacto.adopciones > 0 || impacto.aportes > 0);
+  const fraseImpactoTexto = impacto ? fraseImpacto(impacto) : null;
 
   const topPets = pets.slice(0, RECIENTES_LIMIT);
   const recientes: { pet: Pet; distanceKm?: number }[] = location.coords
@@ -513,6 +515,13 @@ export default function HomeScreen({ navigation }: any) {
                 </AppText>
               </View>
             </View>
+            {/* Tasa y mediana (mig. 0070). `fraseImpacto` calla con pocos
+                datos o con la RPC vieja: acá solo se muestra lo que llega. */}
+            {fraseImpactoTexto ? (
+              <AppText muted size={12} style={styles.impactoFrase}>
+                {fraseImpactoTexto}
+              </AppText>
+            ) : null}
           </Card>
         ) : null}
 
@@ -824,5 +833,9 @@ const crearEstilos = (colors: Colors) => StyleSheet.create({
   },
   impactoNumero: {
     marginTop: 2,
+  },
+  impactoFrase: {
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 });
