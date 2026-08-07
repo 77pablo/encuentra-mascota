@@ -875,6 +875,14 @@ export default function ProfileScreen({ navigation }: any) {
           icon="help-buoy-outline"
           onPress={() => navigation.navigate('Ayuda')}
         />
+        {/* Widget para vets/refugios/municipios (Tanda 20). Registrada en el
+            stack RAÍZ: el nombre pelado burbujea hasta ahí, igual que 'Ayuda'. */}
+        <Button
+          title="Widget para tu sitio"
+          variant="ghost"
+          icon="code-slash-outline"
+          onPress={() => navigation.navigate('WidgetInstitucion')}
+        />
         {/* `Bloqueados` está registrada en ESTE mismo stack (ProfileStack), así
             que el nombre pelado es correcto: no hay que anidar `App`/pestaña. */}
         <Button

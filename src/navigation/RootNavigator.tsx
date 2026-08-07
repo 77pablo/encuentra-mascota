@@ -14,6 +14,7 @@ import PublicPetScreen from '../screens/PublicPetScreen';
 import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 import GuiaRobadaScreen from '../screens/GuiaRobadaScreen';
 import EventoScreen from '../screens/EventoScreen';
+import WidgetInstitucionScreen from '../screens/WidgetInstitucionScreen';
 import CollarScreen from '../screens/CollarScreen';
 import CuadrillaScreen from '../screens/CuadrillaScreen';
 import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
@@ -182,6 +183,14 @@ export default function RootNavigator() {
           name="Evento"
           component={EventoScreen}
           options={{ headerShown: true, title: 'Emergencia' }}
+        />
+        {/* Widget institucional (Tanda 20): pantalla para que una vet/refugio/
+            municipio genere el código embed de su comuna. Stack raíz con header,
+            alcanzable por nombre desde Perfil. */}
+        <Stack.Screen
+          name="WidgetInstitucion"
+          component={WidgetInstitucionScreen}
+          options={{ headerShown: true, title: 'Widget para tu sitio' }}
         />
         {/* Guía "encontré una mascota" (Función 4, espejo de GuiaPerdida): se
             abre desde Inicio y tras publicar una "encontrada". Mismo trato:

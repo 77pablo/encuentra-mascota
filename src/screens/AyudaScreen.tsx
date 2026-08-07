@@ -111,6 +111,15 @@ export default function AyudaScreen({ navigation }: any) {
           sub="Tenencia responsable y control canino comunal"
           onPress={() => abrirBusquedaMapa('municipalidad tenencia responsable de mascotas')}
         />
+        {/* `WidgetInstitucion` vive en el stack RAÍZ, igual que esta pantalla:
+            el nombre pelado es correcto (misma regla que 'Microchip'). */}
+        <Fila
+          icono="code-slash"
+          titulo="¿Tenés una vete, refugio o sitio web?"
+          sub="Mostrá las mascotas de tu comuna en tu página"
+          externo={false}
+          onPress={() => navigation.navigate('WidgetInstitucion')}
+        />
 
         <Card style={styles.tipCard}>
           <AppText weight="bold" size={14} style={styles.tipTitle}>
