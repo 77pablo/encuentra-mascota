@@ -17,4 +17,7 @@ export const linkingScreens: Record<string, string> = {
   // abre en modo invitado: la vista previa es anonima a proposito (grant a
   // `anon` en la 0048). Sumarse si pide cuenta.
   Cuadrilla: 'cuadrilla/:token',
+  // Evento de emergencia (Tanda 19). Link publico compartible: se abre en modo
+  // invitado y, como ruta publica, saltea el onboarding (ver lib/deepLinks).
+  Evento: 'evento/:id',
 };

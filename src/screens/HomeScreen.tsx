@@ -17,6 +17,7 @@ import { reunionLabel } from '../lib/reunion';
 import { timeAgo } from '../lib/time';
 import { AppText, Badge, Button, Card, Chip, ErrorState, Loading, Mascota, Screen, Title } from '../ui';
 import { ZoneAlertBanner } from '../components/ZoneAlertBanner';
+import { EmergenciaBanner } from '../components/EmergenciaBanner';
 import { pluralizar } from '../lib/plural';
 import { RecordatoriosBanner } from '../components/RecordatoriosBanner';
 import { BannerVigencia } from '../components/BannerVigencia';
@@ -263,6 +264,11 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </View>
         </View>
+
+        {/* Banner de emergencia (Tanda 19): va ARRIBA de todo porque una
+            catástrofe es lo más urgente que puede haber en Inicio. Solo aparece
+            si hay un evento activo; si no, no ocupa espacio (degrada solo). */}
+        <EmergenciaBanner />
 
         {/* Tarjeta hero */}
         <Card style={styles.hero}>

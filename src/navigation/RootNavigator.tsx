@@ -13,6 +13,7 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import PublicPetScreen from '../screens/PublicPetScreen';
 import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 import GuiaRobadaScreen from '../screens/GuiaRobadaScreen';
+import EventoScreen from '../screens/EventoScreen';
 import CollarScreen from '../screens/CollarScreen';
 import CuadrillaScreen from '../screens/CuadrillaScreen';
 import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
@@ -173,6 +174,14 @@ export default function RootNavigator() {
           name="GuiaRobada"
           component={GuiaRobadaScreen}
           options={{ headerShown: true, title: 'Te la robaron' }}
+        />
+        {/* Evento de emergencia (Tanda 19): se abre desde el banner de Inicio o
+            por deep link (`evento/:id`), en modo invitado como MascotaPublica.
+            Stack raíz con header y botón de volver. */}
+        <Stack.Screen
+          name="Evento"
+          component={EventoScreen}
+          options={{ headerShown: true, title: 'Emergencia' }}
         />
         {/* Guía "encontré una mascota" (Función 4, espejo de GuiaPerdida): se
             abre desde Inicio y tras publicar una "encontrada". Mismo trato:
