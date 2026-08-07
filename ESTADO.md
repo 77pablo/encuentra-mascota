@@ -1,8 +1,22 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067+0068 APLICADAS + Tandas 15, 17 y 18 listas; falta SOLO subir el dist y revocar el token)
+## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067+0068+0069 APLICADAS + Tandas 15, 17, 18 y 19 listas; falta SOLO subir el dist y revocar el token)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 231 suites / 3098 tests, exit 0 real (PIPESTATUS).**
+**Rama `feat/t13`. Suite: tsc 0, jest 233 suites / 3114 tests, exit 0 real (PIPESTATUS).**
+**⚠️ La base quedó VACÍA (0 pets, 0 eventos):** el reporte "Perro" era del test account
+probando779 (= user 93b95ba4, su dueño) y las limpiezas E2E lo borraron. Era "REPORTE DE PRUEBA
+(Playwright)", no dato real. Para probar feeds hay que publicar un reporte de prueba y borrarlo.
+
+### ✅ Tanda 19 — Modo emergencia/catástrofe v1 (nuevo, en la rama, migración 0069 APLICADA, en el dist)
+Un **evento** = zona (centro+radio) + ventana con nombre, sembrado por admin (SQL). Banner en Inicio
+si hay evento activo → `EventoScreen`, que trae el evento por id (deep-linkeable `evento/:id`,
+saltea onboarding) y muestra los reportes de la zona reusando `buscar_reportes` (centro+radio+desde)
+vía `ReportesLista` — sin feed nuevo ni etiquetar reportes. Migración `0069` (tabla `eventos`, RLS
+solo-lectura de activos, sin escritura para anon) APLICADA y verificada (ensayo begin/rollback +
+ataques: anon lee activo, no inactivo, no inserta; HTTP 42501 en insert). E2E 3/3 clave (banner,
+feed lista el reporte de la zona, deep link sin onboarding). Bundle `index-57cd97a…`. Sin costo.
+
+### ✅ Tanda 18 — "¿Dónde pego los carteles?" (nuevo, en la rama, en el dist, SIN migración)
 
 ### ✅ Tanda 18 — "¿Dónde pego los carteles?" (nuevo, en la rama, en el dist, SIN migración)
 Sección en la ficha del reporte propio (gate del plan: dueño, perdida, no reunida) que sugiere
