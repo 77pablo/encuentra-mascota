@@ -23,13 +23,16 @@ const DIR = join(RAIZ, 'supabase', 'migrations');
 // recreada desde su cuerpo vivo para devolver la columna al feed).
 // TANDA 19: se mueve a 0069 (modo emergencia: tabla `eventos`, RLS de solo
 // lectura de activos, sembrada por admin).
+// TANDA 21: se mueve a 0070 (impacto: tasa/mediana en `impacto_comunidad`
+// —drop+create, columnas nuevas AL FINAL— y RPC nueva `impacto_por_comuna`
+// para la página pública /impacto). PENDIENTE DE APLICAR al escribirse esto.
 // ───────────────────────────────────────────────────────────────────────────
-describe('0069 es la ultima migracion del repo', () => {
+describe('0070 es la ultima migracion del repo', () => {
   it('no hay ninguna migracion con numero mayor', () => {
     const numeros = readdirSync(DIR)
       .filter((f) => f.endsWith('.sql'))
       .map((f) => parseInt(f.slice(0, 4), 10))
       .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(69);
+    expect(Math.max(...numeros)).toBe(70);
   });
 });
