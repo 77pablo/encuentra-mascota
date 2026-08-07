@@ -1,8 +1,38 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (7-ago-2026, tarde — Tanda 20 LISTA en la rama; falta subir el dist + revocar el token)
+## 👉 DÓNDE RETOMAR (7-ago-2026, noche — Tanda 21 a un paso de cerrar: falta SOLO el E2E con Playwright)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 235 suites / 3130 tests, exit 0 real.**
+**Rama `feat/t13`. Suite: tsc 0, jest 242 suites / 3171 tests, exit 0 real.**
+
+### 🔶 Tanda 21 — Impacto (tasa/mediana) + /impacto + multas + kit comunal (CASI lista, sesión cortada)
+Spec `docs/superpowers/specs/2026-08-07-tanda21-impacto-y-arranque-design.md` (aprobada por Pablo:
+las 4 piezas) y plan `docs/superpowers/plans/2026-08-07-tanda21-impacto-y-arranque.md` (9 tareas).
+**Tareas 1-8 HECHAS, commiteadas y con suite verde**; el guardián de última migración movido a 0070:
+1. `lib/impactoFrase.ts` (umbrales ≥3 reencuentros y ≥5 perdidas; tasa que redondea a 0 se omite).
+2. `services/impacto.ts` con `perdidasHistoricas?`/`medianaDias?` opcionales (RPC vieja → degrada).
+3. Frase en la tarjeta de Inicio (`fraseImpactoTexto`).
+4. **Migración `0070` escrita y SIN APLICAR** (drop+create `impacto_comunidad` con columnas nuevas
+   AL FINAL + RPC `impacto_por_comuna`; antes de aplicar: `pg_get_functiondef` y comparar con 0044).
+5. Aviso de multas en `PuntosCartel` (incondicional, al pie).
+6. `public/impacto/index.html` (SIN noindex, XSS escapado, umbrales espejados con guard) +
+   `/impacto` en el worker (guarda `/impactos-x`→SPA).
+7. `lib/kitComunal.ts` (3 mensajes; el de veterinaria menciona el widget).
+8. `AficheComunal` (paleta clara fija) + `AficheComunalGenerador` + `KitComunalScreen` + cableado
+   (RootNavigator, Ayuda, Perfil ×2 incluido invitado).
+
+**Verificado ya:** dist exportado (bundle `index-800e6f9b…`) y rutas contra `wrangler@3` 3/3
+(`/impacto/` sirve la página, `/impactos-x` cae al SPA, `/widget/` sigue vivo).
+
+**LO QUE FALTA (tarea 9 del plan, retomar acá):**
+1. **E2E con Playwright contra el dist** (levantar `npx wrangler@3 pages dev dist --port 8788`):
+   `/impacto/` pre-migración debe mostrar los 4 números en 0, SIN tabla por comuna y SIN frase
+   (la RPC global vieja responde igual; `impacto_por_comuna` da 404 y el `.catch` degrada);
+   Perfil de invitado → "Traé la app a tu comuna" → copiar mensaje (clipboard con la URL) y
+   descargar el afiche (evento `download`); Inicio sin "De cada 10".
+2. Actualizar esta sección + push (los commits de la t21 ya están hechos localmente).
+3. **De Pablo:** token nuevo para aplicar la `0070` (con cuerpo vivo verificado antes) → re-verificar
+   `/impacto` ya con por-comuna; subir el `dist` (el bundle `index-800e6f9b…` YA incluye t20+t21);
+   revocar el token viejo `sbp_9fc…f390` si no lo hizo.
 
 ### ✅ Tanda 20 — Widget institucional embebible (nuevo, en la rama, SIN migración, dist exportado)
 Un tercero (vet, refugio, municipio, junta de vecinos) pega un `<iframe>` en su sitio y muestra las
@@ -20,10 +50,12 @@ La consulta exacta del widget probada como `anon` por HTTP (200 — columnas `ro
 `comuna` legibles). Spec: `docs/superpowers/specs/2026-08-07-tanda20-widget-institucional-design.md`.
 Commits `c82e151`+`4689083`+`a9d44b6`+`01329ae`. Sin costo: sin migración, sin Edge Function.
 
-### ⚠️ LO QUE QUEDA DE PABLO
-1. **Subir el `dist`** (drag-and-drop a Cloudflare Pages): bundle `index-8cd2c53c…` = t20 completa.
-   Hasta entonces `/widget` NO existe en producción (el worker viejo manda esa ruta al SPA).
-2. **Revocar el token** `sbp_9fc…f390` en <https://supabase.com/dashboard/account/tokens>.
+### ⚠️ LO QUE QUEDA DE PABLO (actualizado por la t21)
+1. **Subir el `dist`** (drag-and-drop a Cloudflare Pages): el bundle vigente es `index-800e6f9b…`
+   (t20 + t21 juntas; el `index-8cd2c53c…` de la t20 quedó superado sin subirse). Hasta entonces
+   ni `/widget` ni `/impacto` existen en producción.
+2. **Token nuevo de Supabase** para aplicar la migración `0070` (y revocar el viejo `sbp_9fc…f390`
+   si sigue vivo).
 
 ### ✅ WEB SUBIDA por Pablo (7-ago, mañana) y VERIFICADA en producción (pre-t20)
 Bundle en prod (`index-57cd97a…`) == el del disco. Humo E2E contra el sitio real 7/7: **T17 robada**
