@@ -22,8 +22,12 @@ describe('cableado', () => {
     expect(nav).toMatch(/WidgetInstitucionScreen/);
   });
 
-  it('se llega desde Perfil', () => {
-    expect(leer('screens/ProfileScreen.tsx')).toMatch(/WidgetInstitucion/);
+  it('se llega desde Perfil, TAMBIÉN como invitado (una vet sin cuenta)', () => {
+    const perfil = leer('screens/ProfileScreen.tsx');
+    const entradas = perfil.match(/navigate\('WidgetInstitucion'\)/g) ?? [];
+    // Una entrada en la rama de invitado y otra en la de sesión: si alguien
+    // borra la de invitado, la vet sin cuenta se queda sin camino al widget.
+    expect(entradas.length).toBeGreaterThanOrEqual(2);
   });
 
   it('se llega desde Ayuda', () => {

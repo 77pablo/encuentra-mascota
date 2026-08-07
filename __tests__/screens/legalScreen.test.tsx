@@ -5,6 +5,12 @@ import LegalScreen from '../../src/screens/LegalScreen';
 import { ThemeProvider } from '../../src/theme/ThemeProvider';
 import { darkColors, lightColors } from '../../src/theme';
 
+// Montar una pantalla real con el stack de react-native tarda segundos sueltos
+// y mucho más bajo carga: con el default de 5 s de jest esta suite pasa en
+// aislamiento y flakea dentro de la suite completa (3ª aparición del mismo
+// timeout). Mismo arreglo que los otros tests de pantalla del repo.
+jest.setTimeout(30000);
+
 // La pantalla legal se RENDERIZA de verdad acá.
 //
 // Que compile y que el módulo generado tenga el texto correcto no prueba que la

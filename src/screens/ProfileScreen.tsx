@@ -191,6 +191,16 @@ export default function ProfileScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Legal')}
             style={styles.invitadoBoton}
           />
+          {/* También para invitados (Tanda 20): el widget muestra solo datos
+              públicos y el spec exige que una vet SIN cuenta pueda tomar el
+              código — sin esta entrada no tendría cómo llegar. */}
+          <Button
+            title="Widget para tu sitio"
+            variant="ghost"
+            icon="code-slash-outline"
+            onPress={() => navigation.navigate('WidgetInstitucion')}
+            style={styles.invitadoBoton}
+          />
           {/* El selector de apariencia también acá: un invitado puede querer
               modo oscuro sin tener cuenta. */}
           <AppText weight="bold" size={14} style={styles.apparienceLabel}>
