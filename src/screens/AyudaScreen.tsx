@@ -120,6 +120,14 @@ export default function AyudaScreen({ navigation }: any) {
           externo={false}
           onPress={() => navigation.navigate('WidgetInstitucion')}
         />
+        {/* `KitComunal` también vive en el stack raíz (Tanda 21). */}
+        <Fila
+          icono="megaphone"
+          titulo="Traé la app a tu comuna"
+          sub="Afiche imprimible y mensajes listos para compartir"
+          externo={false}
+          onPress={() => navigation.navigate('KitComunal')}
+        />
 
         <Card style={styles.tipCard}>
           <AppText weight="bold" size={14} style={styles.tipTitle}>

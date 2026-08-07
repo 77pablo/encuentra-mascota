@@ -15,6 +15,7 @@ import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
 import GuiaRobadaScreen from '../screens/GuiaRobadaScreen';
 import EventoScreen from '../screens/EventoScreen';
 import WidgetInstitucionScreen from '../screens/WidgetInstitucionScreen';
+import KitComunalScreen from '../screens/KitComunalScreen';
 import CollarScreen from '../screens/CollarScreen';
 import CuadrillaScreen from '../screens/CuadrillaScreen';
 import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
@@ -191,6 +192,13 @@ export default function RootNavigator() {
           name="WidgetInstitucion"
           component={WidgetInstitucionScreen}
           options={{ headerShown: true, title: 'Widget para tu sitio' }}
+        />
+        {/* Kit de arranque comunal (Tanda 21): afiche + mensajes para traer
+            la app a una comuna. Stack raíz, sin gate (invitado incluido). */}
+        <Stack.Screen
+          name="KitComunal"
+          component={KitComunalScreen}
+          options={{ headerShown: true, title: 'Traé la app a tu comuna' }}
         />
         {/* Guía "encontré una mascota" (Función 4, espejo de GuiaPerdida): se
             abre desde Inicio y tras publicar una "encontrada". Mismo trato:

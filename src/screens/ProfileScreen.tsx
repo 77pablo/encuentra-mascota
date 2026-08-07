@@ -201,6 +201,14 @@ export default function ProfileScreen({ navigation }: any) {
             onPress={() => navigation.navigate('WidgetInstitucion')}
             style={styles.invitadoBoton}
           />
+          {/* Kit comunal (Tanda 21): quien difunde puede no tener cuenta. */}
+          <Button
+            title="Traé la app a tu comuna"
+            variant="ghost"
+            icon="megaphone-outline"
+            onPress={() => navigation.navigate('KitComunal')}
+            style={styles.invitadoBoton}
+          />
           {/* El selector de apariencia también acá: un invitado puede querer
               modo oscuro sin tener cuenta. */}
           <AppText weight="bold" size={14} style={styles.apparienceLabel}>
@@ -892,6 +900,13 @@ export default function ProfileScreen({ navigation }: any) {
           variant="ghost"
           icon="code-slash-outline"
           onPress={() => navigation.navigate('WidgetInstitucion')}
+        />
+        {/* Kit comunal (Tanda 21), también en el stack raíz. */}
+        <Button
+          title="Traé la app a tu comuna"
+          variant="ghost"
+          icon="megaphone-outline"
+          onPress={() => navigation.navigate('KitComunal')}
         />
         {/* `Bloqueados` está registrada en ESTE mismo stack (ProfileStack), así
             que el nombre pelado es correcto: no hay que anidar `App`/pestaña. */}
