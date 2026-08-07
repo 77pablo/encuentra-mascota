@@ -21,13 +21,15 @@ const DIR = join(RAIZ, 'supabase', 'migrations');
 // sightings) y Pablo decidio corregirlo en el despliegue, no arrastrarlo.
 // TANDA 17: se mueve a 0068 (tipo "robada": pets.robada + buscar_reportes
 // recreada desde su cuerpo vivo para devolver la columna al feed).
+// TANDA 19: se mueve a 0069 (modo emergencia: tabla `eventos`, RLS de solo
+// lectura de activos, sembrada por admin).
 // ───────────────────────────────────────────────────────────────────────────
-describe('0068 es la ultima migracion del repo', () => {
+describe('0069 es la ultima migracion del repo', () => {
   it('no hay ninguna migracion con numero mayor', () => {
     const numeros = readdirSync(DIR)
       .filter((f) => f.endsWith('.sql'))
       .map((f) => parseInt(f.slice(0, 4), 10))
       .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(68);
+    expect(Math.max(...numeros)).toBe(69);
   });
 });
