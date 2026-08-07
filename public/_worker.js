@@ -201,7 +201,10 @@ const TIENE_EXTENSION = /\.[a-z0-9]+$/i;
 //   /widget         → widget institucional embebible (Tanda 20): una vet o
 //                     municipio lo pega en su sitio via <iframe> para mostrar
 //                     las mascotas de su comuna. Es public/widget/index.html.
-const ESTATICOS_SIN_EXTENSION = ['/borrar-cuenta', '/privacidad', '/terminos', '/widget'];
+//   /impacto        → página pública de impacto (Tanda 21): números agregados
+//                     de la comunidad + desglose por comuna. Material de
+//                     prensa/convenio; SÍ se indexa. Es public/impacto/index.html.
+const ESTATICOS_SIN_EXTENSION = ['/borrar-cuenta', '/privacidad', '/terminos', '/widget', '/impacto'];
 
 function esEstaticoSinExtension(pathname) {
   return ESTATICOS_SIN_EXTENSION.some((base) => pathname === base || pathname.startsWith(base + '/'));

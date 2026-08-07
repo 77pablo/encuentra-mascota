@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>El impacto de Encuentra tu Mascota</title>
+  <meta name="description" content="Cuántas mascotas perdidas vuelven a casa gracias a la comunidad, y en cuánto tiempo. Datos reales, comuna por comuna." />
+  <meta property="og:title" content="El impacto de Encuentra tu Mascota" />
+  <meta property="og:description" content="Cuántas mascotas vuelven a casa gracias a la comunidad, con datos reales por comuna." />
+  <meta property="og:type" content="website" />
+  <style>
+    /* Página pública de impacto (Tanda 21). A diferencia del widget, esta
+       página SÍ se indexa: es material de prensa y de convenio municipal. */
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1f2937; background: #fffaf5; font-size: 15px; line-height: 1.5;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 28px 16px 40px; }
+    h1 { font-size: 24px; margin: 0 0 4px; color: #b91c1c; }
+    .sub { color: #6b7280; margin: 0 0 20px; }
+    .estado { color: #6b7280; padding: 32px 8px; text-align: center; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .celda { background: #fff; border: 1px solid #f1e4d8; border-radius: 14px; padding: 14px; text-align: center; }
+    .num { font-size: 26px; font-weight: 800; }
+    .rot { color: #6b7280; font-size: 13px; }
+    .frase { text-align: center; color: #374151; margin: 16px 0 0; font-weight: 600; }
+    h2 { font-size: 16px; margin: 28px 0 8px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #f1e4d8; border-radius: 12px; overflow: hidden; }
+    th, td { text-align: left; padding: 8px 12px; font-size: 14px; border-top: 1px solid #f6ede4; }
+    th { background: #fdf3ea; border-top: none; color: #6b7280; font-size: 12px; }
+    td.n { text-align: right; font-variant-numeric: tabular-nums; }
+    footer { margin-top: 28px; text-align: center; font-size: 13px; color: #6b7280; }
+    footer a { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Lo que logramos juntos</h1>
+    <p class="sub">Datos reales de la comunidad de Encuentra tu Mascota, actualizados al momento de abrir esta página.</p>
+    <div id="contenido" class="estado">Cargando…</div>
+    <footer>Hecho por la comunidad de <a id="masLink" href="/">Encuentra tu Mascota</a> — publicar y avisar es gratis, sin trámite.</footer>
+  </div>
+
+  <script>
+    // Mismas credenciales PÚBLICAS que el widget y el bundle (la RLS protege).
+    var SUPABASE_URL = 'https://ywlrcfaybnikaurxsgtj.supabase.co';
+    var ANON = 'sb_publishable_K1UXXganPME34mfGqvt9vA_DOrcbwr6';
+    // Espejo de src/lib/impactoFrase.ts (guard de test compara los dos archivos).
+    var MIN_REENCUENTROS = 3;
+    var MIN_PERDIDAS = 5;
+
+    function escapar(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function rpc(nombre) {
+      return fetch(SUPABASE_URL + '/rest/v1/rpc/' + nombre, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    }
+
+    document.getElementById('masLink').href = location.origin + '/';
+    var cont = document.getElementById('contenido');
+
+    // `impacto_por_comuna` puede no existir todavía (la 0070 se aplica aparte):
+    // su .catch degrada a lista vacía y la sección simplemente no aparece.
+    Promise.all([rpc('impacto_comunidad'), rpc('impacto_por_comuna').catch(function () { return []; })])
+      .then(function (res) {
+        var g = (res[0] || [])[0];
+        var filas = res[1] || [];
+        if (!g) { cont.textContent = 'Todavía no hay datos para mostrar.'; return; }
+        var html = '<div class="grid">'
+          + '<div class="celda"><div class="num">' + Number(g.reencuentros || 0) + '</div><div class="rot">reencuentros</div></div>'
+          + '<div class="celda"><div class="num">' + Number(g.buscando || 0) + '</div><div class="rot">mascotas buscando</div></div>'
+          + '<div class="celda"><div class="num">' + Number(g.adopciones || 0) + '</div><div class="rot">encontraron familia</div></div>'
+          + '<div class="celda"><div class="num">' + Number(g.aportes || 0) + '</div><div class="rot">aportes de vecinos</div></div>'
+          + '</div>';
+        var re = Number(g.reencuentros || 0);
+        var perdidas = g.perdidas_historicas == null ? null : Number(g.perdidas_historicas);
+        var mediana = g.mediana_dias == null ? null : Number(g.mediana_dias);
+        if (perdidas !== null && re >= MIN_REENCUENTROS && perdidas >= MIN_PERDIDAS) {
+          var partes = [];
+          var deCada10 = Math.round((10 * re) / perdidas);
+          if (deCada10 >= 1) partes.push('De cada 10 perdidas, ' + Math.min(deCada10, 10) + ' ya volvieron');
+          if (mediana !== null) {
+            var dias = Math.max(1, Math.round(mediana));
+            partes.push('la mitad vuelve en ~' + dias + (dias === 1 ? ' día' : ' días'));
+          }
+          if (partes.length) html += '<p class="frase">' + partes.join(' · ') + '</p>';
+        }
+        if (filas.length) {
+          html += '<h2>Por comuna</h2><table><tr><th>Comuna</th><th style="text-align:right">Reencuentros</th><th style="text-align:right">Buscando</th></tr>';
+          filas.forEach(function (f) {
+            html += '<tr><td>' + escapar(f.comuna) + '</td><td class="n">' + Number(f.reencuentros || 0) + '</td><td class="n">' + Number(f.buscando || 0) + '</td></tr>';
+          });
+          html += '</table>';
+        }
+        cont.className = '';
+        cont.innerHTML = html;
+      })
+      .catch(function () {
+        cont.textContent = 'No pudimos cargar los datos ahora. Probá de nuevo en un rato.';
+      });
+  </script>
+</body>
+</html>
