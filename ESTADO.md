@@ -1,19 +1,36 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (7-ago-2026 — TODO DESPLEGADO Y VERIFICADO EN PRODUCCIÓN; solo falta revocar el token)
+## 👉 DÓNDE RETOMAR (7-ago-2026, tarde — Tanda 20 LISTA en la rama; falta subir el dist + revocar el token)
 
-**Rama `feat/t13`. Suite: tsc 0, jest 233 suites / 3114 tests, exit 0 real (PIPESTATUS).**
+**Rama `feat/t13`. Suite: tsc 0, jest 235 suites / 3130 tests, exit 0 real.**
 
-### ✅ WEB SUBIDA por Pablo (7-ago) y VERIFICADA en producción
+### ✅ Tanda 20 — Widget institucional embebible (nuevo, en la rama, SIN migración, dist exportado)
+Un tercero (vet, refugio, municipio, junta de vecinos) pega un `<iframe>` en su sitio y muestra las
+mascotas activas de una comuna, alimentado por nosotros — la defensa contra SOSAFE y el camino por
+el que escaló Petco Love Lost. Piezas: `public/widget/index.html` (self-contained, XSS escapado,
+estados cargando/vacío/error), pase `/widget` en `_worker.js` (con guarda `/widgets-x`→SPA),
+`lib/widgetInstitucion.ts` (embed code) y `WidgetInstitucionScreen` (elegir comuna → copiar código →
+preview), con entradas desde Perfil (**también como invitado** — el spec exige que una vet SIN
+cuenta pueda tomar el código; el E2E cazó que faltaba ese camino) y desde Ayuda. **Verificado
+contra el runtime real** (`wrangler@3 pages dev dist`): rutas 3/3 (incl. el 308 de `/widget` sin
+barra, que conserva la query), E2E 11/11 (widget vacío + pantalla + clipboard) y **6/6 con un
+reporte real** (tarjeta, badge PERDIDA, link a la ficha, y el nombre con `<b>x</b>` salió como
+TEXTO plano — escape XSS probado de verdad; reporte de prueba borrado con `select`, base vacía).
+La consulta exacta del widget probada como `anon` por HTTP (200 — columnas `robada`/`oculto`/
+`comuna` legibles). Spec: `docs/superpowers/specs/2026-08-07-tanda20-widget-institucional-design.md`.
+Commits `c82e151`+`4689083`+`a9d44b6`+`01329ae`. Sin costo: sin migración, sin Edge Function.
+
+### ⚠️ LO QUE QUEDA DE PABLO
+1. **Subir el `dist`** (drag-and-drop a Cloudflare Pages): bundle `index-8cd2c53c…` = t20 completa.
+   Hasta entonces `/widget` NO existe en producción (el worker viejo manda esa ruta al SPA).
+2. **Revocar el token** `sbp_9fc…f390` en <https://supabase.com/dashboard/account/tokens>.
+
+### ✅ WEB SUBIDA por Pablo (7-ago, mañana) y VERIFICADA en producción (pre-t20)
 Bundle en prod (`index-57cd97a…`) == el del disco. Humo E2E contra el sitio real 7/7: **T17 robada**
 (badge ROBADA en feed + ficha + guía), **T15 difundir** (botón + texto "ROBARON" sin monto),
 **T18 carteles** (sección responde), **B5 vector de foto** (sección presente), y las migraciones
 0067/0068/0069 activas. 0 errores JS graves (el único `ERR_FAILED` es la llamada en vivo a Overpass,
 esperado). Base limpia (0 pets, 0 eventos).
-
-### ⚠️ LO ÚNICO QUE QUEDA — revocar el token
-`sbp_9fc…f390` en <https://supabase.com/dashboard/account/tokens> (usado hoy para las migraciones;
-se revoca por higiene).
 
 **⚠️ La base quedó VACÍA (0 pets, 0 eventos):** el reporte "Perro" era del test account
 probando779 (= user 93b95ba4, su dueño) y las limpiezas E2E lo borraron. Era "REPORTE DE PRUEBA
