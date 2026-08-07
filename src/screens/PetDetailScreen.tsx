@@ -12,6 +12,7 @@ import { NudgeVigencia } from '../components/NudgeVigencia';
 import { PreguntaSiAparecio, seVaAPreguntar } from '../components/PreguntaSiAparecio';
 import { RespuestaCierre } from '../lib/cierreCasos';
 import { PlanBusqueda } from '../components/PlanBusqueda';
+import PuntosCartel from '../components/PuntosCartel';
 import { TableroDifusion } from '../components/TableroDifusion';
 import { ConsejoRadio } from '../components/ConsejoRadio';
 import { markReunited } from '../services/reunions';
@@ -850,6 +851,12 @@ export default function PetDetailScreen({ route, navigation }: any) {
             }
           />
         ) : null}
+
+        {/* "¿Dónde pego los carteles?" (Tanda 18): semáforos cercanos como
+            esquinas de tráfico. Mismo gate que el plan (dueño, perdida, no
+            reunida). Busca bajo demanda contra OpenStreetMap y degrada al
+            consejo genérico si Overpass falla. */}
+        {esMio && !reunida && pet.estado === 'perdida' ? <PuntosCartel pet={pet} /> : null}
 
         {/* Se anuncia que HAY recompensa, nunca cuánto. Los reportes viejos
             siguen teniendo la cifra guardada en la base: no se borró nada, es la
