@@ -12,6 +12,7 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import PublicPetScreen from '../screens/PublicPetScreen';
 import GuiaPerdidaScreen from '../screens/GuiaPerdidaScreen';
+import GuiaRobadaScreen from '../screens/GuiaRobadaScreen';
 import CollarScreen from '../screens/CollarScreen';
 import CuadrillaScreen from '../screens/CuadrillaScreen';
 import AdopcionDetailScreen from '../screens/AdopcionDetailScreen';
@@ -164,6 +165,14 @@ export default function RootNavigator() {
           name="GuiaPerdida"
           component={GuiaPerdidaScreen}
           options={{ headerShown: true, title: 'Primeros pasos' }}
+        />
+        {/* Guía "te la robaron" (Tanda 17): espejo de GuiaPerdida con lo del
+            robo (denuncia, no negociar, pruebas). Stack raíz con header, como
+            las otras guías, alcanzable por nombre desde cualquier pestaña. */}
+        <Stack.Screen
+          name="GuiaRobada"
+          component={GuiaRobadaScreen}
+          options={{ headerShown: true, title: 'Te la robaron' }}
         />
         {/* Guía "encontré una mascota" (Función 4, espejo de GuiaPerdida): se
             abre desde Inicio y tras publicar una "encontrada". Mismo trato:

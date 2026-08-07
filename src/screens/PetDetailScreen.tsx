@@ -1057,6 +1057,19 @@ export default function PetDetailScreen({ route, navigation }: any) {
           />
         )}
 
+        {/* Guía "te la robaron" (Tanda 17): solo en el reporte propio marcado
+            como robada. Navegación por nombre pelado: GuiaRobada vive en el
+            stack RAÍZ (hermana de 'App'), así que burbujea hasta ahí. */}
+        {esMio && pet.robada ? (
+          <Button
+            title="Qué hacer si te la robaron"
+            variant="secondary"
+            icon="shield-outline"
+            onPress={() => navigation.navigate('GuiaRobada')}
+            style={styles.shareButton}
+          />
+        ) : null}
+
         {esMio && (
           <Button
             title="Crear afiche"

@@ -19,13 +19,15 @@ const DIR = join(RAIZ, 'supabase', 'migrations');
 // Venia de 0066 (tanda 14, C3). La 0067 no estaba en el plan: salio del
 // hallazgo colateral de la revision de C3 (pet_tips deanonimizaba igual que
 // sightings) y Pablo decidio corregirlo en el despliegue, no arrastrarlo.
+// TANDA 17: se mueve a 0068 (tipo "robada": pets.robada + buscar_reportes
+// recreada desde su cuerpo vivo para devolver la columna al feed).
 // ───────────────────────────────────────────────────────────────────────────
-describe('0067 es la ultima migracion del repo', () => {
+describe('0068 es la ultima migracion del repo', () => {
   it('no hay ninguna migracion con numero mayor', () => {
     const numeros = readdirSync(DIR)
       .filter((f) => f.endsWith('.sql'))
       .map((f) => parseInt(f.slice(0, 4), 10))
       .filter((n) => !Number.isNaN(n));
-    expect(Math.max(...numeros)).toBe(67);
+    expect(Math.max(...numeros)).toBe(68);
   });
 });
