@@ -1,8 +1,20 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (6-ago-2026, cierre — 0067+0068+0069 APLICADAS + Tandas 15, 17, 18 y 19 listas; falta SOLO subir el dist y revocar el token)
+## 👉 DÓNDE RETOMAR (7-ago-2026 — TODO DESPLEGADO Y VERIFICADO EN PRODUCCIÓN; solo falta revocar el token)
 
 **Rama `feat/t13`. Suite: tsc 0, jest 233 suites / 3114 tests, exit 0 real (PIPESTATUS).**
+
+### ✅ WEB SUBIDA por Pablo (7-ago) y VERIFICADA en producción
+Bundle en prod (`index-57cd97a…`) == el del disco. Humo E2E contra el sitio real 7/7: **T17 robada**
+(badge ROBADA en feed + ficha + guía), **T15 difundir** (botón + texto "ROBARON" sin monto),
+**T18 carteles** (sección responde), **B5 vector de foto** (sección presente), y las migraciones
+0067/0068/0069 activas. 0 errores JS graves (el único `ERR_FAILED` es la llamada en vivo a Overpass,
+esperado). Base limpia (0 pets, 0 eventos).
+
+### ⚠️ LO ÚNICO QUE QUEDA — revocar el token
+`sbp_9fc…f390` en <https://supabase.com/dashboard/account/tokens> (usado hoy para las migraciones;
+se revoca por higiene).
+
 **⚠️ La base quedó VACÍA (0 pets, 0 eventos):** el reporte "Perro" era del test account
 probando779 (= user 93b95ba4, su dueño) y las limpiezas E2E lo borraron. Era "REPORTE DE PRUEBA
 (Playwright)", no dato real. Para probar feeds hay que publicar un reporte de prueba y borrarlo.
