@@ -1,10 +1,21 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (7-ago-2026, noche — Tanda 21 a un paso de cerrar: falta SOLO el E2E con Playwright)
+## 👉 DÓNDE RETOMAR (7-ago-2026, noche — TANDA 21 COMPLETA EN CÓDIGO, verificada E2E; quedan solo las 3 cosas de Pablo)
 
 **Rama `feat/t13`. Suite: tsc 0, jest 242 suites / 3171 tests, exit 0 real.**
 
-### 🔶 Tanda 21 — Impacto (tasa/mediana) + /impacto + multas + kit comunal (CASI lista, sesión cortada)
+### ✅ Tanda 21 — E2E CORRIDO (tarea 9): 16/16 contra el dist por el worker real
+Playwright contra `npx wrangler@3 pages dev dist --port 8788` (⚠️ dato de entorno: usar
+`npx --yes` — sin eso npx se queda esperando el "Ok to proceed?" de la instalación con el
+puerto abierto pero mudo; y pegarle a `127.0.0.1`, no `localhost`):
+- `/impacto/` PRE-migración: los 4 números en 0, SIN tabla por comuna, SIN frase (la RPC
+  global vieja responde; `impacto_por_comuna` 404 y el `.catch` degrada). No cayó al error.
+- Perfil de INVITADO → "Traé la app a tu comuna": los 3 mensajes montados, Copiar deja el
+  mensaje con la URL del sitio en el clipboard (+feedback "¡Copiado!"), y "Descargar el
+  afiche" dispara el download real `trae-la-app-a-tu-comuna.png`.
+- Inicio SIN "De cada 10". 0 errores JS graves (solo el 404 esperado de la RPC nueva).
+
+### ✅ Tanda 21 — Impacto (tasa/mediana) + /impacto + multas + kit comunal (código COMPLETO)
 Spec `docs/superpowers/specs/2026-08-07-tanda21-impacto-y-arranque-design.md` (aprobada por Pablo:
 las 4 piezas) y plan `docs/superpowers/plans/2026-08-07-tanda21-impacto-y-arranque.md` (9 tareas).
 **Tareas 1-8 HECHAS, commiteadas y con suite verde**; el guardián de última migración movido a 0070:
@@ -23,16 +34,12 @@ las 4 piezas) y plan `docs/superpowers/plans/2026-08-07-tanda21-impacto-y-arranq
 **Verificado ya:** dist exportado (bundle `index-800e6f9b…`) y rutas contra `wrangler@3` 3/3
 (`/impacto/` sirve la página, `/impactos-x` cae al SPA, `/widget/` sigue vivo).
 
-**LO QUE FALTA (tarea 9 del plan, retomar acá):**
-1. **E2E con Playwright contra el dist** (levantar `npx wrangler@3 pages dev dist --port 8788`):
-   `/impacto/` pre-migración debe mostrar los 4 números en 0, SIN tabla por comuna y SIN frase
-   (la RPC global vieja responde igual; `impacto_por_comuna` da 404 y el `.catch` degrada);
-   Perfil de invitado → "Traé la app a tu comuna" → copiar mensaje (clipboard con la URL) y
-   descargar el afiche (evento `download`); Inicio sin "De cada 10".
-2. Actualizar esta sección + push (los commits de la t21 ya están hechos localmente).
-3. **De Pablo:** token nuevo para aplicar la `0070` (con cuerpo vivo verificado antes) → re-verificar
-   `/impacto` ya con por-comuna; subir el `dist` (el bundle `index-800e6f9b…` YA incluye t20+t21);
-   revocar el token viejo `sbp_9fc…f390` si no lo hizo.
+**LO QUE FALTA (todo de Pablo; el código de la t21 está cerrado y verificado):**
+1. **Push** de la rama `feat/t13` con GitHub Desktop (los commits están hechos localmente).
+2. **Subir el `dist`** a Cloudflare Pages (el bundle `index-800e6f9b…` YA incluye t20+t21).
+3. **Token nuevo de Supabase** para aplicar la `0070` (antes de aplicar: `pg_get_functiondef`
+   del cuerpo vivo y comparar con la 0044) → después re-verificar `/impacto` ya con la tabla
+   por comuna y la frase; revocar el token viejo `sbp_9fc…f390` si no lo hizo.
 
 ### ✅ Tanda 20 — Widget institucional embebible (nuevo, en la rama, SIN migración, dist exportado)
 Un tercero (vet, refugio, municipio, junta de vecinos) pega un `<iframe>` en su sitio y muestra las
