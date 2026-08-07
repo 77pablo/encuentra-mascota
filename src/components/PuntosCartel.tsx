@@ -143,6 +143,16 @@ export default function PuntosCartel({ pet }: { pet: Pet }) {
           {consejoGenerico}
         </>
       ) : null}
+
+      {/* Advertencia SIEMPRE visible (Tanda 21): varias comunas multan pegar
+          carteles en postes/mobiliario público. Sugerir esquinas sin decirlo
+          empujaba al usuario a una infracción sin saberlo — va al pie, fuera
+          de las ramas, porque aplica igual con Overpass caído. */}
+      <AppText muted size={12} style={styles.avisoMultas}>
+        Ojo: en varias comunas pegar carteles en postes o mobiliario público puede tener multa.
+        Pedí permiso en los comercios de la esquina (una vitrina se ve igual de bien) o consultá en
+        tu municipalidad.
+      </AppText>
     </Card>
   );
 }
@@ -165,5 +175,6 @@ function crearEstilos(colors: Colors) {
     },
     filaTexto: { flex: 1, color: colors.ink },
     atribucion: { marginTop: spacing.xs },
+    avisoMultas: { lineHeight: 17, marginTop: spacing.xs },
   });
 }
