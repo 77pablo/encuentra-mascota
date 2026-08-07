@@ -23,7 +23,10 @@ describe('public/impacto/index.html', () => {
   });
 
   it('llama a las DOS RPCs como anon', () => {
-    expect(leer()).toMatch(/rpc\/impacto_comunidad/);
-    expect(leer()).toMatch(/rpc\/impacto_por_comuna/);
+    // La URL se arma en el helper (`'/rest/v1/rpc/' + nombre`): se verifica el
+    // endpoint del helper y las DOS invocaciones por nombre.
+    expect(leer()).toContain("'/rest/v1/rpc/' + nombre");
+    expect(leer()).toContain("rpc('impacto_comunidad')");
+    expect(leer()).toContain("rpc('impacto_por_comuna')");
   });
 });
