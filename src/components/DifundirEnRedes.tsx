@@ -37,6 +37,7 @@ export default function DifundirEnRedes({ pet, onCompartirTarjeta, onCerrar }: P
       comuna: pet.comuna,
       descripcion: pet.descripcion,
       recompensa: pet.recompensa,
+      robada: pet.robada,
     },
     petUrl(pet.id) ?? '',
   );

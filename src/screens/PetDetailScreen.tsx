@@ -708,6 +708,9 @@ export default function PetDetailScreen({ route, navigation }: any) {
             {pet.nombre || especieLabel[pet.especie]}
           </Title>
           <Badge estado={pet.estado} />
+          {/* "Robada" (Tanda 17): marca sobre una perdida, con el color de
+              perdida. La guía "Te la robaron" se ofrece más abajo (esMio). */}
+          {pet.robada ? <Badge label="ROBADA" color={colors.lost} /> : null}
         </View>
         <AppText muted size={13} style={styles.meta}>
           {especieLabel[pet.especie]}

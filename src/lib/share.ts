@@ -11,7 +11,10 @@ const especieLabel: Record<Pet['especie'], string> = {
 
 // Arma el texto de un reporte listo para compartir por WhatsApp u otra app.
 export function buildShareText(pet: Pet): string {
-  const base = pet.estado === 'perdida' ? '🔴 PERDIDA' : '🟢 ENCONTRADA';
+  // "Robada" (Tanda 17) es una marca sobre una perdida: cambia la etiqueta, no
+  // el estado. Una encontrada nunca es robada.
+  const base =
+    pet.estado === 'perdida' ? (pet.robada ? '🚨 ROBADA' : '🔴 PERDIDA') : '🟢 ENCONTRADA';
   // Si el reporte tiene comuna (Tanda 3), se antepone el lugar ("... en Maipú").
   // Los reportes viejos no la tienen: sin comuna el texto queda igual que antes.
   const comuna = pet.comuna?.trim();

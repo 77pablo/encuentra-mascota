@@ -62,7 +62,7 @@ export default function ReportesMapa({
             key={p.id}
             coordinate={{ latitude: p.lat, longitude: p.lng }}
             pinColor={p.estado === 'perdida' ? colors.lost : colors.found}
-            title={`${p.estado === 'perdida' ? 'Perdida' : 'Encontrada'} · ${p.especie}`}
+            title={`${p.estado === 'perdida' ? (p.robada ? 'Robada' : 'Perdida') : 'Encontrada'} · ${p.especie}`}
             description={p.descripcion.slice(0, 40)}
             onCalloutPress={() => navigation.navigate('PetDetail', { id: p.id })}
           />

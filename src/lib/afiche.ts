@@ -79,7 +79,12 @@ export function armarAfiche(
   const incluirNumero = opciones.incluirNumero ?? true;
   const digits = incluirNumero ? normalizarWhatsapp(profile?.telefono) : '';
   return {
-    titular: pet.estado === 'perdida' ? 'SE BUSCA' : '¿CONOCÉS A ESTA MASCOTA?',
+    titular:
+      pet.estado === 'perdida'
+        ? pet.robada
+          ? 'SE BUSCA · ROBADA'
+          : 'SE BUSCA'
+        : '¿CONOCÉS A ESTA MASCOTA?',
     nombre: pet.nombre || null,
     subtitulo: armarSubtitulo(pet),
     senas: pet.descripcion,

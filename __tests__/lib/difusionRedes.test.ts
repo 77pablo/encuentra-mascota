@@ -47,4 +47,12 @@ describe('armarTextoDifusion', () => {
     expect(t).toMatch(/encontr/i);
     expect(t).toContain('Maipú');
   });
+
+  it('un reporte robado habla de robo, no de "Se perdió"', () => {
+    const t = armarTextoDifusion({ ...base, robada: true }, URL);
+    expect(t).toMatch(/robad|robar/i);
+    expect(t).not.toMatch(/Se perdió/);
+    // sigue sin monto
+    expect(t).not.toContain('$');
+  });
 });

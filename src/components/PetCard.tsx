@@ -49,6 +49,9 @@ export default function PetCard({
                 {pet.nombre || especieLabel[pet.especie]}
               </AppText>
               <Badge estado={pet.estado} />
+              {/* "Robada" (Tanda 17): marca sobre una perdida. Se pinta como
+                  badge propio junto al de estado, con el color de perdida. */}
+              {pet.robada ? <Badge label="ROBADA" color={colors.lost} /> : null}
             </View>
             <AppText muted size={12} numberOfLines={1}>
               {especieLabel[pet.especie]}

@@ -11,6 +11,7 @@ export type DatosDifusion = {
   comuna?: string | null;
   descripcion?: string | null;
   recompensa?: string | null;
+  robada?: boolean;
 };
 
 export function armarTextoDifusion(pet: DatosDifusion, url: string): string {
@@ -19,7 +20,9 @@ export function armarTextoDifusion(pet: DatosDifusion, url: string): string {
   const titulo =
     pet.estado === 'encontrada'
       ? `🐾 Encontré un ${pet.especie}${donde}. ¿Es tuyo o sabés de quién es?`
-      : `🚨 Se perdió ${quien}${donde}. Ayudame a encontrarlo.`;
+      : pet.robada
+        ? `🚨 ROBARON a ${quien}${donde}. Ayudame a encontrarlo.`
+        : `🚨 Se perdió ${quien}${donde}. Ayudame a encontrarlo.`;
   const senas = pet.descripcion?.trim() ? `\n${pet.descripcion.trim()}` : '';
   const recompensa = tieneRecompensa(pet.recompensa) ? '\nHay recompensa.' : '';
   const cierre = '\n\nMirá la ficha y avisá acá (no hace falta crear cuenta):';
