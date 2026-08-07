@@ -41,3 +41,51 @@ describe('getImpacto', () => {
     expect(i).toBeNull();
   });
 });
+
+describe('getImpacto con la RPC 0070 (tasa y mediana)', () => {
+  it('mapea perdidas_historicas y mediana_dias', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          reencuentros: 4,
+          buscando: 2,
+          adopciones: 1,
+          aportes: 9,
+          perdidas_historicas: '10',
+          mediana_dias: '4.5',
+        },
+      ],
+      error: null,
+    });
+
+    const r = await getImpacto();
+
+    expect(r?.perdidasHistoricas).toBe(10);
+    expect(r?.medianaDias).toBe(4.5);
+  });
+
+  it('RPC vieja (sin columnas nuevas) => undefined, no 0', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ reencuentros: 4, buscando: 2, adopciones: 1, aportes: 9 }],
+      error: null,
+    });
+
+    const r = await getImpacto();
+
+    expect(r?.perdidasHistoricas).toBeUndefined();
+    expect(r?.medianaDias).toBeUndefined();
+  });
+
+  it('mediana_dias null (menos de 3 reencuentros) queda null, no NaN', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        { reencuentros: 2, buscando: 0, adopciones: 0, aportes: 0, perdidas_historicas: 3, mediana_dias: null },
+      ],
+      error: null,
+    });
+
+    const r = await getImpacto();
+
+    expect(r?.medianaDias).toBeNull();
+  });
+});
