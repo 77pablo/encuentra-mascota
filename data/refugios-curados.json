@@ -1,5 +1,5 @@
 {
-  "comentario": "Refugios y caniles curados a mano (tanda 22). Regla dura: sin fuente https verificable, la entrada NO entra. Los ids son estables y no se reciclan. fuente y region no viajan a la base. Entrada 1 (fix post-revisión): la fuente original (temuco.cl, noticia sobre el diseño del centro NUEVO) daba la ubicación del proyecto futuro, no la del centro actual — se reemplazó por bomberos.cl, que describe en presente la ubicación real del Centro de Mantención Temporal de Canes del municipio ('en la ruta Temuco Cholchol, junto a la parcela Tegualda'). lat/lng son un geocodeo a mano del sector Tegualda (sin dirección postal propia por ser predio rural), contrastado contra el punto independiente de Wikimapia para 'Complejo Deportivo Parcela Tegualda' (38°41'32\"S 72°40'10\"W) en el mismo sector. La noticia de temuco.cl sigue siendo válida como contexto institucional (nombra 'el actual Centro de Mantención Temporal (ex canil) de Temuco') pero ya no se usa como fuente de ubicación.",
+  "comentario": "Refugios y caniles curados a mano (tanda 22). Regla dura: sin fuente https verificable, la entrada NO entra; prensa sola NO alcanza (solo cuenta pagina municipal u oficial de la organizacion). Los ids son estables y no se reciclan. fuente y region no viajan a la base. Entrada 1 (fix post-revision, Task 1): la fuente original (temuco.cl, noticia sobre el diseno del centro NUEVO) daba la ubicacion del proyecto futuro, no la del centro actual — se reemplazo por bomberos.cl. lat/lng geocodeados a mano del sector Tegualda (sin direccion postal por ser predio rural), contrastado contra el punto independiente de Wikimapia. Task 2 (esta tanda) agrega 10 entradas: 2 de la Araucania (Temuco ya estaba, se suma Pucon) y 8 de la RM, todas geocodeadas con Nominatim (OSM) sobre la direccion exacta cuando el geocoder resolvio el numero de calle (contrastadas con una segunda consulta via Photon o con un POI independiente en el mismo predio cuando existia), o sobre el segmento de calle/sector cuando el numero exacto no resolvio (anotado entrada por entrada). Honestidad sobre el TIPO de lugar: 'canil'/'refugio' municipal con animales alojados solo son las entradas 1 (Temuco) y 2 (Pucon) y, en menor medida, la 3 (Nunoa, Centro de Rescate Canino) y la 8 (Quilicura, que en su nombre oficial incluye 'Rescate de Fauna Silvestre'); las demas (4 a 7 y 9 a 10) son centros veterinarios/de esterilizacion municipales — el punto de contacto oficial que la comuna ofrece para mascotas callejeras o rescatadas, pero SIN caniles de alojamiento permanente confirmados — se incluyen porque el propio criterio de busqueda del brief pide 'refugio animales <comuna> municipalidad' ademas de 'canil municipal', y el validador/la tabla no distinguen subtipo (categoria siempre es 'refugio'). Comunas grandes investigadas SIN canil ni refugio verificable con fuente oficial (dato real, no vacio de busqueda): Padre Las Casas (Araucania, solo esterilizacion), Angol (Araucania, nada encontrado), Puente Alto (RM — solo 'Albergue Provisional de Emergencia para Animales' ligado a emergencias climaticas, sin direccion fija ni pagina oficial que la de), San Bernardo (RM, solo DIMAO/vacunacion), Santiago centro, Las Condes y La Florida (RM, solo zonas caninas recreativas o veterinaria municipal sin refugio dedicado), y La Cisterna (RM), que en su propia pagina de Higiene Ambiental y Zoonosis declara explicitamente que NO tiene caniles municipales. Se investigaron ademas Villarrica (Araucania — el 'Canil Municipal de Villarrica' con ~19 perros esta ampliamente cubierto por prensa y coincide con la direccion del Centro Veterinario Municipal, Presidente Rios 1207, pero esa direccion NUNCA aparecio en una pagina de munivillarrica.cl que pudieramos verificar por fetch directo — se descarta por la regla dura de fuente oficial, no por falta de canil real) y Talagante (RM — el 'Centro de Reinsercion Canina / Caniles Municipales' esta confirmado en munitalagante.cl/tala-mascota, pero esa pagina oficial no da ninguna direccion fisica del centro, solo la de la Municipalidad; se descarta por falta de georreferencia, siguiendo la instruccion del brief de preferir descartar antes que anclar a un punto que la fuente no respalda).",
   "refugios": [
     {
       "id": 1,
@@ -10,6 +10,96 @@
       "lat": -38.6922,
       "lng": -72.6694,
       "fuente": "https://www.bomberos.cl/contenidos/home-noticias-de-cuerpos-de-bomberos/donan-alimentacion-y-atencion-veterinaria-para-los-perros-de-rescate-del-cuerpo-de-bomberos-de-temuco"
+    },
+    {
+      "id": 2,
+      "nombre": "Refugio Municipal Canino de Pucón",
+      "comuna": "Pucón",
+      "region": "Araucanía",
+      "direccion": "Sector Los Nevados, Pucón (sin dirección postal; predio rural)",
+      "lat": -39.32,
+      "lng": -71.8484,
+      "fuente": "https://municipalidadpucon.cl/?p=54618"
+    },
+    {
+      "id": 3,
+      "nombre": "Centro de Rescate Canino de Ñuñoa",
+      "comuna": "Ñuñoa",
+      "region": "Metropolitana",
+      "direccion": "Av. Vicuña Mackenna N°1590",
+      "lat": -33.4661,
+      "lng": -70.6267,
+      "fuente": "https://www.nunoa.cl/vacunas-esterilizacion-y-adopcion-en-centro-de-rescate-de-nunoa/"
+    },
+    {
+      "id": 4,
+      "nombre": "Centro Veterinario Municipal de Maipú",
+      "comuna": "Maipú",
+      "region": "Metropolitana",
+      "direccion": "Av. 5 de Abril 0260",
+      "lat": -33.5097,
+      "lng": -70.7533,
+      "fuente": "https://veterinaria.maipu.cl/quienes-somos/"
+    },
+    {
+      "id": 5,
+      "nombre": "Centro de Esterilización Municipal de Huechuraba (\"Pandilla Animal\")",
+      "comuna": "Huechuraba",
+      "region": "Metropolitana",
+      "direccion": "Av. Recoleta N°5315",
+      "lat": -33.3781,
+      "lng": -70.6382,
+      "fuente": "https://huechuraba.cl/medio-ambiente-aseo-y-ornato/zoonosis"
+    },
+    {
+      "id": 6,
+      "nombre": "Centro de Atención Veterinaria Municipal de Peñalolén",
+      "comuna": "Peñalolén",
+      "region": "Metropolitana",
+      "direccion": "Av. Oriental N°6958",
+      "lat": -33.4672,
+      "lng": -70.5588,
+      "fuente": "https://www.penalolen.cl/inicio-2/atencionveterinaria/servicio-para-mascotas/"
+    },
+    {
+      "id": 7,
+      "nombre": "Centro de Atención Primaria Veterinaria de Renca (\"Renca Cuida a tu Mascota\")",
+      "comuna": "Renca",
+      "region": "Metropolitana",
+      "direccion": "Av. José Manuel Balmaceda 4020",
+      "lat": -33.4016,
+      "lng": -70.7155,
+      "fuente": "https://renca.cl/conoce-el-nuevo-programa-comunal-renca-cuida-a-tu-mascota/"
+    },
+    {
+      "id": 8,
+      "nombre": "Centro Veterinario Municipal de Atención Primaria y Rescate de Fauna Silvestre de Quilicura",
+      "comuna": "Quilicura",
+      "region": "Metropolitana",
+      "direccion": "Pedro Ibáñez N°717, Villa Casas de Quilicura I",
+      "lat": -33.3565,
+      "lng": -70.738,
+      "fuente": "https://ww2.muniquilicura.cl/inauguramos-nuestro-primer-centro-veterinario-de-atencion-primaria-y-rescate-de-fauna-silvestre/"
+    },
+    {
+      "id": 9,
+      "nombre": "Centro Veterinario Municipal de La Pintana",
+      "comuna": "La Pintana",
+      "region": "Metropolitana",
+      "direccion": "Av. Santa Rosa 13237",
+      "lat": -33.587,
+      "lng": -70.629,
+      "fuente": "https://www.veterinariapintana.cl/nosotros/"
+    },
+    {
+      "id": 10,
+      "nombre": "Oficina de Protección Animal (OPA) de Providencia",
+      "comuna": "Providencia",
+      "region": "Metropolitana",
+      "direccion": "Marchant Pereira 887",
+      "lat": -33.4327,
+      "lng": -70.6116,
+      "fuente": "https://providencia.cl/provi/site/artic/20191014/pags/20191014164555.html"
     }
   ]
 }

@@ -60,10 +60,12 @@ describe('aFilas', () => {
 });
 
 describe('el dataset real del repo', () => {
-  it('valida entero y no está vacío', () => {
+  it('valida entero y cubre el alcance del spec', () => {
     const { refugios } = require('../../data/refugios-curados.json');
-    // La Task 2 lo puebla; este test la vigila: >= 1 ya en la task 1 (esqueleto
-    // con la primera entrada verificada) y la Task 2 lo sube a >= 10.
-    expect(aFilas(refugios).length).toBeGreaterThanOrEqual(1);
+    const filas = aFilas(refugios);
+    expect(filas.length).toBeGreaterThanOrEqual(10);
+    const regiones = new Set(refugios.map((r) => r.region));
+    expect(regiones.has('Araucanía')).toBe(true);
+    expect(regiones.has('Metropolitana')).toBe(true);
   });
 });
