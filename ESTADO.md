@@ -62,12 +62,9 @@ las 4 piezas) y plan `docs/superpowers/plans/2026-08-07-tanda21-impacto-y-arranq
 **Verificado ya:** dist exportado (bundle `index-800e6f9b…`) y rutas contra `wrangler@3` 3/3
 (`/impacto/` sirve la página, `/impactos-x` cae al SPA, `/widget/` sigue vivo).
 
-**LO QUE FALTA (todo de Pablo; código, migración y web cerrados y verificados):**
-1. **Push** de la rama `feat/t13` con GitHub Desktop (los commits están hechos localmente;
-   ojo: la rama local ni siquiera tiene upstream configurado).
-2. **Revocar los tokens**: el `sbp_c77…572a` (usado para la 0070, ya cumplió y seguía VIVO
-   al último chequeo) y el viejo `sbp_9fc…f390` si sigue vivo —
-   <https://supabase.com/dashboard/account/tokens>.
+**NO QUEDA NADA PENDIENTE de la tanda 21.** Push hecho (8-ago, `feat/t13` → origin, con
+upstream configurado) y tokens revocados por Pablo. La próxima sesión arranca tanda nueva;
+la deuda triada de tandas anteriores sigue anotada al final de `.superpowers/sdd/progress.md`.
 
 ### ✅ Tanda 20 — Widget institucional embebible (nuevo, en la rama, SIN migración, dist exportado)
 Un tercero (vet, refugio, municipio, junta de vecinos) pega un `<iframe>` en su sitio y muestra las
