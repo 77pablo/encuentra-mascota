@@ -1,15 +1,15 @@
 {
-  "comentario": "Refugios y caniles curados a mano (tanda 22). Regla dura: sin fuente https verificable, la entrada NO entra. Los ids son estables y no se reciclan. fuente y region no viajan a la base.",
+  "comentario": "Refugios y caniles curados a mano (tanda 22). Regla dura: sin fuente https verificable, la entrada NO entra. Los ids son estables y no se reciclan. fuente y region no viajan a la base. Entrada 1 (fix post-revisión): la fuente original (temuco.cl, noticia sobre el diseño del centro NUEVO) daba la ubicación del proyecto futuro, no la del centro actual — se reemplazó por bomberos.cl, que describe en presente la ubicación real del Centro de Mantención Temporal de Canes del municipio ('en la ruta Temuco Cholchol, junto a la parcela Tegualda'). lat/lng son un geocodeo a mano del sector Tegualda (sin dirección postal propia por ser predio rural), contrastado contra el punto independiente de Wikimapia para 'Complejo Deportivo Parcela Tegualda' (38°41'32\"S 72°40'10\"W) en el mismo sector. La noticia de temuco.cl sigue siendo válida como contexto institucional (nombra 'el actual Centro de Mantención Temporal (ex canil) de Temuco') pero ya no se usa como fuente de ubicación.",
   "refugios": [
     {
       "id": 1,
-      "nombre": "Centro de Mantención Temporal de Canes de Temuco (ex Canil Municipal)",
+      "nombre": "Centro de Mantención Temporal de Canes de Temuco (canil municipal)",
       "comuna": "Temuco",
       "region": "Araucanía",
-      "direccion": "Camino a Chol Chol km 8, sector Tegualda",
-      "lat": -38.6990,
-      "lng": -72.6620,
-      "fuente": "https://www.temuco.cl/se-aprueban-recursos-para-el-diseno-de-nuevo-centro-de-mantencion-y-crematorio-para-mascotas-en-temuco/"
+      "direccion": "Ruta Temuco–Cholchol, sector Tegualda",
+      "lat": -38.6922,
+      "lng": -72.6694,
+      "fuente": "https://www.bomberos.cl/contenidos/home-noticias-de-cuerpos-de-bomberos/donan-alimentacion-y-atencion-veterinaria-para-los-perros-de-rescate-del-cuerpo-de-bomberos-de-temuco"
     }
   ]
 }
