@@ -1,8 +1,20 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (8-ago-2026, madrugada — TANDA 21 CERRADA, 0070 APLICADA; quedan push + dist + revocar tokens)
+## 👉 DÓNDE RETOMAR (8-ago-2026 — T20+T21 EN PRODUCCIÓN, verificadas 15/15; quedan solo push + revocar tokens)
 
 **Rama `feat/t13`. Suite: tsc 0, jest 242 suites / 3171 tests, exit 0 real.**
+
+### ✅ WEB SUBIDA por Pablo (8-ago) y VERIFICADA contra el sitio real: 15/15
+Bundle en prod == el del disco (`index-800e6f9b…`). ⚠️ El primer intento de subida dejó el dist
+VIEJO de la t20 (`index-8cd2c53c…`) en producción — se detectó comparando el bundle servido y
+porque `/impacto/` caía al SPA; el segundo intento subió la carpeta correcta. Humo Playwright
+contra `https://encuentras-mascota.pages.dev`:
+- `/impacto/`: página real (título propio), 4 números en 0, sin tabla ni frase (base vacía),
+  y las DOS RPC en 200 (`impacto_comunidad` con las 6 columnas, `impacto_por_comuna` sin 404).
+- `/widget/?comuna=Temuco`: monta y resuelve al estado vacío, sin error.
+- SPA: Inicio sin "De cada 10"; Perfil de INVITADO → kit comunal con los 3 mensajes, Copiar
+  deja el mensaje con la URL en el clipboard, y el afiche `trae-la-app-a-tu-comuna.png`
+  descarga de verdad. 0 errores JS graves.
 
 ### ✅ Migración `0070` APLICADA y verificada (8-ago, madrugada)
 Protocolo completo: cuerpo vivo de `impacto_comunidad` == 0044 VERBATIM (pg_get_functiondef),
@@ -50,11 +62,12 @@ las 4 piezas) y plan `docs/superpowers/plans/2026-08-07-tanda21-impacto-y-arranq
 **Verificado ya:** dist exportado (bundle `index-800e6f9b…`) y rutas contra `wrangler@3` 3/3
 (`/impacto/` sirve la página, `/impactos-x` cae al SPA, `/widget/` sigue vivo).
 
-**LO QUE FALTA (todo de Pablo; código y migración cerrados y verificados):**
-1. **Push** de la rama `feat/t13` con GitHub Desktop (los commits están hechos localmente).
-2. **Subir el `dist`** a Cloudflare Pages (el bundle `index-800e6f9b…` YA incluye t20+t21).
-3. **Revocar los tokens**: el `sbp_c77…572a` (usado para la 0070, ya cumplió) y el viejo
-   `sbp_9fc…f390` si sigue vivo — <https://supabase.com/dashboard/account/tokens>.
+**LO QUE FALTA (todo de Pablo; código, migración y web cerrados y verificados):**
+1. **Push** de la rama `feat/t13` con GitHub Desktop (los commits están hechos localmente;
+   ojo: la rama local ni siquiera tiene upstream configurado).
+2. **Revocar los tokens**: el `sbp_c77…572a` (usado para la 0070, ya cumplió y seguía VIVO
+   al último chequeo) y el viejo `sbp_9fc…f390` si sigue vivo —
+   <https://supabase.com/dashboard/account/tokens>.
 
 ### ✅ Tanda 20 — Widget institucional embebible (nuevo, en la rama, SIN migración, dist exportado)
 Un tercero (vet, refugio, municipio, junta de vecinos) pega un `<iframe>` en su sitio y muestra las
