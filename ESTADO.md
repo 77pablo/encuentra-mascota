@@ -1,6 +1,36 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (8-ago-2026 — T20+T21 EN PRODUCCIÓN, verificadas 15/15; quedan solo push + revocar tokens)
+## 👉 DÓNDE RETOMAR (8-ago-2026, noche — TANDA 22 EN CURSO, retomar en la revisión de la Task 2)
+
+**Rama `feat/t13`, HEAD `1d880cb`, árbol limpio, todo pusheado hasta `4a0ca6f` (lo de la t22
+NO está pusheado). Suite verde: tsc 0, jest 243 suites / 3181 tests.**
+
+**La tanda 22 corre con SDD por subagentes** (skill subagent-driven-development). Spec y plan
+aprobados por Pablo y commiteados:
+- Spec: `docs/superpowers/specs/2026-08-08-tanda22-busqueda-inteligente-design.md` — ⚠️ el spec
+  fue REVISADO contra el código: la guía felina y el chip del vecino YA EXISTÍAN (planBusqueda
+  por especie/ámbito, pantalla Microchip). La tanda ataca solo los 3 huecos reales: refugios
+  curados, recordatorio del Registro al dueño, trampera del día 5. CERO migraciones.
+- Plan: `docs/superpowers/plans/2026-08-08-tanda22-busqueda-inteligente.md` (4 tasks + INT).
+
+**Estado por task** (detalle en `.superpowers/sdd/progress.md`, sección Tanda 22):
+- Task 1 ✅ (5e419f1..d83fa95, review+fix+re-review APPROVED): `scripts/semilla-refugios.js` +
+  validador + `data/refugios-curados.json` con la entrada de Temuco (fuente bomberos.cl).
+- Task 2 implementada SIN REVISAR (`1d880cb`): dataset con 10 entradas (2 Araucanía, 8 RM).
+  **RETOMAR ACÁ → despachar el revisor** (paquete listo: `.superpowers/sdd/review-d83fa95..1d880cb.diff`).
+  FOCO: varias entradas RM son "centros veterinarios/de esterilización municipales", NO
+  caniles — evaluar si el rótulo "Refugio" les corresponde, si van como 'veterinaria', o
+  afuera; muestrear 3 fuentes con WebFetch. Concerns del implementador en task-2-report.md.
+- Tasks 3 (recordatorio del Registro del chip en Publicar/Editar), 4 (paso trampera dia5) e
+  INT (suite+dist+E2E+ESTADO): sin empezar. Todo el detalle está en el plan.
+
+**Aprobado por Pablo además (8-ago): tanda 23 = Comunidad del barrio** (spec commiteado:
+`docs/superpowers/specs/2026-08-08-tanda23-comunidad-barrio-design.md` — por comuna, CON
+comentarios y me gusta, feed Mi comuna/Mi región/Todo Chile; probar el panel de moderación es
+CONDICIÓN de esa tanda y requiere que Pablo resetee la clave de pdanielespinozavega@gmail.com).
+Después: tanda 24 = Hogar temporal (spec aprobado del 4-ago, nunca construido).
+
+### ✅ T20+T21 EN PRODUCCIÓN, verificadas 15/15 (8-ago); push hecho, tokens revocados
 
 **Rama `feat/t13`. Suite: tsc 0, jest 242 suites / 3171 tests, exit 0 real.**
 
