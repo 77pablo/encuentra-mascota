@@ -1,0 +1,15 @@
+{
+  "comentario": "Refugios y caniles curados a mano (tanda 22). Regla dura: sin fuente https verificable, la entrada NO entra. Los ids son estables y no se reciclan. fuente y region no viajan a la base.",
+  "refugios": [
+    {
+      "id": 1,
+      "nombre": "Centro de Mantención Temporal de Canes de Temuco (ex Canil Municipal)",
+      "comuna": "Temuco",
+      "region": "Araucanía",
+      "direccion": "Camino a Chol Chol km 8, sector Tegualda",
+      "lat": -38.6990,
+      "lng": -72.6620,
+      "fuente": "https://www.temuco.cl/se-aprueban-recursos-para-el-diseno-de-nuevo-centro-de-mantencion-y-crematorio-para-mascotas-en-temuco/"
+    }
+  ]
+}
