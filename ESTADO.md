@@ -1,8 +1,24 @@
 # Estado del proyecto — Encuentra tu Mascota
 
-## 👉 DÓNDE RETOMAR (7-ago-2026, noche — TANDA 21 COMPLETA EN CÓDIGO, verificada E2E; quedan solo las 3 cosas de Pablo)
+## 👉 DÓNDE RETOMAR (8-ago-2026, madrugada — TANDA 21 CERRADA, 0070 APLICADA; quedan push + dist + revocar tokens)
 
 **Rama `feat/t13`. Suite: tsc 0, jest 242 suites / 3171 tests, exit 0 real.**
+
+### ✅ Migración `0070` APLICADA y verificada (8-ago, madrugada)
+Protocolo completo: cuerpo vivo de `impacto_comunidad` == 0044 VERBATIM (pg_get_functiondef),
+ensayo `begin…rollback` contra la base real (`.superpowers/sdd/t21-0070-ensayo.sql`) con siembra
+de 8 pets adentro de la transacción y TODOS los asserts: mediana 4.0 exacta con el reloj torcido
+(reunida<creado) excluido y el umbral ≥3 justo en el borde; la comuna del pet oculto NO se filtra
+al desglose; el pet sin comuna cuenta en lo global pero no en el por-comuna; orden por
+reencuentros desc; grants a anon/authenticated y PUBLIC sin execute (aclexplode grantee 0);
+rollback sin residuo (función vieja de vuelta, 0 pets de prueba). Aplicada, re-verificado el
+catálogo post-aplicar (firma nueva, privilegios 6/6) y atacada como `anon` POR HTTP (el camino
+real): `impacto_comunidad` devuelve las 6 columnas (`perdidas_historicas: 0`,
+`mediana_dias: null` con la base vacía) e `impacto_por_comuna` 200 `[]`. Después el E2E de
+`/impacto` contra el dist por el worker real: 5/5, ambas RPC en 200, ya SIN el 404.
+⚠️ El primer token que pasó Pablo murió antes de aplicar (Unauthorized) — la base quedó intacta
+(o entero o nada); se aplicó con el segundo. ⚠️ Dato de entorno nuevo: si wrangler se cuelga,
+buscar workerd ZOMBIS sosteniendo el puerto (`Get-NetTCPConnection -LocalPort 8788`) y matarlos.
 
 ### ✅ Tanda 21 — E2E CORRIDO (tarea 9): 16/16 contra el dist por el worker real
 Playwright contra `npx wrangler@3 pages dev dist --port 8788` (⚠️ dato de entorno: usar
@@ -34,12 +50,11 @@ las 4 piezas) y plan `docs/superpowers/plans/2026-08-07-tanda21-impacto-y-arranq
 **Verificado ya:** dist exportado (bundle `index-800e6f9b…`) y rutas contra `wrangler@3` 3/3
 (`/impacto/` sirve la página, `/impactos-x` cae al SPA, `/widget/` sigue vivo).
 
-**LO QUE FALTA (todo de Pablo; el código de la t21 está cerrado y verificado):**
+**LO QUE FALTA (todo de Pablo; código y migración cerrados y verificados):**
 1. **Push** de la rama `feat/t13` con GitHub Desktop (los commits están hechos localmente).
 2. **Subir el `dist`** a Cloudflare Pages (el bundle `index-800e6f9b…` YA incluye t20+t21).
-3. **Token nuevo de Supabase** para aplicar la `0070` (antes de aplicar: `pg_get_functiondef`
-   del cuerpo vivo y comparar con la 0044) → después re-verificar `/impacto` ya con la tabla
-   por comuna y la frase; revocar el token viejo `sbp_9fc…f390` si no lo hizo.
+3. **Revocar los tokens**: el `sbp_c77…572a` (usado para la 0070, ya cumplió) y el viejo
+   `sbp_9fc…f390` si sigue vivo — <https://supabase.com/dashboard/account/tokens>.
 
 ### ✅ Tanda 20 — Widget institucional embebible (nuevo, en la rama, SIN migración, dist exportado)
 Un tercero (vet, refugio, municipio, junta de vecinos) pega un `<iframe>` en su sitio y muestra las
